@@ -1,7 +1,7 @@
 // MintMap service worker — minimal offline shell + runtime cache + Web Share Target.
 // Bump CACHE whenever logic here changes so installed PWAs roll forward.
-const CACHE = "mintmap-v10";
-const SHELL = ["/", "/share-inbox", "/manifest.json", "/manifest.webmanifest"];
+const CACHE = "mintmap-v11";
+const SHELL = ["/", "/keep", "/share-inbox", "/manifest.json", "/manifest.webmanifest"];
 const SHARE_DB = "mintmap-share";
 const SHARE_STORE = "inbox";
 const DEBUG_STORE = "debug";
@@ -232,7 +232,9 @@ async function handleShareTarget(request) {
   params.set("request_params", JSON.stringify(paramsObject(url.searchParams)));
   params.set("debug_id", debugId);
   const qs = params.toString();
-  return Response.redirect(`${url.origin}/share-inbox${qs ? `?${qs}` : ""}`, 303);
+  // Land shared content in the Keep-style capture box (Kutu), which ingests
+  // the inbox on mount and turns each item into a categorized card.
+  return Response.redirect(`${url.origin}/keep${qs ? `?${qs}` : ""}`, 303);
 }
 
 self.addEventListener("fetch", (event) => {

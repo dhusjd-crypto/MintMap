@@ -1,32 +1,20 @@
 import { createServerFn } from "@tanstack/react-start";
+import { aiStatusSnapshot, chat as runChat } from "./ai/aiService";
+import type { ChatMessage, ProviderId } from "./ai/aiTypes";
 
-const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const OPENAI = "https://api.openai.com/v1/chat/completions";
-const GATEWAY_MODEL = "google/gemini-2.5-flash";
-const OPENAI_DEFAULT_MODEL = "gpt-4o-mini";
+// Provider selection, retries and 401/402/429 → message mapping now live in
+// src/lib/ai/. These handlers only build prompts and parse results.
 
-type Provider = "gateway" | "openai";
+/** Accepts the legacy "gateway" value older clients still have in localStorage. */
+type Provider = ProviderId | "gateway";
 type Msg = { role: "system" | "user" | "assistant"; content: string };
 
 const FALLBACK_STATUSES = new Set([401, 402, 429, 500, 502, 503, 504]);
 
-function modelForProvider(provider: Provider, model?: string): string {
-  if (provider === "openai") return model && !model.includes("/") ? model : OPENAI_DEFAULT_MODEL;
-  return model?.startsWith("google/") ? model : GATEWAY_MODEL;
-}
-
-function resolveProviderOrder(pref?: Provider): Provider[] {
-  const hasOpenAI = !!process.env.OPENAI_API_KEY;
-  const hasGateway = !!process.env.LOVABLE_API_KEY;
-
-  // Explicit user preference → use ONLY that provider, no auto-fallback.
-  if (pref === "openai") return hasOpenAI ? ["openai"] : [];
-  if (pref === "gateway") return hasGateway ? ["gateway"] : [];
-
-  // No preference (auto): try OpenAI first, then Lovable AI as fallback.
-  return [hasOpenAI ? "openai" : undefined, hasGateway ? "gateway" : undefined].filter(
-    Boolean,
-  ) as Provider[];
+/** Clients used to store "gateway"; the provider layer calls that one "lovable". */
+function normalizeProvider(pref?: string): ProviderId | undefined {
+  if (!pref) return undefined;
+  return pref === "gateway" ? "lovable" : (pref as ProviderId);
 }
 
 /** Retry transient failures (429/500/502/503) with exponential backoff. */
@@ -47,6 +35,10 @@ async function fetchWithRetry(url: string, init: RequestInit, retries = 2): Prom
   return fetch(url, init);
 }
 
+/**
+ * Runs one chat through the provider layer (OpenRouter / Gemini / OpenAI /
+ * Lovable / Ollama, or the demo provider when nothing is configured).
+ */
 async function chatCompletion(
   messages: unknown[],
   opts: {
@@ -56,61 +48,12 @@ async function chatCompletion(
     tools?: unknown;
     toolChoice?: unknown;
   } = {},
-): Promise<Response> {
-  const providers = resolveProviderOrder(opts.provider);
-  if (!providers.length) throw new Error("Hiçbir AI sağlayıcı yapılandırılmamış");
-
-  let lastRes: Response | null = null;
-  for (const provider of providers) {
-    if (provider === "openai") {
-      const key = process.env.OPENAI_API_KEY;
-      if (!key) throw new Error("OPENAI_API_KEY yapılandırılmamış");
-      const res = await fetchWithRetry(OPENAI, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${key}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: modelForProvider("openai", opts.model),
-          messages,
-          ...(opts.jsonMode ? { response_format: { type: "json_object" } } : {}),
-          ...(opts.tools ? { tools: opts.tools, tool_choice: opts.toolChoice ?? "auto" } : {}),
-        }),
-      });
-      if (res.ok || !FALLBACK_STATUSES.has(res.status)) return res;
-      const body = await res
-        .clone()
-        .text()
-        .catch(() => "");
-      console.error(
-        `[ai] openai ${res.status}, Lovable AI fallback deneniyor: ${body.slice(0, 300)}`,
-      );
-      lastRes = res;
-      continue;
-    }
-
-    const key = process.env.LOVABLE_API_KEY;
-    if (!key) throw new Error("LOVABLE_API_KEY yapılandırılmamış");
-    const res = await fetchWithRetry(GATEWAY, {
-      method: "POST",
-      headers: {
-        "Lovable-API-Key": key,
-        "Content-Type": "application/json",
-        "X-Lovable-AIG-SDK": "raw",
-      },
-      body: JSON.stringify({
-        model: modelForProvider("gateway", opts.model),
-        messages,
-        ...(opts.jsonMode ? { response_format: { type: "json_object" } } : {}),
-        ...(opts.tools ? { tools: opts.tools, tool_choice: opts.toolChoice ?? "auto" } : {}),
-      }),
-    });
-    if (res.ok || !FALLBACK_STATUSES.has(res.status)) return res;
-    lastRes = res;
-  }
-
-  return lastRes ?? new Response("AI isteği başarısız", { status: 500 });
+) {
+  return runChat(
+    messages as ChatMessage[],
+    { model: opts.model, jsonMode: opts.jsonMode, tools: opts.tools, toolChoice: opts.toolChoice },
+    normalizeProvider(opts.provider),
+  );
 }
 
 async function callAI(
@@ -119,22 +62,22 @@ async function callAI(
   opts: { provider?: Provider; model?: string } = {},
 ): Promise<string> {
   const res = await chatCompletion(messages, { ...opts, jsonMode });
-  if (res.status === 429) throw new Error("AI hız limiti — biraz sonra dene");
-  if (res.status === 402) throw new Error("AI kredisi tükendi");
-  if (res.status === 401) throw new Error("API anahtarı geçersiz — Ayarlar'dan kontrol et");
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`AI hatası (${res.status}): ${t.slice(0, 200)}`);
-  }
-  const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  return json.choices?.[0]?.message?.content?.trim() ?? "";
+  return res.content;
 }
 
 /** Returns which providers are configured server-side. Safe to expose. */
 export const aiStatus = createServerFn({ method: "GET" }).handler(async () => {
+  const snap = aiStatusSnapshot();
+  const configured = (id: ProviderId) => snap.providers.some((p) => p.id === id && p.configured);
   return {
-    openai: !!process.env.OPENAI_API_KEY,
-    gateway: !!process.env.LOVABLE_API_KEY,
+    // Legacy shape — existing callers still read these two.
+    openai: configured("openai"),
+    gateway: configured("lovable"),
+    // Provider layer view.
+    active: snap.active,
+    /** true → nothing configured, answers come from the demo provider. */
+    demo: snap.demo,
+    providers: snap.providers,
   };
 });
 
@@ -586,30 +529,7 @@ export const aiChatStep = createServerFn({ method: "POST" })
       tools: CHAT_TOOLS,
       toolChoice: "auto",
     });
-    if (res.status === 429) throw new Error("AI hız limiti — biraz sonra dene");
-    if (res.status === 402) throw new Error("AI kredisi tükendi");
-    if (res.status === 401) throw new Error("API anahtarı geçersiz — Ayarlar'dan kontrol et");
-    if (!res.ok) {
-      const t = await res.text();
-      throw new Error(`AI hatası (${res.status}): ${t.slice(0, 300)}`);
-    }
-    const json = (await res.json()) as {
-      choices?: Array<{
-        finish_reason?: string;
-        message?: { content?: string | null; tool_calls?: ToolCall[] };
-      }>;
-    };
-    const choice = json.choices?.[0];
-    const msg = choice?.message;
-    return {
-      content: (msg?.content ?? "").toString(),
-      toolCalls: (msg?.tool_calls ?? []).map((tc) => ({
-        id: tc.id,
-        name: tc.function.name,
-        arguments: tc.function.arguments ?? "{}",
-      })),
-      finishReason: choice?.finish_reason,
-    };
+    return { content: res.content, toolCalls: res.toolCalls, finishReason: res.finishReason };
   });
 
 /** Extract a structured task from a free-form voice transcript. Used for the preview/confirm UI. */
@@ -796,5 +716,84 @@ export const aiWeeklyReport = createServerFn({ method: "POST" })
       { provider: data.provider, model: data.model },
     );
     return { markdown: reply, stats: { completed: completed.length, open: open.length, created: created.length } };
+  });
+
+// ----- Keep-style capture: AI categorization -----
+
+/**
+ * Categorize a captured card (note / link / image) into ONE short Turkish
+ * category plus tags and a cleaned title. For images the picture itself is
+ * attached so a vision-capable model (gpt-4o-mini / gemini) can read it.
+ */
+export const aiCategorizeCard = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: {
+      type: "note" | "link" | "image";
+      text?: string;
+      url?: string;
+      title?: string;
+      description?: string;
+      image?: string; // data URL (image cards only)
+      existing?: string[];
+      provider?: Provider;
+      model?: string;
+    }) => {
+      if (!data.type) throw new Error("type gerekli");
+      if (data.type !== "image" && !data.text && !data.url && !data.title)
+        throw new Error("içerik gerekli");
+      return data;
+    },
+  )
+  .handler(async ({ data }) => {
+    const sys =
+      "Sen bir içerik düzenleyicisin. Verilen öğeyi TEK bir kısa Türkçe kategoriye ata.\n" +
+      "Örnek kategoriler: Ekran görüntüleri, Siteler, Filmler & Diziler, Yatırım, Alışveriş, İlham, Okuma listesi, Yemek, Seyahat, Müzik, İş, Kişisel.\n" +
+      "Mevcut kategorilerden biri uygunsa MUTLAKA onu kullan. Uygun yoksa yeni, kısa (1-2 kelime) bir kategori üret.\n" +
+      "Ayrıca içeriği tanımlayan 2-4 kısa etiket ve kısa bir başlık (max 8 kelime) üret.\n" +
+      'Sadece JSON döndür: {"category":"...","tags":["..."],"title":"..."}.';
+
+    const parts: string[] = [];
+    if (data.title) parts.push(`Başlık: ${data.title}`);
+    if (data.url) parts.push(`URL: ${data.url}`);
+    if (data.description) parts.push(`Açıklama: ${data.description}`);
+    if (data.text) parts.push(`İçerik: ${data.text}`);
+    if (data.existing?.length) parts.push(`Mevcut kategoriler: ${data.existing.join(", ")}`);
+    const userText = parts.join("\n") || "(görsel içerik)";
+
+    const isImage = data.type === "image" && !!data.image;
+    const userContent = isImage
+      ? [
+          {
+            type: "text",
+            text:
+              userText +
+              "\nAşağıdaki görseli (muhtemelen bir ekran görüntüsü) incele ve neyle ilgili olduğuna göre kategorize et.",
+          },
+          { type: "image_url", image_url: { url: data.image } },
+        ]
+      : userText;
+
+    // Vision responses can reject response_format=json_object on some models,
+    // so only request JSON mode for pure-text items; parseJson still extracts
+    // the object from a fenced/plain reply for images.
+    const res = await chatCompletion(
+      [
+        { role: "system", content: sys },
+        { role: "user", content: userContent },
+      ],
+      { provider: data.provider, model: data.model, jsonMode: !isImage },
+    );
+    const raw = res.content;
+    const obj = parseJson<{ category?: string; tags?: unknown[]; title?: string }>(raw);
+    return {
+      category: (obj?.category ?? "").toString().trim() || "Kategorisiz",
+      tags: Array.isArray(obj?.tags)
+        ? obj!.tags
+            .map((t) => String(t).replace(/^#/, "").toLowerCase().trim())
+            .filter(Boolean)
+            .slice(0, 4)
+        : [],
+      title: obj?.title ? String(obj.title).trim().slice(0, 80) : undefined,
+    };
   });
 

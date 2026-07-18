@@ -12,6 +12,23 @@ import { aiStatus } from "@/lib/ai.functions";
 import { runCalendarSync } from "@/lib/calendar-sync";
 import { useServerFn } from "@tanstack/react-start";
 
+type ProviderPref = "auto" | "off" | "openrouter" | "gemini" | "openai" | "lovable" | "ollama" | "mock";
+type AiInfo = {
+  active: string;
+  /** true → nothing configured; answers come from the demo provider. */
+  demo: boolean;
+  providers: Array<{ id: string; label: string; configured: boolean; model?: string; free?: boolean }>;
+};
+
+/** Where each provider's key comes from, shown when it isn't configured yet. */
+const KEY_HINT: Record<string, { env: string; url?: string; note?: string }> = {
+  openrouter: { env: "OPENROUTER_API_KEY", url: "https://openrouter.ai/keys", note: "Tek anahtar, çok model. Ücretsiz modeller var." },
+  gemini: { env: "GEMINI_API_KEY", url: "https://aistudio.google.com/apikey", note: "Desteklenen bölgelerde ücretsiz katman. Limitler proje bazlı (RPM/TPM/RPD), günlük kota Pasifik saatiyle gece yarısı sıfırlanır." },
+  openai: { env: "OPENAI_API_KEY", url: "https://platform.openai.com/api-keys" },
+  lovable: { env: "LOVABLE_API_KEY", note: "Eski Lovable kurulumu." },
+  ollama: { env: "OLLAMA_BASE_URL", note: "Yerel model, anahtar gerekmez. Örn: http://127.0.0.1:11434/v1" },
+};
+
 const SHORTCUTS: Array<[string, string]> = [
   ["⌘K / Ctrl+K", "Komut paleti"],
   ["⌘Z / Ctrl+Z", "Geri al"],
@@ -24,9 +41,13 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   const [installable, setInstallable] = useState(false);
   const [notif, setNotif] = useState<NotificationPermission>("default");
   const [busy, setBusy] = useState<string | null>(null);
-  const [providers, setProviders] = useState<{ openai: boolean; gateway: boolean }>({ openai: false, gateway: true });
-  const [provider, setProvider] = useState<"auto" | "openai" | "gateway">(
-    () => (typeof window !== "undefined" ? (localStorage.getItem("mintmap.ai.provider") as "openai" | "gateway" | null) ?? "auto" : "auto"),
+  const [aiInfo, setAiInfo] = useState<AiInfo>({
+    active: "mock",
+    demo: true,
+    providers: [],
+  });
+  const [provider, setProvider] = useState<ProviderPref>(
+    () => (typeof window !== "undefined" ? (localStorage.getItem("mintmap.ai.provider") as ProviderPref | null) ?? "auto" : "auto"),
   );
   const [model, setModel] = useState<string>(
     () => (typeof window !== "undefined" ? localStorage.getItem("mintmap.ai.model") ?? "" : ""),
@@ -42,11 +63,13 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   useEffect(() => {
     if (typeof Notification !== "undefined") setNotif(Notification.permission);
     const off = onInstallAvailability(setInstallable);
-    fetchStatus().then(setProviders).catch(() => {});
+    fetchStatus()
+      .then((s) => setAiInfo({ active: s.active, demo: s.demo, providers: s.providers }))
+      .catch(() => {});
     return () => { off(); };
   }, [fetchStatus]);
 
-  const updateProvider = (v: "auto" | "openai" | "gateway") => {
+  const updateProvider = (v: ProviderPref) => {
     setProvider(v);
     if (v === "auto") localStorage.removeItem("mintmap.ai.provider");
     else localStorage.setItem("mintmap.ai.provider", v);
@@ -69,6 +92,18 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
     }
   };
 
+  const activeProvider = aiInfo.providers.find(
+    (p) => p.id === (provider === "auto" ? aiInfo.active : provider),
+  );
+  // Key hint: for a provider the user picked but hasn't configured — or, while
+  // nothing is set up at all, nudge toward Gemini (free tier).
+  const hintFor =
+    provider !== "auto" && provider !== "off" && provider !== "mock"
+      ? aiInfo.providers.find((p) => p.id === provider && !p.configured)
+      : aiInfo.demo
+        ? (aiInfo.providers.find((p) => p.id === "gemini") ?? aiInfo.providers[0])
+        : undefined;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[88svh] overflow-y-auto">
@@ -81,58 +116,115 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
             <Sparkles className="inline h-3 w-3 mr-1" /> AI sağlayıcı
           </h3>
           <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2.5 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                {providers.openai ? <CheckCircle2 className="h-4 w-4 text-primary" /> : <AlertCircle className="h-4 w-4 text-muted-foreground" />}
-                OpenAI (ChatGPT API)
-              </span>
-              <span className={`text-[11px] font-semibold ${providers.openai ? "text-primary" : "text-muted-foreground"}`}>
-                {providers.openai ? "bağlı" : "bağlı değil"}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                {providers.gateway ? <CheckCircle2 className="h-4 w-4 text-primary" /> : <AlertCircle className="h-4 w-4 text-muted-foreground" />}
-                Lovable Gateway (Gemini)
-              </span>
-              <span className={`text-[11px] font-semibold ${providers.gateway ? "text-primary" : "text-muted-foreground"}`}>
-                {providers.gateway ? "bağlı" : "bağlı değil"}
-              </span>
+            {aiInfo.demo && provider !== "off" && (
+              <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2.5 text-[11px] leading-relaxed">
+                <p className="font-semibold">AI bağlantısı yapılmadı — demo cevap gösteriliyor</p>
+                <p className="mt-0.5 text-muted-foreground">
+                  Aşağıdan bir sağlayıcı seç ve anahtarını <code className="rounded bg-muted px-1">.env</code>{" "}
+                  dosyasına ekle.
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              {aiInfo.providers.map((p) => (
+                <div key={p.id} className="flex items-center justify-between gap-2">
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    {p.configured ? (
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    )}
+                    <span className="truncate">{p.label}</span>
+                    {p.free && (
+                      <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-px text-[9px] font-semibold text-primary">
+                        ücretsiz
+                      </span>
+                    )}
+                    {aiInfo.active === p.id && !aiInfo.demo && (
+                      <span className="shrink-0 rounded-full bg-primary px-1.5 py-px text-[9px] font-semibold text-primary-foreground">
+                        aktif
+                      </span>
+                    )}
+                  </span>
+                  <span
+                    className={`shrink-0 text-[11px] font-semibold ${p.configured ? "text-primary" : "text-muted-foreground"}`}
+                  >
+                    {p.configured ? "bağlı" : "bağlı değil"}
+                  </span>
+                </div>
+              ))}
             </div>
             <div>
-              <label className="mb-1 block text-[11px] font-medium uppercase text-muted-foreground">Tercih edilen sağlayıcı</label>
+              <label className="mb-1 block text-[11px] font-medium uppercase text-muted-foreground">AI sağlayıcı</label>
               <select
                 value={provider}
-                onChange={(e) => updateProvider(e.target.value as "auto" | "openai" | "gateway")}
+                onChange={(e) => updateProvider(e.target.value as ProviderPref)}
                 className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm"
               >
-                <option value="auto">Otomatik (OpenAI, hata olursa Lovable)</option>
-                <option value="openai" disabled={!providers.openai}>OpenAI</option>
-                <option value="gateway" disabled={!providers.gateway}>Lovable Gateway</option>
+                <option value="auto">Otomatik (bağlı olan ilk sağlayıcı)</option>
+                <option value="off">Kapalı</option>
+                {aiInfo.providers.map((p) => (
+                  <option key={p.id} value={p.id} disabled={!p.configured}>
+                    {p.label}
+                    {p.configured ? "" : " — anahtar yok"}
+                  </option>
+                ))}
+                <option value="mock">Demo (test cevapları)</option>
               </select>
             </div>
             <div>
               <label className="mb-1 block text-[11px] font-medium uppercase text-muted-foreground">Model (opsiyonel)</label>
-              <select
+              {/* Free text: model ids differ per provider (gemini-2.5-flash,
+                  openai/gpt-4o-mini, meta-llama/...:free …), so don't box it in. */}
+              <input
                 value={model}
                 onChange={(e) => updateModel(e.target.value)}
+                placeholder={activeProvider?.model || "Varsayılan"}
                 className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm"
-              >
-                <option value="">Varsayılan</option>
-                <optgroup label="OpenAI">
-                  <option value="gpt-4o-mini">gpt-4o-mini (hızlı, ucuz)</option>
-                  <option value="gpt-4o">gpt-4o (güçlü)</option>
-                  <option value="gpt-4.1-mini">gpt-4.1-mini</option>
-                  <option value="gpt-4.1">gpt-4.1</option>
-                </optgroup>
-                <optgroup label="Gateway">
-                  <option value="google/gemini-2.5-flash">gemini-2.5-flash</option>
-                  <option value="google/gemini-2.5-pro">gemini-2.5-pro</option>
-                </optgroup>
-              </select>
+              />
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Boş bırak = sağlayıcının varsayılanı{activeProvider?.model ? ` (${activeProvider.model})` : ""}.
+              </p>
             </div>
+            {activeProvider?.free && !aiInfo.demo && (
+              <p className="rounded-md bg-muted/60 px-2 py-1.5 text-[10px] leading-relaxed text-muted-foreground">
+                Ücretsiz katman — yoğunlukta “hız limiti” uyarısı alabilirsin. Gemini'de limitler proje bazlıdır
+                (RPM/TPM/RPD) ve günlük kota Pasifik saatiyle gece yarısı sıfırlanır.
+              </p>
+            )}
+
+            {hintFor && (
+              <div className="rounded-md border border-border bg-background p-2.5 text-[11px] leading-relaxed">
+                <p className="font-semibold">{hintFor.label} anahtarı nasıl eklenir</p>
+                <p className="mt-0.5 text-muted-foreground">
+                  Proje kökündeki <code className="rounded bg-muted px-1">.env</code> dosyasına ekle, sonra dev
+                  sunucusunu yeniden başlat:
+                </p>
+                <pre className="mt-1 overflow-x-auto rounded bg-muted px-2 py-1 text-[10px]">
+                  {KEY_HINT[hintFor.id]?.env}=…
+                </pre>
+                {KEY_HINT[hintFor.id]?.url && (
+                  <p className="mt-1">
+                    <a
+                      href={KEY_HINT[hintFor.id]!.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-primary underline"
+                    >
+                      Anahtar al
+                    </a>
+                  </p>
+                )}
+                {KEY_HINT[hintFor.id]?.note && (
+                  <p className="mt-1 text-muted-foreground">{KEY_HINT[hintFor.id]!.note}</p>
+                )}
+              </div>
+            )}
+
             <p className="text-[11px] text-muted-foreground">
-              OpenAI anahtarın sunucu tarafında güvenle saklanır; tarayıcıya gönderilmez. Değiştirmek için projeden API anahtarı sırlarını güncelle.
+              Anahtarlar sunucu tarafında tutulur, tarayıcıya gönderilmez. Yayında hosting'in “secrets / environment
+              variables” bölümünü kullan.
             </p>
           </div>
         </section>

@@ -14,6 +14,7 @@ import { Route as TodosRouteImport } from './routes/todos'
 import { Route as ShareSettingsRouteImport } from './routes/share-settings'
 import { Route as ShareInboxRouteImport } from './routes/share-inbox'
 import { Route as ShareAnalyticsRouteImport } from './routes/share-analytics'
+import { Route as KeepRouteImport } from './routes/keep'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as BoardRouteImport } from './routes/board'
 import { Route as IndexRouteImport } from './routes/index'
@@ -43,6 +44,11 @@ const ShareAnalyticsRoute = ShareAnalyticsRouteImport.update({
   path: '/share-analytics',
   getParentRoute: () => rootRouteImport,
 } as any)
+const KeepRoute = KeepRouteImport.update({
+  id: '/keep',
+  path: '/keep',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CalendarRoute = CalendarRouteImport.update({
   id: '/calendar',
   path: '/calendar',
@@ -63,6 +69,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/board': typeof BoardRoute
   '/calendar': typeof CalendarRoute
+  '/keep': typeof KeepRoute
   '/share-analytics': typeof ShareAnalyticsRoute
   '/share-inbox': typeof ShareInboxRoute
   '/share-settings': typeof ShareSettingsRoute
@@ -73,6 +80,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/board': typeof BoardRoute
   '/calendar': typeof CalendarRoute
+  '/keep': typeof KeepRoute
   '/share-analytics': typeof ShareAnalyticsRoute
   '/share-inbox': typeof ShareInboxRoute
   '/share-settings': typeof ShareSettingsRoute
@@ -84,6 +92,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/board': typeof BoardRoute
   '/calendar': typeof CalendarRoute
+  '/keep': typeof KeepRoute
   '/share-analytics': typeof ShareAnalyticsRoute
   '/share-inbox': typeof ShareInboxRoute
   '/share-settings': typeof ShareSettingsRoute
@@ -96,6 +105,7 @@ export interface FileRouteTypes {
     | '/'
     | '/board'
     | '/calendar'
+    | '/keep'
     | '/share-analytics'
     | '/share-inbox'
     | '/share-settings'
@@ -106,6 +116,7 @@ export interface FileRouteTypes {
     | '/'
     | '/board'
     | '/calendar'
+    | '/keep'
     | '/share-analytics'
     | '/share-inbox'
     | '/share-settings'
@@ -116,6 +127,7 @@ export interface FileRouteTypes {
     | '/'
     | '/board'
     | '/calendar'
+    | '/keep'
     | '/share-analytics'
     | '/share-inbox'
     | '/share-settings'
@@ -127,6 +139,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BoardRoute: typeof BoardRoute
   CalendarRoute: typeof CalendarRoute
+  KeepRoute: typeof KeepRoute
   ShareAnalyticsRoute: typeof ShareAnalyticsRoute
   ShareInboxRoute: typeof ShareInboxRoute
   ShareSettingsRoute: typeof ShareSettingsRoute
@@ -171,6 +184,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShareAnalyticsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/keep': {
+      id: '/keep'
+      path: '/keep'
+      fullPath: '/keep'
+      preLoaderRoute: typeof KeepRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/calendar': {
       id: '/calendar'
       path: '/calendar'
@@ -199,6 +219,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BoardRoute: BoardRoute,
   CalendarRoute: CalendarRoute,
+  KeepRoute: KeepRoute,
   ShareAnalyticsRoute: ShareAnalyticsRoute,
   ShareInboxRoute: ShareInboxRoute,
   ShareSettingsRoute: ShareSettingsRoute,
@@ -208,3 +229,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

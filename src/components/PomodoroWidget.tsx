@@ -69,8 +69,8 @@ export function PomodoroWidget() {
   const slot = useFabSlot({
     id: "pomodoro",
     preferredSide: "right",
-    height: 44,
-    width: 44,
+    height: 48,
+    width: 48,
     priority: 3,
   });
   const sideClass = slot.side === "right" ? "right-4" : "left-4";
@@ -159,7 +159,7 @@ export function PomodoroWidget() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
             onClick={() => setOpen(true)}
-            className={`flex h-11 w-11 items-center justify-center rounded-full shadow-leaf ${
+            className={`flex h-12 w-12 items-center justify-center rounded-full shadow-leaf ${
               running ? "bg-primary text-primary-foreground" : "bg-card text-foreground"
             }`}
             aria-label="Pomodoro"

@@ -1,0 +1,134 @@
+import { useCallback, useSyncExternalStore } from "react";
+import { nanoid } from "nanoid";
+import { deleteImage } from "./image-blobs";
+
+// A Google-Keep-style capture box. The user throws in notes, links
+// (sites / movies / investment ideas) and images (screenshots); the AI
+// sorts each into a short category. Fully usable without AI — cards just
+// stay in "Kategorisiz" until categorized.
+
+export type CardType = "note" | "link" | "image";
+
+export type KeepCard = {
+  id: string;
+  type: CardType;
+  text?: string; // note body, or caption for an image
+  url?: string; // for link cards
+  imageId?: string; // key into the IndexedDB blob store (image cards)
+  image?: string; // LEGACY inline data URL — migrated to imageId on load
+  title?: string; // display title (link meta or AI-cleaned)
+  meta?: { description?: string; image?: string; siteName?: string };
+  category?: string; // AI-assigned; empty => "Kategorisiz"
+  tags?: string[];
+  pinned?: boolean;
+  color?: string;
+  createdAt: number;
+  aiPending?: boolean; // categorization in flight
+};
+
+export const UNCATEGORIZED = "Kategorisiz";
+
+const STORAGE_KEY = "mintmap.keep.v1";
+
+let cards: KeepCard[] = [];
+let initialized = false;
+const listeners = new Set<() => void>();
+
+function load() {
+  if (initialized) return;
+  initialized = true;
+  if (typeof window === "undefined") return;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as KeepCard[];
+      if (Array.isArray(parsed)) cards = parsed;
+    }
+  } catch {
+    cards = [];
+  }
+}
+
+function persist() {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+  } catch {
+    /* quota — ignore for now */
+  }
+}
+
+function emit() {
+  persist();
+  listeners.forEach((l) => l());
+}
+
+function subscribe(l: () => void) {
+  load();
+  listeners.add(l);
+  return () => listeners.delete(l);
+}
+
+const EMPTY: KeepCard[] = [];
+function snapshot(): KeepCard[] {
+  load();
+  return cards;
+}
+function serverSnapshot(): KeepCard[] {
+  return EMPTY;
+}
+
+export function useCards(): KeepCard[] {
+  return useSyncExternalStore(subscribe, snapshot, serverSnapshot);
+}
+
+export const keep = {
+  list(): KeepCard[] {
+    load();
+    return cards;
+  },
+  get(id: string): KeepCard | undefined {
+    load();
+    return cards.find((c) => c.id === id);
+  },
+  add(card: Omit<KeepCard, "id" | "createdAt"> & { id?: string; createdAt?: number }): KeepCard {
+    load();
+    const full: KeepCard = {
+      ...card,
+      id: card.id ?? nanoid(10),
+      createdAt: card.createdAt ?? Date.now(),
+    };
+    cards = [full, ...cards];
+    emit();
+    return full;
+  },
+  update(id: string, patch: Partial<KeepCard>) {
+    load();
+    cards = cards.map((c) => (c.id === id ? { ...c, ...patch } : c));
+    emit();
+  },
+  remove(id: string) {
+    load();
+    const card = cards.find((c) => c.id === id);
+    cards = cards.filter((c) => c.id !== id);
+    emit();
+    if (card?.imageId) void deleteImage(card.imageId);
+  },
+  togglePin(id: string) {
+    load();
+    cards = cards.map((c) => (c.id === id ? { ...c, pinned: !c.pinned } : c));
+    emit();
+  },
+  /** Distinct categories present, most-used first, excluding empty. */
+  categories(): string[] {
+    load();
+    const counts = new Map<string, number>();
+    cards.forEach((c) => {
+      const cat = c.category?.trim();
+      if (cat) counts.set(cat, (counts.get(cat) ?? 0) + 1);
+    });
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([c]) => c);
+  },
+};
+
+export const useKeepActions = () => useCallback(() => keep, [])();

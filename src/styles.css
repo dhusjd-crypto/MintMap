@@ -129,7 +129,9 @@
   * { border-color: var(--color-border); }
   html, body { height: 100%; overscroll-behavior: none; }
   body {
-    background: var(--gradient-canvas);
+    /* Flat app background — the teal→sunset gradient now lives only on the
+       mindmap canvas (.bg-gradient-canvas) so content pages stay clean. */
+    background: var(--background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
@@ -142,7 +144,47 @@
   .shadow-soft { box-shadow: var(--shadow-soft); }
   .shadow-leaf { box-shadow: var(--shadow-leaf); }
   .bg-gradient-node { background: var(--gradient-node); }
+  .bg-gradient-canvas { background: var(--gradient-canvas); }
   .no-tap-highlight { -webkit-tap-highlight-color: transparent; }
+
+  /* Hide scrollbars on horizontal chip / filter rows while keeping scroll. */
+  .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+
+  /* Markdown typography for notes / AI summaries. Was referenced as
+     `prose-mint` but never defined — this is the real definition. */
+  .prose-mint { line-height: 1.6; }
+  .prose-mint > :first-child { margin-top: 0; }
+  .prose-mint > :last-child { margin-bottom: 0; }
+  .prose-mint h1,
+  .prose-mint h2,
+  .prose-mint h3,
+  .prose-mint h4 { font-family: var(--font-display); font-weight: 700; line-height: 1.25; margin: 0.9em 0 0.35em; }
+  .prose-mint h1 { font-size: 1.25rem; }
+  .prose-mint h2 { font-size: 1.1rem; }
+  .prose-mint h3 { font-size: 1rem; }
+  .prose-mint h4 { font-size: 0.9rem; }
+  .prose-mint p { margin: 0.5em 0; }
+  .prose-mint ul,
+  .prose-mint ol { margin: 0.5em 0; padding-left: 1.4em; }
+  .prose-mint ul { list-style: disc; }
+  .prose-mint ol { list-style: decimal; }
+  .prose-mint li { margin: 0.2em 0; }
+  .prose-mint li::marker { color: var(--color-primary); }
+  .prose-mint a { color: var(--color-primary); text-decoration: underline; text-underline-offset: 2px; }
+  .prose-mint strong { font-weight: 700; }
+  .prose-mint em { font-style: italic; }
+  .prose-mint del { opacity: 0.6; }
+  .prose-mint code { background: var(--color-muted); border-radius: 4px; padding: 0.1em 0.35em; font-size: 0.85em; }
+  .prose-mint pre { background: var(--color-muted); border-radius: 10px; padding: 0.75em 0.9em; overflow-x: auto; margin: 0.6em 0; }
+  .prose-mint pre code { background: transparent; padding: 0; }
+  .prose-mint blockquote { border-left: 3px solid color-mix(in oklch, var(--color-primary) 40%, transparent); padding-left: 0.8em; color: var(--color-muted-foreground); margin: 0.6em 0; }
+  .prose-mint hr { border: none; border-top: 1px solid var(--color-border); margin: 1em 0; }
+  .prose-mint img { border-radius: 10px; max-width: 100%; height: auto; margin: 0.5em 0; }
+  .prose-mint table { width: 100%; border-collapse: collapse; margin: 0.6em 0; font-size: 0.9em; }
+  .prose-mint th,
+  .prose-mint td { border: 1px solid var(--color-border); padding: 0.35em 0.55em; text-align: left; }
+  .prose-mint th { background: var(--color-muted); font-weight: 600; }
 
   /* FAB / toolbar layering. Single source of truth — never use
      ad-hoc z-30/40/50 on floating action buttons. */

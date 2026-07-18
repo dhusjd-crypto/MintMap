@@ -236,7 +236,7 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
   const hasTaskBtn = !!selectedNode && !!onOpenTodoSheet;
   const hasDeleteBtn = !!selectedNode && !!selectedNode.parentId;
   const contextHeight =
-    56 + (hasTaskBtn ? 44 + 8 : 0) + (hasDeleteBtn ? 44 + 8 : 0);
+    56 + (hasTaskBtn ? 48 + 12 : 0) + (hasDeleteBtn ? 48 + 12 : 0);
   const contextSlot = useFabSlot({
     id: "mindmap-context",
     preferredSide: "right",
@@ -690,7 +690,7 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
   return (
     <div
       ref={containerRef}
-      className="relative h-full w-full overflow-hidden touch-none no-tap-highlight outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      className="relative h-full w-full overflow-hidden touch-none no-tap-highlight bg-gradient-canvas outline-none focus-visible:ring-2 focus-visible:ring-primary"
       role="tree"
       aria-label="Mindmap"
       aria-activedescendant={selectedId ? `mindnode-${selectedId}` : undefined}
@@ -1129,7 +1129,7 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
           on the left, and AI/Pomodoro's `layer-fab` still wins on the
           right when both occupy the same side. */}
       <div
-        className={`layer-fab-context fixed flex flex-col items-end gap-2 ${contextSlot.side === "right" ? "right-3" : "left-3"}`}
+        className={`layer-fab-context fixed flex flex-col items-center gap-3 ${contextSlot.side === "right" ? "right-3" : "left-3"}`}
         style={{ bottom: `calc(${contextSlot.bottom}px + env(safe-area-inset-bottom))` }}
         data-export-hide="true"
         data-fab-id="mindmap-context"
@@ -1147,7 +1147,7 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
               e.stopPropagation();
               handleDeleteSelected();
             }}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-soft"
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-soft"
             aria-label="Seçili düğümü sil"
           >
             <Trash2 className="h-5 w-5" />
@@ -1163,7 +1163,7 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
               e.stopPropagation();
               onOpenTodoSheet(selectedNode.id);
             }}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-soft"
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-soft"
             aria-label="Görev ekle"
             title="Görev ekle"
           >
