@@ -4,7 +4,6 @@ import { BottomNav } from "@/components/BottomNav";
 import { TaskFormPanel } from "@/components/TaskFormPanel";
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 import { useNodes, useReminderScheduler } from "@/lib/mindmap-store";
-import mintLogo from "@/assets/mint-logo.png.asset.json";
 
 // Heavy canvas + sheet are split out of the route's critical chunk so the
 // header / shell can paint while the canvas hydrates.
@@ -51,7 +50,7 @@ function Index() {
         <div className="flex min-w-0 items-center gap-2">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-card shadow-soft overflow-hidden">
             <img
-              src={mintLogo.url}
+              src="/icons/icon-192.png"
               alt="Mint"
               className="h-7 w-7 object-contain"
               width={28}

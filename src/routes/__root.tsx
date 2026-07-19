@@ -11,7 +11,6 @@ import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { MotionConfig } from "framer-motion";
 
 import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "../components/ui/sonner";
 
 // Defer non-critical overlays until after first paint to shrink the
@@ -54,9 +53,6 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
-  useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
-  }, [error]);
 
   return (
     <div className="flex min-h-dvh items-center justify-center bg-background px-4">
@@ -100,16 +96,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "apple-mobile-web-app-title", content: "MintMap" },
       { title: "MintMap" },
       { name: "description", content: "MintMap — kişisel mindmap ve görev uygulaması." },
-      { name: "author", content: "Lovable" },
+      { name: "author", content: "MintMap" },
       { property: "og:title", content: "MintMap" },
       { property: "og:description", content: "MintMap — kişisel mindmap ve görev uygulaması." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
       { name: "twitter:title", content: "MintMap" },
       { name: "twitter:description", content: "MintMap — kişisel mindmap ve görev uygulaması." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/d879a759-5c3c-40ca-b835-a095145ac797/id-preview-f6d04388--d2f54b2d-f10e-4ade-9a50-a206f539cd04.lovable.app-1780357327215.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/d879a759-5c3c-40ca-b835-a095145ac797/id-preview-f6d04388--d2f54b2d-f10e-4ade-9a50-a206f539cd04.lovable.app-1780357327215.png" },
+      { property: "og:image", content: "/icons/icon-512.png" },
+      { name: "twitter:image", content: "/icons/icon-512.png" },
     ],
     links: [
       {

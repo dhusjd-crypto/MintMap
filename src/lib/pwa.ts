@@ -6,23 +6,11 @@ function shouldSkipSW(): boolean {
   if (typeof window === "undefined") return true;
   // Allow disabling via ?sw=off for cleanup.
   if (new URLSearchParams(window.location.search).get("sw") === "off") return true;
-  // Never register inside the Lovable editor iframe.
+  // Don't register inside an iframe (e.g. an editor/preview embed).
   if (window.top !== window.self) return true;
+  // Skip the SW in local development.
   const host = window.location.hostname;
-  if (
-    host.startsWith("id-preview--") ||
-    host.startsWith("preview--") ||
-    host === "lovableproject.com" ||
-    host.endsWith(".lovableproject.com") ||
-    host === "lovableproject-dev.com" ||
-    host.endsWith(".lovableproject-dev.com") ||
-    host === "beta.lovable.dev" ||
-    host.endsWith(".beta.lovable.dev") ||
-    host === "localhost" ||
-    host === "127.0.0.1"
-  ) {
-    return true;
-  }
+  if (host === "localhost" || host === "127.0.0.1") return true;
   return false;
 }
 
