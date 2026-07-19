@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
+import { useOverlayPresence } from "@/lib/use-overlay-presence";
 import { CheckCircle2, Loader2, Send, Sparkles, Trash2, Wrench, X } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -59,6 +60,7 @@ export function AIChat({
   initialPrompt?: string;
   autoSend?: boolean;
 }) {
+  const mounted = useOverlayPresence(open);
   const nodes = useNodes();
   const initial = useMemo(loadHistory, []);
   const [msgs, setMsgs] = useState<ChatMsg[]>(initial.msgs);
@@ -268,21 +270,22 @@ export function AIChat({
   };
 
   return (
-    <AnimatePresence>
-      {open && (
+    <>
+      {mounted && (
         <>
           <motion.div
             initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            animate={{ opacity: open ? 1 : 0 }}
+            transition={{ duration: 0.2 }}
             onClick={onClose}
+            style={{ pointerEvents: open ? "auto" : "none" }}
             className="fixed inset-0 z-40 bg-bark/30 backdrop-blur-sm"
           />
           <motion.div
             initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
+            animate={{ y: open ? 0 : "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 280 }}
+            style={{ pointerEvents: open ? "auto" : "none" }}
             className="fixed inset-x-0 bottom-0 z-50 flex h-[88svh] flex-col overflow-hidden rounded-t-3xl bg-card shadow-leaf"
           >
             <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-border" />
@@ -398,6 +401,6 @@ export function AIChat({
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+    </>
   );
 }

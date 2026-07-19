@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
+import { useOverlayPresence } from "@/lib/use-overlay-presence";
 import { BellRing, MessageSquare, Mic, Settings, Sparkles, X, Zap } from "lucide-react";
 import { useAutoDriveBackup } from "@/lib/drive-auto";
 import { useAutoCalendarSync } from "@/lib/calendar-sync";
@@ -13,6 +14,7 @@ const RemindersScreen = lazy(() => import("./RemindersScreen").then((m) => ({ de
 
 export function AILauncher() {
   const [menu, setMenu] = useState(false);
+  const menuMounted = useOverlayPresence(menu, 220);
   const [chat, setChat] = useState(false);
   const [capture, setCapture] = useState(false);
   const [voice, setVoice] = useState(false);
@@ -75,16 +77,16 @@ export function AILauncher() {
         style={{ bottom: `calc(${slot.bottom}px + env(safe-area-inset-bottom))` }}
       >
         <div className="relative">
-          <AnimatePresence>
-            {menu && (
+          {menuMounted && (
               <motion.div
                 initial={{ opacity: 0, y: 8, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                animate={{ opacity: menu ? 1 : 0, y: menu ? 0 : 8, scale: menu ? 1 : 0.95 }}
+                transition={{ duration: 0.18 }}
                 id="ai-launcher-menu"
                 role="menu"
                 aria-label="AI hızlı eylemler"
                 data-testid="fab-ai-menu"
+                style={{ pointerEvents: menu ? "auto" : "none" }}
                 className={`layer-popover absolute bottom-14 ${menuAlignClass} w-48 overflow-hidden rounded-2xl bg-card p-1 shadow-leaf`}
               >
                 <button
@@ -139,7 +141,6 @@ export function AILauncher() {
                 </button>
               </motion.div>
             )}
-          </AnimatePresence>
           <button
             onClick={() => setMenu((v) => !v)}
             aria-label="AI"

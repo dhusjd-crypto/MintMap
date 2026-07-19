@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
+import { useOverlayPresence } from "@/lib/use-overlay-presence";
 import { Loader2, Mic, MicOff, Sparkles, X } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -33,6 +34,7 @@ function getRecognizer(): SpeechRecognitionLike | null {
 }
 
 export function QuickCapture({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const mounted = useOverlayPresence(open);
   const nodes = useNodes();
   const [text, setText] = useState("");
   const [recording, setRecording] = useState(false);
@@ -117,20 +119,21 @@ export function QuickCapture({ open, onClose }: { open: boolean; onClose: () => 
   };
 
   return (
-    <AnimatePresence>
-      {open && (
+    <>
+      {mounted && (
         <>
           <motion.div
             initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            animate={{ opacity: open ? 1 : 0 }}
+            transition={{ duration: 0.2 }}
             onClick={onClose}
+            style={{ pointerEvents: open ? "auto" : "none" }}
             className="fixed inset-0 z-40 bg-bark/30 backdrop-blur-sm"
           />
           <motion.div
             initial={{ y: 30, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 30, opacity: 0 }}
+            animate={{ y: open ? 0 : 30, opacity: open ? 1 : 0 }}
+            style={{ pointerEvents: open ? "auto" : "none" }}
             className="fixed inset-x-3 top-20 z-50 overflow-hidden rounded-3xl bg-card p-4 shadow-leaf"
           >
             <div className="mb-2 flex items-center gap-2">
@@ -180,6 +183,6 @@ export function QuickCapture({ open, onClose }: { open: boolean; onClose: () => 
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+    </>
   );
 }

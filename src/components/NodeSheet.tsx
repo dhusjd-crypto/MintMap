@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
+import { useOverlayPresence } from "@/lib/use-overlay-presence";
 import {
   Bell,
   CalendarPlus,
@@ -117,7 +118,15 @@ async function selectedNodeImageFile(node: MindNode): Promise<File | null> {
 }
 
 export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
-  const node = useNode(nodeId);
+  const liveNode = useNode(nodeId);
+  // Retain the last node while the sheet animates closed so its content stays
+  // rendered through the exit window (see useOverlayPresence for why we don't
+  // rely on AnimatePresence here).
+  const lastNodeRef = useRef(liveNode);
+  if (liveNode) lastNodeRef.current = liveNode;
+  const node = liveNode ?? lastNodeRef.current;
+  const open = !!liveNode;
+  const mounted = useOverlayPresence(open);
   const retryFileInputRef = useRef<HTMLInputElement>(null);
   const [tab, setTab] = useState(initialTab);
   const [todoText, setTodoText] = useState("");
@@ -332,8 +341,8 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
   };
 
   return (
-    <AnimatePresence>
-      {node && (
+    <>
+      {mounted && node && (
         <>
           <input
             ref={retryFileInputRef}
@@ -349,16 +358,17 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
           />
           <motion.div
             initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            animate={{ opacity: open ? 1 : 0 }}
+            transition={{ duration: 0.2 }}
             onClick={onClose}
+            style={{ pointerEvents: open ? "auto" : "none" }}
             className="fixed inset-0 z-40 bg-bark/30 backdrop-blur-sm"
           />
           <motion.div
             initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
+            animate={{ y: open ? 0 : "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 280 }}
+            style={{ pointerEvents: open ? "auto" : "none" }}
             className="fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-hidden rounded-t-3xl bg-card shadow-leaf"
           >
             <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-border" />
@@ -684,6 +694,6 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+    </>
   );
 }

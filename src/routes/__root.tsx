@@ -148,10 +148,13 @@ function RootComponent() {
   // compete with route hydration / LCP. requestIdleCallback when
   // available, otherwise a microtask after mount.
   const [overlaysReady, setOverlaysReady] = useState(false);
-  const [gateChecked, setGateChecked] = useState(false);
 
   useEffect(() => {
     // Client-side şifre kapısı: kilitli değilse /unlock sayfasına gönder.
+    // Not: SSR zaten uygulama HTML'ini gönderdiğinden burada ağacı DEĞİŞTİRMİYORUZ
+    // (aksi halde sunucu/istemci render'ı uyuşmaz ve hydration bozulur — bu da
+    // framer-motion'ın çıkış/animasyon yaşam döngüsünü bozuyordu). Kilitliyse
+    // sadece yönlendiriyoruz.
     try {
       const unlocked = sessionStorage.getItem("mintmap:unlocked") === "1";
       if (!unlocked && window.location.pathname !== "/unlock") {
@@ -161,7 +164,6 @@ function RootComponent() {
     } catch {
       // sessionStorage erişilemiyorsa geçişe izin ver.
     }
-    setGateChecked(true);
 
     import("../lib/theme").then((m) => m.initTheme());
     import("../lib/pwa").then((m) => m.initPWA());
@@ -180,10 +182,6 @@ function RootComponent() {
       else window.clearTimeout(handle);
     };
   }, []);
-
-  if (!gateChecked && typeof window !== "undefined" && window.location.pathname !== "/unlock") {
-    return <div className="min-h-dvh bg-white" />;
-  }
 
   return (
     <QueryClientProvider client={queryClient}>

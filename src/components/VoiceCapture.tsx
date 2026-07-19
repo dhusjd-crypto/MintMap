@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
+import { useOverlayPresence } from "@/lib/use-overlay-presence";
 import { Mic, Square, Loader2, Send, X, Trash2, CheckCircle2, Bell, Calendar, Star, Sun, Plus, Sparkles } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -68,6 +69,7 @@ export function VoiceCapture({
   onClose: () => void;
   onSubmit: (text: string) => void;
 }) {
+  const mounted = useOverlayPresence(open);
   const nodes = useNodes();
   const [status, setStatus] = useState<Status>("idle");
   const [transcript, setTranscript] = useState("");
@@ -268,17 +270,19 @@ export function VoiceCapture({
   const removeStep = (i: number) => updateDraft("steps", draft!.steps.filter((_, idx) => idx !== i));
 
   return (
-    <AnimatePresence>
-      {open && (
+    <>
+      {mounted && (
         <>
           <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }} animate={{ opacity: open ? 1 : 0 }} transition={{ duration: 0.2 }}
             onClick={onClose}
+            style={{ pointerEvents: open ? "auto" : "none" }}
             className="fixed inset-0 z-40 bg-bark/30 backdrop-blur-sm"
           />
           <motion.div
-            initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
+            initial={{ y: 40, opacity: 0 }} animate={{ y: open ? 0 : 40, opacity: open ? 1 : 0 }}
             transition={{ type: "spring", damping: 26, stiffness: 280 }}
+            style={{ pointerEvents: open ? "auto" : "none" }}
             className="fixed inset-x-4 bottom-24 z-50 mx-auto max-h-[80svh] max-w-md overflow-y-auto rounded-3xl bg-card p-5 shadow-leaf"
           >
             <div className="flex items-center gap-2">
@@ -495,6 +499,6 @@ export function VoiceCapture({
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+    </>
   );
 }

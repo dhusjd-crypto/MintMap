@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { lazy, Suspense, useState } from "react";
-import { Toaster } from "@/components/ui/sonner";
 import { BottomNav } from "@/components/BottomNav";
+import { TaskFormPanel } from "@/components/TaskFormPanel";
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 import { useNodes, useReminderScheduler } from "@/lib/mindmap-store";
 import mintLogo from "@/assets/mint-logo.png.asset.json";
@@ -35,6 +35,7 @@ function Index() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetId, setSheetId] = useState<string | null>(null);
   const [sheetTab, setSheetTab] = useState<"note" | "todo" | "extra">("note");
+  const [taskNode, setTaskNode] = useState<string | null>(null);
   useReminderScheduler();
 
   const root = nodes.find((n) => n.parentId === null);
@@ -100,10 +101,7 @@ function Index() {
               setSheetId(id);
               setSheetTab("note");
             }}
-            onOpenTodoSheet={(id) => {
-              setSheetId(id);
-              setSheetTab("todo");
-            }}
+            onOpenTodoSheet={(id) => setTaskNode(id)}
           />
         </Suspense>
         <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 text-[11px] text-muted-foreground">
@@ -115,7 +113,11 @@ function Index() {
       <Suspense fallback={null}>
         <NodeSheet nodeId={sheetId} onClose={() => setSheetId(null)} initialTab={sheetTab} />
       </Suspense>
-      <Toaster position="top-center" />
+      <TaskFormPanel
+        open={taskNode !== null}
+        nodeId={taskNode}
+        onClose={() => setTaskNode(null)}
+      />
     </main>
   );
 }

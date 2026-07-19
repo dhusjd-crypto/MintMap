@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { Pause, Play, RotateCcw, Timer, X } from "lucide-react";
 import { toast } from "sonner";
 import { useFabSlot } from "@/lib/fab-slots";
@@ -83,14 +83,11 @@ export function PomodoroWidget() {
       className={`layer-fab fixed ${sideClass}`}
       style={{ bottom: `calc(${slot.bottom}px + env(safe-area-inset-bottom))` }}
     >
-      <AnimatePresence>
-
-        {open ? (
+      {open ? (
           <motion.div
             key="open"
             initial={{ opacity: 0, y: 12, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 12, scale: 0.9 }}
             className="w-56 rounded-2xl border border-border bg-card p-3 shadow-leaf"
           >
             <div className="flex items-center justify-between">
@@ -157,7 +154,6 @@ export function PomodoroWidget() {
             key="closed"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
             onClick={() => setOpen(true)}
             className={`flex h-12 w-12 items-center justify-center rounded-full shadow-leaf ${
               running ? "bg-primary text-primary-foreground" : "bg-card text-foreground"
@@ -172,7 +168,6 @@ export function PomodoroWidget() {
             )}
           </motion.button>
         )}
-      </AnimatePresence>
     </div>
   );
 }

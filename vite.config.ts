@@ -4,8 +4,42 @@
 //     componentTagger (dev-only), VITE_* env injection, @ path alias, React/TanStack dedupe,
 //     error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
-import { loadEnv } from "vite";
+import { loadEnv, type ConfigEnv, type PluginOption } from "vite";
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+
+// The Lovable config hardcodes @tanstack/devtools-vite's `injectSource`, which
+// stamps `data-tsd-source="__root.tsx:LINE"` onto every JSX element for the
+// devtools "jump to source" feature. In this project that transform computes
+// DIFFERENT line numbers for the SSR vs client build of the root shell
+// (<html>/<head>/<body>), so React reports a hydration mismatch on those
+// attributes on every load. It's dev-only (the plugin never runs in a
+// production build) but the mismatch is exactly the kind of root-level
+// hydration breakage that was destabilising framer-motion. We drop just that
+// one plugin from the resolved config — everything else stays intact, and the
+// only thing lost is devtools source-jump. Recurse because Vite's `plugins`
+// field may hold nested arrays / promises.
+const INJECT_SOURCE_PLUGIN = "@tanstack/devtools:inject-source";
+async function stripInjectSourcePlugin(
+  plugins: PluginOption[] | undefined,
+): Promise<PluginOption[]> {
+  const out: PluginOption[] = [];
+  for (const entry of plugins ?? []) {
+    const resolved = await entry;
+    if (!resolved) continue;
+    if (Array.isArray(resolved)) {
+      out.push(...(await stripInjectSourcePlugin(resolved)));
+    } else if (
+      typeof resolved === "object" &&
+      "name" in resolved &&
+      resolved.name === INJECT_SOURCE_PLUGIN
+    ) {
+      // drop it
+    } else {
+      out.push(resolved);
+    }
+  }
+  return out;
+}
 
 // --- Server-only secrets -----------------------------------------------------
 // Server functions read process.env.OPENAI_API_KEY / LOVABLE_API_KEY, but inside
@@ -34,7 +68,7 @@ for (const key of SERVER_SECRETS) {
   if (value) ssrDefine[`process.env.${key}`] = JSON.stringify(value);
 }
 
-export default defineConfig({
+const baseConfig = defineConfig({
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
@@ -52,3 +86,9 @@ export default defineConfig({
     },
   },
 });
+
+export default async (env: ConfigEnv) => {
+  const config = await baseConfig(env);
+  config.plugins = await stripInjectSourcePlugin(config.plugins);
+  return config;
+};

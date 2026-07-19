@@ -1,4 +1,5 @@
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
+import { useOverlayPresence } from "@/lib/use-overlay-presence";
 import { LayoutTemplate, Save, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { TEMPLATES } from "@/lib/templates";
@@ -14,6 +15,7 @@ type Props = {
 };
 
 export function TemplateMenu({ open, onToggle, selectedNode, onApply, onSaveFromNode }: Props) {
+  const menuMounted = useOverlayPresence(open, 220);
   const [custom, setCustom] = useState<CustomTemplate[]>([]);
 
   useEffect(() => {
@@ -48,14 +50,14 @@ export function TemplateMenu({ open, onToggle, selectedNode, onApply, onSaveFrom
       >
         <LayoutTemplate className="h-4 w-4" />
       </button>
-      <AnimatePresence>
-        {open && (
+      {menuMounted && (
           <motion.div
             initial={{ opacity: 0, x: -8, scale: 0.9 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={{ opacity: 0, x: -8, scale: 0.9 }}
+            animate={{ opacity: open ? 1 : 0, x: open ? 0 : -8, scale: open ? 1 : 0.9 }}
+            transition={{ duration: 0.18 }}
             onPointerDown={(e) => e.stopPropagation()}
             data-testid="templates-menu"
+            style={{ pointerEvents: open ? "auto" : "none" }}
             className="absolute left-11 bottom-0 z-30 max-h-[70vh] w-64 overflow-y-auto rounded-2xl bg-card p-2 shadow-leaf"
           >
             <p className="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -109,7 +111,6 @@ export function TemplateMenu({ open, onToggle, selectedNode, onApply, onSaveFrom
             )}
           </motion.div>
         )}
-      </AnimatePresence>
     </div>
   );
 }

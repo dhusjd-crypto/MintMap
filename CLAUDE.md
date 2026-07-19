@@ -10,6 +10,11 @@
 - **Asistan modu:** Yazılım bilgim sınırlı; sen benim rehberimsin. Teknik konuları **sade, günlük Türkçe** ile, gerektiğinde benzetmelerle açıkla. Ne yaptığını ve neden yaptığını kısaca anlat. Kod/komut verirken ne işe yaradığını da söyle.
 - Bir şey belirsizse **tahmin yürütme, sor**.
 
+## Skill önerisi (ÖNEMLİ)
+- Kurulu skill'ler (plugin/marketplace) hakkında bilgim yok; **hangisini ne zaman kullanacağımı bilmiyorum**.
+- Bu yüzden **ben sana bir iş/ihtiyaç anlattığımda**, o iş için **uygun bir skill varsa bana öner**: skill'in adını, ne işe yaradığını tek cümleyle söyle ve "istersen bununla yapayım mı?" diye sor.
+- Uygun skill yoksa bunu da belirt ve normal şekilde ilerle. Otomatik skill çalıştırma — önce öner, onayımı al.
+
 ## Kodlama İlkeleri (Karpathy Guidelines)
 1. **Kodlamadan önce düşün:** Varsayımları açıkça belirt, belirsizlikte dur ve sor; birden fazla yorum varsa sun. Gereksiz karmaşıklığa itiraz et.
 2. **Önce sadelik:** Sadece istenen sorunu çözen en az kodu yaz. Spekülatif özellik, gereksiz soyutlama veya imkânsız durumlar için hata yönetimi ekleme. 50 satırla olacak işi 200 satıra çıkarma.

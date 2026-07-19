@@ -1,4 +1,5 @@
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
+import { useOverlayPresence } from "@/lib/use-overlay-presence";
 import {
   Cloud,
   CloudCheck,
@@ -92,6 +93,7 @@ export function MindmapToolbar({
   onResetView,
   onPngExport,
 }: Props) {
+  const menuMounted = useOverlayPresence(open, 220);
   // Wrench toolbar reserves the LEFT side at priority 1.
   // When open it reports its expanded height so AI/Pomodoro overlap-
   // detection automatically pushes them to the right side.
@@ -112,13 +114,11 @@ export function MindmapToolbar({
       data-fab-open={open ? "true" : "false"}
     >
 
-      <AnimatePresence>
-        {lastSavedAt && (
+      {lastSavedAt && (
           <motion.div
             key={lastSavedAt}
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.4 }}
             className="mb-1 flex items-center gap-1 rounded-full bg-card px-2 py-1 text-[10px] font-medium text-muted-foreground shadow-soft"
           >
@@ -126,7 +126,6 @@ export function MindmapToolbar({
             Otomatik kaydedildi
           </motion.div>
         )}
-      </AnimatePresence>
       <button
         onPointerDown={(e) => e.stopPropagation()}
         onClick={onToggle}
@@ -142,17 +141,16 @@ export function MindmapToolbar({
       >
         {open ? <X className="h-5 w-5" /> : <Wrench className="h-5 w-5" />}
       </button>
-      <AnimatePresence>
-        {open && (
+      {menuMounted && (
           <motion.div
             initial={{ opacity: 0, y: 8, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.9 }}
+            animate={{ opacity: open ? 1 : 0, y: open ? 0 : 8, scale: open ? 1 : 0.9 }}
             transition={{ duration: 0.18 }}
             id="mindmap-toolbar-actions"
             role="menu"
             aria-label="Mindmap araçları"
             data-testid="toolbar-actions"
+            style={{ pointerEvents: open ? "auto" : "none" }}
             className="flex flex-col items-center gap-1.5"
           >
             <ToolBtn onClick={onSave} label="Kaydet">
@@ -199,7 +197,6 @@ export function MindmapToolbar({
             <ThemeToggle />
           </motion.div>
         )}
-      </AnimatePresence>
     </div>
   );
 }

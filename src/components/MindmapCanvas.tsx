@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   ClipboardList,
   Plus,
@@ -922,13 +922,11 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
 
       {/* Search overlay (top-center) */}
       <div className="pointer-events-auto absolute left-1/2 top-3 z-20 -translate-x-1/2" data-export-hide="true">
-        <AnimatePresence mode="popLayout">
-          {searchOpen ? (
+        {searchOpen ? (
             <motion.div
               key="open"
               initial={{ opacity: 0, y: -8, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 0.95 }}
               className="flex w-[80vw] max-w-md flex-col gap-1.5"
               onPointerDown={(e) => e.stopPropagation()}
             >
@@ -985,7 +983,6 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
               key="closed"
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
               onClick={() => setSearchOpen(true)}
               onPointerDown={(e) => e.stopPropagation()}
               className="flex h-9 w-9 items-center justify-center rounded-full bg-card shadow-soft"
@@ -994,7 +991,6 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
               <Search className="h-4 w-4" />
             </motion.button>
           )}
-        </AnimatePresence>
       </div>
 
       {/* Focus mode toggle */}
