@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "framer-motion";
-import { useOverlayPresence } from "@/lib/use-overlay-presence";
+import { FormPanel } from "@/components/FormPanel";
 import { Mic, Square, Loader2, Send, X, Trash2, CheckCircle2, Bell, Calendar, Star, Sun, Plus, Sparkles } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -69,7 +68,6 @@ export function VoiceCapture({
   onClose: () => void;
   onSubmit: (text: string) => void;
 }) {
-  const mounted = useOverlayPresence(open);
   const nodes = useNodes();
   const [status, setStatus] = useState<Status>("idle");
   const [transcript, setTranscript] = useState("");
@@ -270,30 +268,14 @@ export function VoiceCapture({
   const removeStep = (i: number) => updateDraft("steps", draft!.steps.filter((_, idx) => idx !== i));
 
   return (
-    <>
-      {mounted && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: open ? 1 : 0 }} transition={{ duration: 0.2 }}
-            onClick={onClose}
-            style={{ pointerEvents: open ? "auto" : "none" }}
-            className="fixed inset-0 z-40 bg-bark/30 backdrop-blur-sm"
-          />
-          <motion.div
-            initial={{ y: 40, opacity: 0 }} animate={{ y: open ? 0 : 40, opacity: open ? 1 : 0 }}
-            transition={{ type: "spring", damping: 26, stiffness: 280 }}
-            style={{ pointerEvents: open ? "auto" : "none" }}
-            className="fixed inset-x-4 bottom-24 z-50 mx-auto max-h-[80svh] max-w-md overflow-y-auto rounded-3xl bg-card p-5 shadow-leaf"
-          >
-            <div className="flex items-center gap-2">
-              <Mic className="h-5 w-5 text-primary" />
-              <span className="font-display text-base font-bold">Sesli görev</span>
-              <button onClick={onClose} aria-label="Kapat" className="ml-auto p-1.5">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="mt-4 flex flex-col items-center gap-3">
+    <FormPanel
+      open={open}
+      onClose={onClose}
+      title="Sesli görev"
+      description="Konuş, AI görevi çıkarsın — kaydetmeden önce gözden geçir."
+      icon={<Mic className="h-4 w-4" />}
+    >
+            <div className="mt-1 flex flex-col items-center gap-3">
               {status === "idle" && (
                 <>
                   <button
@@ -496,9 +478,6 @@ export function VoiceCapture({
                 </div>
               )}
             </div>
-          </motion.div>
-        </>
-      )}
-    </>
+    </FormPanel>
   );
 }

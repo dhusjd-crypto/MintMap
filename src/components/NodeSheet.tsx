@@ -1,6 +1,5 @@
 import { Suspense, useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
-import { useOverlayPresence } from "@/lib/use-overlay-presence";
+import { FormPanel } from "@/components/FormPanel";
 import {
   Bell,
   CalendarPlus,
@@ -119,14 +118,12 @@ async function selectedNodeImageFile(node: MindNode): Promise<File | null> {
 
 export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
   const liveNode = useNode(nodeId);
-  // Retain the last node while the sheet animates closed so its content stays
-  // rendered through the exit window (see useOverlayPresence for why we don't
-  // rely on AnimatePresence here).
+  // Retain the last node while the panel animates closed so its content stays
+  // rendered through the exit window (FormPanel owns the mount lifecycle).
   const lastNodeRef = useRef(liveNode);
   if (liveNode) lastNodeRef.current = liveNode;
   const node = liveNode ?? lastNodeRef.current;
   const open = !!liveNode;
-  const mounted = useOverlayPresence(open);
   const retryFileInputRef = useRef<HTMLInputElement>(null);
   const [tab, setTab] = useState(initialTab);
   const [todoText, setTodoText] = useState("");
@@ -342,8 +339,27 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
 
   return (
     <>
-      {mounted && node && (
-        <>
+      {node && (
+        <FormPanel
+          open={open}
+          onClose={onClose}
+          ariaLabel={node.title || "Düğüm"}
+          description="Düğümü düzenle — değişiklikler anında kaydedilir"
+          icon={
+            <span
+              className="block h-3 w-3 rounded-full"
+              style={{ background: node.color }}
+            />
+          }
+          title={
+            <Input
+              value={node.title}
+              onChange={(e) => mindmap.update(node.id, { title: e.target.value })}
+              aria-label="Düğüm başlığı"
+              className="border-0 bg-transparent px-0 font-display text-xl font-bold shadow-none focus-visible:ring-0"
+            />
+          }
+        >
           <input
             ref={retryFileInputRef}
             type="file"
@@ -356,39 +372,7 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
               void shareFiles(files, files.length > 1 ? "Seçili dosyalar" : "Seçili dosya");
             }}
           />
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: open ? 1 : 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={onClose}
-            style={{ pointerEvents: open ? "auto" : "none" }}
-            className="fixed inset-0 z-40 bg-bark/30 backdrop-blur-sm"
-          />
-          <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: open ? 0 : "100%" }}
-            transition={{ type: "spring", damping: 30, stiffness: 280 }}
-            style={{ pointerEvents: open ? "auto" : "none" }}
-            className="fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-hidden rounded-t-3xl bg-card shadow-leaf"
-          >
-            <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-border" />
-
-            <div className="flex items-center gap-2 px-5 pt-3">
-              <span
-                className="h-3 w-3 rounded-full"
-                style={{ background: node.color }}
-              />
-              <Input
-                value={node.title}
-                onChange={(e) => mindmap.update(node.id, { title: e.target.value })}
-                className="border-0 bg-transparent px-0 font-display text-xl font-bold shadow-none focus-visible:ring-0"
-              />
-              <Button size="icon" variant="ghost" onClick={onClose}>
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
-
-            <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="px-5 pb-6 max-h-[calc(85vh-72px)] overflow-y-auto overscroll-contain">
+            <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
               <TabsList className="grid w-full grid-cols-3 bg-muted">
                 <TabsTrigger value="note">Not</TabsTrigger>
                 <TabsTrigger value="todo">
@@ -691,8 +675,7 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
                 )}
               </TabsContent>
             </Tabs>
-          </motion.div>
-        </>
+        </FormPanel>
       )}
     </>
   );

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
-import { useOverlayPresence } from "@/lib/use-overlay-presence";
-import { Loader2, Mic, MicOff, Sparkles, X } from "lucide-react";
+import { FormPanel } from "@/components/FormPanel";
+import { Mic, MicOff, Sparkles } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { aiQuickCapture } from "@/lib/ai.functions";
@@ -34,7 +33,6 @@ function getRecognizer(): SpeechRecognitionLike | null {
 }
 
 export function QuickCapture({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const mounted = useOverlayPresence(open);
   const nodes = useNodes();
   const [text, setText] = useState("");
   const [recording, setRecording] = useState(false);
@@ -119,70 +117,49 @@ export function QuickCapture({ open, onClose }: { open: boolean; onClose: () => 
   };
 
   return (
-    <>
-      {mounted && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: open ? 1 : 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={onClose}
-            style={{ pointerEvents: open ? "auto" : "none" }}
-            className="fixed inset-0 z-40 bg-bark/30 backdrop-blur-sm"
-          />
-          <motion.div
-            initial={{ y: 30, opacity: 0 }}
-            animate={{ y: open ? 0 : 30, opacity: open ? 1 : 0 }}
-            style={{ pointerEvents: open ? "auto" : "none" }}
-            className="fixed inset-x-3 top-20 z-50 overflow-hidden rounded-3xl bg-card p-4 shadow-leaf"
+    <FormPanel
+      open={open}
+      onClose={onClose}
+      title="Hızlı yakala"
+      description="Aklındaki fikri yaz veya söyle — AI başlık, etiket ve görevlere çevirsin."
+      icon={<Sparkles className="h-4 w-4" />}
+      dirty={text.trim().length > 0}
+      saving={busy}
+      canSave={!!text.trim()}
+      saveLabel="AI ile ekle"
+      onSave={run}
+      footerStart={
+        speechSupported ? (
+          <button
+            onClick={() => (recording ? stopRecording() : startRecording())}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-2.5 text-xs font-semibold ${
+              recording
+                ? "bg-destructive text-destructive-foreground animate-pulse"
+                : "bg-muted text-foreground"
+            }`}
           >
-            <div className="mb-2 flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
-              <span className="font-display font-bold">Hızlı yakala</span>
-              <button onClick={onClose} aria-label="Kapat" className="ml-auto p-1">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <p className="mb-2 text-xs text-muted-foreground">
-              Aklındaki fikri yaz veya söyle — AI başlık, etiket ve görevlere çevirsin.
-            </p>
-            <textarea
-              autoFocus
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              rows={4}
-              placeholder="Örn. yeni blog için içerik fikirleri toplamam lazım, haftada 2 paylaşım..."
-              className="w-full resize-none rounded-2xl bg-muted/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
-            />
-            <div className="mt-3 flex items-center gap-2">
-              {speechSupported && (
-                <button
-                  onClick={() => (recording ? stopRecording() : startRecording())}
-                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${
-                    recording
-                      ? "bg-destructive text-destructive-foreground animate-pulse"
-                      : "bg-muted text-foreground"
-                  }`}
-                >
-                  {recording ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
-                  {recording ? "Durdur" : "Sesle"}
-                </button>
-              )}
-              <span className="text-[11px] text-muted-foreground">
-                {rootNode ? `→ ${rootNode.title}` : ""}
-              </span>
-              <button
-                onClick={run}
-                disabled={!text.trim() || busy}
-                className="ml-auto flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-40"
-              >
-                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                AI ile ekle
-              </button>
-            </div>
-          </motion.div>
-        </>
-      )}
-    </>
+            {recording ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
+            {recording ? "Durdur" : "Sesle"}
+          </button>
+        ) : undefined
+      }
+    >
+      <label className="block">
+        <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          Fikir
+        </span>
+        <textarea
+          data-autofocus
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={6}
+          placeholder="Örn. yeni blog için içerik fikirleri toplamam lazım, haftada 2 paylaşım..."
+          className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
+        />
+        <span className="mt-1 block text-[11px] text-muted-foreground">
+          {rootNode ? `Şuraya eklenecek: ${rootNode.title}` : "Bir çalışma alanı gerekli"}
+        </span>
+      </label>
+    </FormPanel>
   );
 }

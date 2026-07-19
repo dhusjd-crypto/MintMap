@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useState } from "react";
-import { AnimatePresence, motion, Reorder, useDragControls } from "framer-motion";
+import { Reorder, useDragControls } from "framer-motion";
+import { FormPanel } from "@/components/FormPanel";
 import {
   Bell,
   CalendarDays,
@@ -7,6 +8,7 @@ import {
   Flag,
   GripVertical,
   Link2,
+  ListChecks,
   Plus,
   Repeat,
   Sparkles,
@@ -108,35 +110,34 @@ export function TaskSheet({ nodeId, todoId, onClose }: Props) {
   };
 
   return (
-    <AnimatePresence>
-      <motion.div
-        key="backdrop"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-        className="fixed inset-0 z-40 bg-bark/30 backdrop-blur-sm"
-      />
-      <motion.div
-        key="sheet"
-        initial={{ y: "100%" }}
-        animate={{ y: 0 }}
-        exit={{ y: "100%" }}
-        transition={{ type: "spring", damping: 30, stiffness: 280 }}
-        className="fixed inset-x-0 bottom-0 z-50 flex max-h-[92vh] flex-col overflow-hidden rounded-t-3xl bg-card shadow-leaf"
-      >
-        <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-border" />
-
-        <div className="flex items-center gap-2 px-4 pt-3 pb-2">
-          <button onClick={onClose} aria-label="Kapat" className="p-1.5">
-            <X className="h-5 w-5" />
-          </button>
-          <span className="text-sm font-semibold text-muted-foreground truncate flex-1">
-            {node.title}
+    <FormPanel
+      open
+      onClose={onClose}
+      title="Görevi düzenle"
+      description={node.title}
+      icon={<ListChecks className="h-4 w-4" />}
+      footerStart={
+        <div className="flex flex-1 items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span className="truncate">
+            {todo.createdAt
+              ? `${new Date(todo.createdAt).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" })} tarihinde oluşturuldu`
+              : ""}
           </span>
+          <button
+            onClick={() => {
+              if (!window.confirm("Bu görev silinsin mi? Bu işlem geri alınamaz.")) return;
+              mindmap.removeTodo(node.id, todo.id);
+              onClose();
+            }}
+            aria-label="Görevi sil"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-destructive/40"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
         </div>
-
-        <div className="flex-1 overflow-y-auto px-4 pb-4">
+      }
+    >
+        <div>
           {/* Title row */}
           <div className="flex items-start gap-3 py-2">
             <button
@@ -399,27 +400,7 @@ export function TaskSheet({ nodeId, todoId, onClose }: Props) {
             </Suspense>
           </div>
         </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between border-t border-border px-4 py-2.5 text-xs text-muted-foreground">
-          <span>
-            {todo.createdAt
-              ? `${new Date(todo.createdAt).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" })} tarihinde oluşturuldu`
-              : ""}
-          </span>
-          <button
-            onClick={() => {
-              mindmap.removeTodo(node.id, todo.id);
-              onClose();
-            }}
-            aria-label="Görevi sil"
-            className="p-1 text-muted-foreground hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
-      </motion.div>
-    </AnimatePresence>
+    </FormPanel>
   );
 }
 

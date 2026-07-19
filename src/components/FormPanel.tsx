@@ -19,8 +19,15 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 export type FormPanelProps = {
   open: boolean;
   onClose: () => void;
-  title: string;
-  description?: string;
+  /** Plain string, or a node when the surface needs an inline title editor. */
+  title: ReactNode;
+  /** Announced to screen readers / used as the dialog label. */
+  ariaLabel?: string;
+  description?: ReactNode;
+  /** Icon shown left of the title (standard: every panel header has one). */
+  icon?: ReactNode;
+  /** Small badge next to the title, e.g. "AI önerisi" / "Demo modu". */
+  badge?: ReactNode;
   /** Unsaved edits present → confirm before closing. */
   dirty?: boolean;
   /** Save in flight → footer shows a spinner and disables inputs. */
@@ -28,7 +35,11 @@ export type FormPanelProps = {
   /** Disable the save button (e.g. required field empty). */
   canSave?: boolean;
   saveLabel?: string;
-  onSave: () => void;
+  /**
+   * Explicit-save forms pass this to get the standard footer. Live-editing
+   * surfaces (which persist on change) omit it — no footer is rendered.
+   */
+  onSave?: () => void;
   children: ReactNode;
   /** Optional extra control on the left of the footer (e.g. a delete button). */
   footerStart?: ReactNode;
@@ -41,7 +52,10 @@ export function FormPanel({
   open,
   onClose,
   title,
+  ariaLabel,
   description,
+  icon,
+  badge,
   dirty = false,
   saving = false,
   canSave = true,
@@ -100,7 +114,7 @@ export function FormPanel({
         return;
       }
       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-        if (canSave && !saving) {
+        if (onSave && canSave && !saving) {
           e.preventDefault();
           onSave();
         }
@@ -182,7 +196,7 @@ export function FormPanel({
             transition={panelTransition}
             role="dialog"
             aria-modal="true"
-            aria-label={title}
+            aria-label={ariaLabel ?? (typeof title === "string" ? title : undefined)}
             className="absolute inset-y-0 right-0 flex h-[100dvh] w-full flex-col bg-card shadow-leaf sm:w-[600px] sm:min-w-[480px] sm:max-w-[50vw]"
           >
             {/* Live region: announces save state to screen readers. */}
@@ -192,11 +206,21 @@ export function FormPanel({
 
             {/* Header */}
             <header className="flex shrink-0 items-start justify-between gap-3 border-b border-border/60 px-5 pt-[max(env(safe-area-inset-top),1rem)] pb-3">
-              <div className="min-w-0">
-                <h2 className="truncate text-base font-bold leading-tight">{title}</h2>
-                {description && (
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{description}</p>
-                )}
+              <div className="flex min-w-0 flex-1 items-start gap-2">
+                {icon && <span className="mt-0.5 shrink-0 text-primary">{icon}</span>}
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 items-center gap-2">
+                    {typeof title === "string" ? (
+                      <h2 className="truncate text-base font-bold leading-tight">{title}</h2>
+                    ) : (
+                      <div className="min-w-0 flex-1">{title}</div>
+                    )}
+                    {badge}
+                  </div>
+                  {description && (
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">{description}</p>
+                  )}
+                </div>
               </div>
               <button
                 onClick={attemptClose}
@@ -215,25 +239,32 @@ export function FormPanel({
               {children}
             </div>
 
-            {/* Sticky footer / save */}
-            <footer className="flex shrink-0 items-center gap-2 border-t border-border/60 bg-card px-5 pt-3 pb-[max(env(safe-area-inset-bottom),1rem)]">
-              {footerStart}
-              <button
-                onClick={attemptClose}
-                disabled={saving}
-                className="ml-auto rounded-full px-4 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50"
-              >
-                Vazgeç
-              </button>
-              <button
-                onClick={onSave}
-                disabled={saving || !canSave}
-                className="flex items-center gap-1.5 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50"
-              >
-                {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                {saving ? "Kaydediliyor…" : saveLabel}
-              </button>
-            </footer>
+            {/* Sticky footer — only for explicit-save forms. Live-editing
+                surfaces (NodeSheet etc.) persist on change and pass no onSave. */}
+            {(onSave || footerStart) && (
+              <footer className="flex shrink-0 items-center gap-2 border-t border-border/60 bg-card px-5 pt-3 pb-[max(env(safe-area-inset-bottom),1rem)]">
+                {footerStart}
+                {onSave && (
+                  <>
+                    <button
+                      onClick={attemptClose}
+                      disabled={saving}
+                      className="ml-auto rounded-full px-4 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50"
+                    >
+                      Vazgeç
+                    </button>
+                    <button
+                      onClick={onSave}
+                      disabled={saving || !canSave}
+                      className="flex items-center gap-1.5 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50"
+                    >
+                      {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                      {saving ? "Kaydediliyor…" : saveLabel}
+                    </button>
+                  </>
+                )}
+              </footer>
+            )}
           </motion.div>
         </div>
       )}
