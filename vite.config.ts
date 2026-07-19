@@ -40,6 +40,12 @@ for (const key of SERVER_SECRETS) {
   if (value) ssrDefine[`process.env.${key}`] = JSON.stringify(value);
 }
 
+// Custom domain bound to the Worker on `wrangler deploy`. Defaults to the
+// production host; set DEPLOY_DOMAIN="" to deploy without a custom domain
+// (e.g. a workers.dev test). Requires the domain's zone to live in the same
+// Cloudflare account — wrangler then provisions the domain + SSL automatically.
+const DEPLOY_DOMAIN = process.env.DEPLOY_DOMAIN ?? "plan.mintyapi.com";
+
 export default defineConfig(({ command }) => {
   const isDev = command === "serve";
 
@@ -100,7 +106,15 @@ export default defineConfig(({ command }) => {
         ? [
             nitro({
               defaultPreset: "cloudflare-module",
-              cloudflare: { wrangler: { name: "mintmap" } },
+              cloudflare: {
+                wrangler: {
+                  name: "mintmap",
+                  // Bind the custom domain at deploy time (SSL auto-provisioned).
+                  ...(DEPLOY_DOMAIN
+                    ? { routes: [{ pattern: DEPLOY_DOMAIN, custom_domain: true }] }
+                    : {}),
+                },
+              },
             }),
           ]
         : []),
