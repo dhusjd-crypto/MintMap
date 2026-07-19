@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { shouldAllowCloudSave } from "./backup-format";
 import { mindmap } from "./mindmap-store";
-import { driveSaveSnapshot } from "./drive.functions";
+import { driveSaveSnapshot } from "./google/drive";
 
 const KEY = "mintmap.drive.savedAt";
 const ENABLED_KEY = "mintmap.drive.auto";

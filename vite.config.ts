@@ -24,11 +24,14 @@ import { nitro } from "nitro/vite";
 // process.env lookup (e.g. Cloudflare secrets) still applies.
 const mode = process.env.NODE_ENV || "development";
 const fileEnv = loadEnv(mode, process.cwd(), "");
+// Server-side AI keys only. Google Calendar/Drive are now client-side (GIS
+// token), so their keys live in the browser env (VITE_GOOGLE_CLIENT_ID) instead.
 const SERVER_SECRETS = [
+  "GEMINI_API_KEY",
+  "GOOGLE_API_KEY",
   "OPENAI_API_KEY",
-  "LOVABLE_API_KEY",
-  "GOOGLE_DRIVE_API_KEY",
-  "GOOGLE_CALENDAR_API_KEY",
+  "OPENROUTER_API_KEY",
+  "OLLAMA_BASE_URL",
 ] as const;
 
 const ssrDefine: Record<string, string> = {};

@@ -1,4 +1,4 @@
-import { calendarSyncPush, calendarSyncPull, calendarDeleteEvent } from "./calendar.functions";
+import { calendarSyncPush, calendarSyncPull, calendarDeleteEvent } from "./google/calendar";
 import { mindmap } from "./mindmap-store";
 
 /**

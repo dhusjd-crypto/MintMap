@@ -11,11 +11,10 @@ import {
   Move,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useServerFn } from "@tanstack/react-start";
 // Lazy-imported on demand inside handlePngExport to keep it out of the
 // initial canvas bundle.
 
-import { driveLoadSnapshot, driveSaveSnapshot } from "@/lib/drive.functions";
+import { driveLoadSnapshot, driveSaveSnapshot } from "@/lib/google/drive";
 import { mindmap, useNodes, type MindNode } from "@/lib/mindmap-store";
 import { readBackupPayload, shouldAllowCloudSave, describeStoreSnapshot } from "@/lib/backup-format";
 import { useFabSlot } from "@/lib/fab-slots";
@@ -499,8 +498,8 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
     }
   };
 
-  const saveToDrive = useServerFn(driveSaveSnapshot);
-  const loadFromDrive = useServerFn(driveLoadSnapshot);
+  const saveToDrive = driveSaveSnapshot;
+  const loadFromDrive = driveLoadSnapshot;
 
   const handleDriveSave = async () => {
     const t = toast.loading("Drive'a kaydediliyor...");

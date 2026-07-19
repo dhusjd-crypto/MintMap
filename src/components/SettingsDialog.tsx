@@ -7,7 +7,8 @@ import { mindmap, useNodes } from "@/lib/mindmap-store";
 import { readBackupPayload, shouldAllowCloudSave, describeStoreSnapshot } from "@/lib/backup-format";
 import { exportICS, exportMarkdown, downloadText } from "@/lib/export";
 import { toast } from "sonner";
-import { driveLoadSnapshot, driveSaveSnapshot } from "@/lib/drive.functions";
+import { driveLoadSnapshot, driveSaveSnapshot } from "@/lib/google/drive";
+import { isGoogleConfigured } from "@/lib/google/gauth";
 import { aiStatus } from "@/lib/ai.functions";
 import { runCalendarSync } from "@/lib/calendar-sync";
 import { useServerFn } from "@tanstack/react-start";
@@ -296,6 +297,17 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
 
         <section className="space-y-2">
           <h3 className="text-xs font-semibold uppercase text-muted-foreground">Google Drive senkron</h3>
+          {!isGoogleConfigured() && (
+            <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2.5 text-[11px] leading-relaxed">
+              <p className="font-semibold">Google bağlantısı yapılandırılmadı</p>
+              <p className="mt-0.5 text-muted-foreground">
+                Drive yedek ve Takvim senkronu için <code className="rounded bg-muted px-1">.env</code>{" "}
+                dosyasına <code className="rounded bg-muted px-1">VITE_GOOGLE_CLIENT_ID</code> ekle
+                (Google Cloud Console → OAuth Web client). İlk kullanımda Google hesabınla giriş
+                penceresi açılır.
+              </p>
+            </div>
+          )}
           <Button
             variant="outline"
             className="w-full justify-start"

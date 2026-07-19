@@ -29,7 +29,7 @@ import {
   requestNotificationPermission,
   useNode,
 } from "@/lib/mindmap-store";
-import { calendarCreateEvent } from "@/lib/calendar.functions";
+import { calendarCreateEvent } from "@/lib/google/calendar";
 import { aiSuggestSubnodes, aiSummarize, aiBreakdownTask, aiAutoTag } from "@/lib/ai.functions";
 
 const REMINDER_PRESETS = [
@@ -314,7 +314,7 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
     toast.success(`${minutes} dk sonra hatırlatacağım`);
   };
 
-  const addToCalendar = useServerFn(calendarCreateEvent);
+  const addToCalendar = calendarCreateEvent;
   const handleAddToCalendar = async () => {
     if (!node) return;
     const start = node.reminderAt ? new Date(node.reminderAt) : new Date(Date.now() + 60 * 60_000);
