@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Star, Sun } from "lucide-react";
-import { toast } from "sonner";
-import { FormPanel } from "@/components/FormPanel";
+import { FormPanel, Field } from "@/components/FormPanel";
+import { notifySaved, notifySaveFailed } from "@/lib/save-feedback";
 import { mindmap, useNodes, type Priority, type Todo } from "@/lib/mindmap-store";
 import { PRIORITY_META } from "@/lib/task-utils";
 
@@ -60,7 +60,9 @@ export function TaskFormPanel({ open, onClose, nodeId }: Props) {
     myDay ||
     tagsInput.trim().length > 0;
 
-  const canSave = text.trim().length > 0 && !!targetId;
+  // §11: keep Save enabled so validation can explain what is missing instead
+  // of leaving the user with a dead button.
+  const canSave = true;
 
   const tags = useMemo(
     () =>
@@ -89,13 +91,28 @@ export function TaskFormPanel({ open, onClose, nodeId }: Props) {
       if (tags.length) extra.tags = tags;
       mindmap.addTodo(targetId, text.trim(), null, extra);
       const nodeName = nodes.find((n) => n.id === targetId)?.title ?? "düğüm";
-      toast.success(`Görev oluşturuldu → ${nodeName}`, { duration: 7000 });
+      // §12: notify → close → reveal + flash the node that changed.
+      notifySaved(`Görev oluşturuldu → ${nodeName}`, targetId);
       onClose();
     } catch (e) {
-      toast.error((e as Error).message, { duration: 12000 });
+      // §14: keep the panel open with the user's input intact.
+      notifySaveFailed(e);
     } finally {
       setSaving(false);
     }
+  }
+
+  /** §11: full validation on save. */
+  function validate() {
+    const errs: Record<string, string> = {};
+    if (!text.trim()) errs.text = "Bu alan zorunludur.";
+    if (!targetId) errs.node = "Bir düğüm seç.";
+    const d = localToTs(due);
+    const r = localToTs(reminder);
+    if (d && r && r > d) {
+      errs.reminder = "Hatırlatma, bitiş tarihinden sonra olamaz.";
+    }
+    return errs;
   }
 
   return (
@@ -109,8 +126,9 @@ export function TaskFormPanel({ open, onClose, nodeId }: Props) {
       canSave={canSave}
       saveLabel="Görevi ekle"
       onSave={handleSave}
+      validate={validate}
     >
-      <Field label="Görev">
+      <Field name="text" label="Görev" required>
         <input
           data-autofocus
           value={text}
@@ -125,7 +143,7 @@ export function TaskFormPanel({ open, onClose, nodeId }: Props) {
 
       {/* Only show the node picker when the caller didn't fix one. */}
       {!nodeId && (
-        <Field label="Düğüm">
+        <Field name="node" label="Düğüm" required>
           <select
             value={targetId}
             onChange={(e) => setTargetId(e.target.value)}
@@ -141,7 +159,7 @@ export function TaskFormPanel({ open, onClose, nodeId }: Props) {
         </Field>
       )}
 
-      <Field label="Not (opsiyonel)">
+      <Field label="Not" optional>
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
@@ -152,7 +170,7 @@ export function TaskFormPanel({ open, onClose, nodeId }: Props) {
       </Field>
 
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Bitiş">
+        <Field name="due" label="Bitiş" optional>
           <input
             type="datetime-local"
             value={due}
@@ -160,7 +178,7 @@ export function TaskFormPanel({ open, onClose, nodeId }: Props) {
             className="w-full rounded-lg border border-input bg-background px-2 py-2 text-sm"
           />
         </Field>
-        <Field label="Hatırlatma">
+        <Field name="reminder" label="Hatırlatma" optional>
           <input
             type="datetime-local"
             value={reminder}
@@ -192,7 +210,7 @@ export function TaskFormPanel({ open, onClose, nodeId }: Props) {
         </Toggle>
       </div>
 
-      <Field label="Etiketler (virgülle)">
+      <Field label="Etiketler" help="Virgülle ayır — ör: iş, acil" optional>
         <input
           value={tagsInput}
           onChange={(e) => setTagsInput(e.target.value)}
@@ -204,16 +222,6 @@ export function TaskFormPanel({ open, onClose, nodeId }: Props) {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </span>
-      {children}
-    </label>
-  );
-}
 
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (

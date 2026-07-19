@@ -1,6 +1,6 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { AlertTriangle, Loader2, X } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
 // Reusable form panel — the app's standard "add / edit" surface.
 //
@@ -43,7 +43,67 @@ export type FormPanelProps = {
   children: ReactNode;
   /** Optional extra control on the left of the footer (e.g. a delete button). */
   footerStart?: ReactNode;
+  /**
+   * Full validation, run on save (§11). Return `{ fieldName: "mesaj" }` for any
+   * invalid field — the panel then blocks the save, shows the summary and
+   * focuses/scrolls the first offending <Field name="fieldName">. Return null
+   * (or an empty object) when everything is valid.
+   */
+  validate?: () => Record<string, string> | null | undefined;
 };
+
+/** Field errors for the panel currently rendering, keyed by field name. */
+const FieldErrorContext = createContext<{
+  errors: Record<string, string>;
+  clear: (name: string) => void;
+}>({ errors: {}, clear: () => {} });
+
+/**
+ * Standard field wrapper (§7): label → control → help → error, with the error
+ * wired to the control via aria-describedby. `name` links it to validate().
+ */
+export function Field({
+  name,
+  label,
+  help,
+  required,
+  optional,
+  children,
+}: {
+  name?: string;
+  label: string;
+  help?: ReactNode;
+  required?: boolean;
+  optional?: boolean;
+  children: ReactNode;
+}) {
+  const { errors, clear } = useContext(FieldErrorContext);
+  const error = name ? errors[name] : undefined;
+  const errorId = name ? `err-${name}` : undefined;
+  return (
+    <div
+      data-field={name}
+      onInput={() => name && clear(name)}
+      onChange={() => name && clear(name)}
+    >
+      <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+        {required && <span className="ml-1 text-destructive">*</span>}
+        {optional && <span className="ml-1 normal-case opacity-70">(isteğe bağlı)</span>}
+      </label>
+      <div aria-describedby={error ? errorId : undefined} data-invalid={error ? "true" : undefined}>
+        {children}
+      </div>
+      {help && !error && <p className="mt-1 text-[11px] text-muted-foreground">{help}</p>}
+      {error && (
+        <p id={errorId} role="alert" className="mt-1 flex items-center gap-1 text-[11px] font-medium text-destructive">
+          <AlertTriangle className="h-3 w-3 shrink-0" />
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([type=hidden]):not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -63,7 +123,9 @@ export function FormPanel({
   onSave,
   children,
   footerStart,
+  validate,
 }: FormPanelProps) {
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const bodyRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
@@ -86,6 +148,32 @@ export function FormPanel({
     return () => clearTimeout(t);
   }, [open, reduceMotion]);
 
+  /**
+   * §11: full validation on save. Blocks the request when invalid, surfaces the
+   * summary + per-field messages, and focuses/scrolls the first bad field —
+   * everything the user already typed is preserved.
+   */
+  function attemptSave() {
+    if (!onSave || saving) return;
+    const found = validate?.() ?? null;
+    if (found && Object.keys(found).length) {
+      setErrors(found);
+      const first = Object.keys(found)[0];
+      requestAnimationFrame(() => {
+        const wrap = bodyRef.current?.querySelector<HTMLElement>(`[data-field="${first}"]`);
+        wrap?.scrollIntoView({ block: "center", behavior: "smooth" });
+        wrap?.querySelector<HTMLElement>("input, textarea, select")?.focus();
+      });
+      return;
+    }
+    setErrors({});
+    onSave();
+  }
+
+  function clearFieldError(name: string) {
+    setErrors((e) => (e[name] ? { ...e, [name]: "" } : e));
+  }
+
   function attemptClose() {
     if (saving) return;
     if (dirty) {
@@ -97,7 +185,10 @@ export function FormPanel({
 
   // Reset the discard dialog whenever the panel itself closes.
   useEffect(() => {
-    if (!open) setConfirmClose(false);
+    if (!open) {
+      setConfirmClose(false);
+      setErrors({});
+    }
   }, [open]);
 
   // Keyboard: Esc closes (dirty guard), Cmd/Ctrl+Enter saves, Tab stays trapped.
@@ -116,7 +207,7 @@ export function FormPanel({
       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
         if (onSave && canSave && !saving) {
           e.preventDefault();
-          onSave();
+          attemptSave();
         }
         return;
       }
@@ -236,7 +327,10 @@ export function FormPanel({
               ref={bodyRef}
               className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-4"
             >
-              {children}
+              <ValidationSummary errors={errors} />
+              <FieldErrorContext.Provider value={{ errors, clear: clearFieldError }}>
+                {children}
+              </FieldErrorContext.Provider>
             </div>
 
             {/* Sticky footer — only for explicit-save forms. Live-editing
@@ -254,7 +348,7 @@ export function FormPanel({
                       Vazgeç
                     </button>
                     <button
-                      onClick={onSave}
+                      onClick={attemptSave}
                       disabled={saving || !canSave}
                       className="flex items-center gap-1.5 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50"
                     >
@@ -281,6 +375,28 @@ export function FormPanel({
       }}
     />
     </>
+  );
+}
+
+/** Short error summary pinned at the top of the panel body (§11). */
+function ValidationSummary({ errors }: { errors: Record<string, string> }) {
+  const list = Object.values(errors).filter(Boolean);
+  if (!list.length) return null;
+  return (
+    <div
+      role="alert"
+      className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-[12px] leading-relaxed"
+    >
+      <p className="flex items-center gap-1.5 font-semibold text-destructive">
+        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+        {list.length === 1 ? "Bir alanı düzeltmen gerekiyor" : `${list.length} alanı düzeltmen gerekiyor`}
+      </p>
+      <ul className="mt-1 list-inside list-disc text-muted-foreground">
+        {list.map((m, i) => (
+          <li key={i}>{m}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

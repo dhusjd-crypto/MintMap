@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
+import { useSavedNodeId } from "@/lib/save-feedback";
 import {
   ClipboardList,
   Plus,
@@ -437,6 +438,23 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
     setPan({ x: -n.x * scale, y: -n.y * scale });
   };
 
+  // §12–13: after a save, bring the affected node into view (zoom preserved)
+  // and flash it so the user sees what changed. Only pans when the node is
+  // actually off-screen, so a visible node doesn't jump under the user.
+  const savedNodeId = useSavedNodeId();
+  useEffect(() => {
+    if (!savedNodeId) return;
+    const n = byId.get(savedNodeId);
+    if (!n || !size.w || !size.h) return;
+    const sx = n.x * scale + pan.x + size.w / 2;
+    const sy = n.y * scale + pan.y + size.h / 2;
+    const margin = 80;
+    const offscreen =
+      sx < margin || sy < margin || sx > size.w - margin || sy > size.h - margin;
+    if (offscreen) focusOnNode(n);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedNodeId]);
+
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const handleApplyTemplate = (id: string) => {
     const custom = customTemplates.list().find((t) => t.id === id);
@@ -862,6 +880,7 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
               }
               dimmed={dimmed}
               highlighted={matchedIds ? matchedIds.has(n.id) : false}
+              justSaved={savedNodeId === n.id}
               onTap={(id) => {
                 if (linkMode) {
                   if (!linkSource) {
@@ -1195,6 +1214,7 @@ const NodeButton = memo(function NodeButton({
   isSelected,
   dimmed,
   highlighted,
+  justSaved,
   onTap,
   onStartDrag,
   onCommitEdit,
@@ -1209,6 +1229,8 @@ const NodeButton = memo(function NodeButton({
   isSelected: boolean;
   dimmed?: boolean;
   highlighted?: boolean;
+  /** Just created/updated — brief post-save flash (§13). */
+  justSaved?: boolean;
   onTap: (id: string) => void;
   onStartDrag: (e: React.PointerEvent, pos: { x: number; y: number }) => void;
   onCommitEdit?: (title: string) => void;
@@ -1272,6 +1294,8 @@ const NodeButton = memo(function NodeButton({
             ? "ring-4 ring-accent ring-offset-2 ring-offset-background shadow-leaf scale-105"
             : "shadow-soft"
         } ${highlighted ? "ring-2 ring-amber-400 ring-offset-1" : ""} ${
+          justSaved ? "ring-4 ring-primary ring-offset-2 ring-offset-background animate-pulse" : ""
+        } ${
           isRoot ? "text-lg font-bold" : "text-sm font-semibold"
         }`}
         style={{

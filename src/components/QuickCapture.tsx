@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { FormPanel } from "@/components/FormPanel";
+import { FormPanel, Field } from "@/components/FormPanel";
+import { notifySaved, notifySaveFailed } from "@/lib/save-feedback";
 import { Mic, MicOff, Sparkles } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -106,14 +107,28 @@ export function QuickCapture({ open, onClose }: { open: boolean; onClose: () => 
       if (res.tags.length) patch.tags = res.tags;
       if (Object.keys(patch).length) mindmap.update(node.id, patch);
       res.todos.forEach((t2) => mindmap.addTodo(node.id, t2));
-      toast.success(`"${res.title}" eklendi · ${res.todos.length} görev`, { id: t });
+      // §12: dismiss the progress toast, announce success, then reveal + flash
+      // the new node so the user sees exactly what was added.
+      toast.dismiss(t);
+      notifySaved(`"${res.title}" eklendi · ${res.todos.length} görev`, node.id);
       setText("");
       onClose();
     } catch (e) {
-      toast.error((e as Error).message, { id: t });
+      // §14: panel stays open, text preserved, long dismissible error.
+      toast.dismiss(t);
+      notifySaveFailed(e);
     } finally {
       setBusy(false);
     }
+  };
+
+  /** §11: full validation on save. */
+  const validate = () => {
+    const errs: Record<string, string> = {};
+    if (!text.trim()) errs.text = "Bu alan zorunludur.";
+    else if (text.trim().length < 3) errs.text = "Biraz daha ayrıntı yaz (en az 3 karakter).";
+    if (!rootNode) errs.text = "Önce bir çalışma alanı oluştur.";
+    return errs;
   };
 
   return (
@@ -125,9 +140,10 @@ export function QuickCapture({ open, onClose }: { open: boolean; onClose: () => 
       icon={<Sparkles className="h-4 w-4" />}
       dirty={text.trim().length > 0}
       saving={busy}
-      canSave={!!text.trim()}
+      canSave
       saveLabel="AI ile ekle"
       onSave={run}
+      validate={validate}
       footerStart={
         speechSupported ? (
           <button
@@ -144,10 +160,12 @@ export function QuickCapture({ open, onClose }: { open: boolean; onClose: () => 
         ) : undefined
       }
     >
-      <label className="block">
-        <span className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-          Fikir
-        </span>
+      <Field
+        name="text"
+        label="Fikir"
+        required
+        help={rootNode ? `Şuraya eklenecek: ${rootNode.title}` : "Bir çalışma alanı gerekli"}
+      >
         <textarea
           data-autofocus
           value={text}
@@ -156,10 +174,7 @@ export function QuickCapture({ open, onClose }: { open: boolean; onClose: () => 
           placeholder="Örn. yeni blog için içerik fikirleri toplamam lazım, haftada 2 paylaşım..."
           className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
         />
-        <span className="mt-1 block text-[11px] text-muted-foreground">
-          {rootNode ? `Şuraya eklenecek: ${rootNode.title}` : "Bir çalışma alanı gerekli"}
-        </span>
-      </label>
+      </Field>
     </FormPanel>
   );
 }
