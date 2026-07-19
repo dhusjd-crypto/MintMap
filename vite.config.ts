@@ -91,7 +91,16 @@ export default defineConfig(({ command }) => {
       }),
       // Nitro builds the deployable server bundle. Cloudflare Worker by default;
       // override with NITRO_PRESET (node-server, vercel, netlify, …). Build only.
-      ...(command === "build" ? [nitro({ defaultPreset: "cloudflare-module" })] : []),
+      // Pin the Worker name so the generated wrangler.json is stable across
+      // machines (otherwise nitro derives it from the git remote).
+      ...(command === "build"
+        ? [
+            nitro({
+              defaultPreset: "cloudflare-module",
+              cloudflare: { wrangler: { name: "mintmap" } },
+            }),
+          ]
+        : []),
       viteReact(),
     ],
   };
