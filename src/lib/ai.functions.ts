@@ -1,6 +1,15 @@
 import { createServerFn } from "@tanstack/react-start";
 import { aiStatusSnapshot, chat as runChat } from "./ai/aiService";
 import type { ChatMessage, ProviderId } from "./ai/aiTypes";
+import { requireAppAuth } from "./auth.middleware";
+
+// Every cost-bearing AI endpoint below chains `.middleware([requireAppAuth])`
+// so the owner's API quota can't be abused from the public URL. (aiStatus stays
+// open — it only reports which providers are configured and costs nothing.)
+//
+// NOTE: the createServerFn(...) call must stay written out inline — TanStack
+// Start's compiler statically detects these calls to split server/client code.
+// Hiding it behind a helper silently breaks the RPC (handlers return undefined).
 
 // Provider selection, retries and 401/402/429 → message mapping now live in
 // src/lib/ai/. These handlers only build prompts and parse results.
@@ -83,7 +92,7 @@ export const aiStatus = createServerFn({ method: "GET" }).handler(async () => {
  * set. Explicit `provider` ("gemini"/"openai") pins one; "gateway" (legacy) and
  * default auto-pick Gemini first.
  */
-export const aiTranscribe = createServerFn({ method: "POST" })
+export const aiTranscribe = createServerFn({ method: "POST" }).middleware([requireAppAuth])
   .inputValidator((data: { audio: string; mime?: string; language?: string; provider?: Provider }) => {
     if (!data.audio) throw new Error("audio gerekli");
     return data;
@@ -222,7 +231,7 @@ function parseList(raw: string): string[] {
     .slice(0, 12);
 }
 
-export const aiSuggestSubnodes = createServerFn({ method: "POST" })
+export const aiSuggestSubnodes = createServerFn({ method: "POST" }).middleware([requireAppAuth])
   .inputValidator((data: { title: string; note?: string; count?: number }) => {
     if (!data.title) throw new Error("title gerekli");
     return data;
@@ -246,7 +255,7 @@ export const aiSuggestSubnodes = createServerFn({ method: "POST" })
     return { items: parseList(raw).slice(0, count) };
   });
 
-export const aiBreakdownTask = createServerFn({ method: "POST" })
+export const aiBreakdownTask = createServerFn({ method: "POST" }).middleware([requireAppAuth])
   .inputValidator((data: { text: string; context?: string }) => {
     if (!data.text) throw new Error("text gerekli");
     return data;
@@ -269,7 +278,7 @@ export const aiBreakdownTask = createServerFn({ method: "POST" })
     return { items: parseList(raw).slice(0, 6) };
   });
 
-export const aiSummarize = createServerFn({ method: "POST" })
+export const aiSummarize = createServerFn({ method: "POST" }).middleware([requireAppAuth])
   .inputValidator((data: { title?: string; note: string }) => {
     if (!data.note) throw new Error("note gerekli");
     return data;
@@ -308,7 +317,7 @@ function parseJson<T = unknown>(raw: string): T | null {
 }
 
 /** Suggest 3–6 short Turkish tags for a piece of text. */
-export const aiAutoTag = createServerFn({ method: "POST" })
+export const aiAutoTag = createServerFn({ method: "POST" }).middleware([requireAppAuth])
   .inputValidator((data: { text: string; note?: string; existing?: string[] }) => {
     if (!data.text) throw new Error("text gerekli");
     return data;
@@ -340,7 +349,7 @@ export const aiAutoTag = createServerFn({ method: "POST" })
   });
 
 /** Smart day planner — orders today's tasks and returns rationale per item. */
-export const aiPlanDay = createServerFn({ method: "POST" })
+export const aiPlanDay = createServerFn({ method: "POST" }).middleware([requireAppAuth])
   .inputValidator(
     (data: {
       items: Array<{
@@ -393,7 +402,7 @@ export const aiPlanDay = createServerFn({ method: "POST" })
   });
 
 /** General-purpose chat. Stateless — caller sends full message history. */
-export const aiChat = createServerFn({ method: "POST" })
+export const aiChat = createServerFn({ method: "POST" }).middleware([requireAppAuth])
   .inputValidator(
     (data: {
       messages: Array<{ role: "user" | "assistant"; content: string }>;
@@ -415,7 +424,7 @@ export const aiChat = createServerFn({ method: "POST" })
   });
 
 /** Quick capture: turn freeform note/voice transcript into a node + child suggestions. */
-export const aiQuickCapture = createServerFn({ method: "POST" })
+export const aiQuickCapture = createServerFn({ method: "POST" }).middleware([requireAppAuth])
   .inputValidator((data: { text: string }) => {
     if (!data.text) throw new Error("text gerekli");
     return data;
@@ -535,7 +544,7 @@ export type AIChatStepResult = {
 };
 
 /** Run one step of an AI chat with tool-calling enabled. Client executes tools, then sends tool results back. */
-export const aiChatStep = createServerFn({ method: "POST" })
+export const aiChatStep = createServerFn({ method: "POST" }).middleware([requireAppAuth])
   .inputValidator((data: { messages: ChatStepMsg[]; context?: string; provider?: Provider; model?: string }) => {
     if (!Array.isArray(data.messages) || !data.messages.length) throw new Error("messages gerekli");
     return data;
@@ -566,7 +575,7 @@ export const aiChatStep = createServerFn({ method: "POST" })
   });
 
 /** Extract a structured task from a free-form voice transcript. Used for the preview/confirm UI. */
-export const aiExtractVoiceTask = createServerFn({ method: "POST" })
+export const aiExtractVoiceTask = createServerFn({ method: "POST" }).middleware([requireAppAuth])
   .inputValidator(
     (data: {
       transcript: string;
@@ -644,7 +653,7 @@ type BulkNodeInput = {
 };
 
 /** Summarize an entire workspace (or arbitrary set) of nodes into themes + action items. */
-export const aiBulkSummarize = createServerFn({ method: "POST" })
+export const aiBulkSummarize = createServerFn({ method: "POST" }).middleware([requireAppAuth])
   .inputValidator(
     (data: {
       nodes: BulkNodeInput[];
@@ -704,7 +713,7 @@ type WeeklyInput = {
 };
 
 /** Generate a weekly retrospective / plan-ahead report from workspace activity. */
-export const aiWeeklyReport = createServerFn({ method: "POST" })
+export const aiWeeklyReport = createServerFn({ method: "POST" }).middleware([requireAppAuth])
   .inputValidator((data: WeeklyInput) => {
     if (!data.from || !data.to) throw new Error("tarih aralığı gerekli");
     return data;
@@ -758,7 +767,7 @@ export const aiWeeklyReport = createServerFn({ method: "POST" })
  * category plus tags and a cleaned title. For images the picture itself is
  * attached so a vision-capable model (gpt-4o-mini / gemini) can read it.
  */
-export const aiCategorizeCard = createServerFn({ method: "POST" })
+export const aiCategorizeCard = createServerFn({ method: "POST" }).middleware([requireAppAuth])
   .inputValidator(
     (data: {
       type: "note" | "link" | "image";

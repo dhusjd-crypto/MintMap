@@ -1,5 +1,6 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
+import { appLogin } from "@/lib/auth.functions";
 
 export const Route = createFileRoute("/unlock")({
   head: () => ({
@@ -16,19 +17,27 @@ function UnlockPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (username.trim() === "mint" && password === "mint") {
-      setError(false);
+    if (busy) return;
+    setBusy(true);
+    setError(false);
+    try {
+      // Password is validated on the server; on success it sets the HttpOnly
+      // mm_auth cookie that gates the AI endpoints.
+      await appLogin({ data: { password } });
       try {
         sessionStorage.setItem("mintmap:unlocked", "1");
       } catch {
         // ignore
       }
       void router.navigate({ to: "/" });
-    } else {
+    } catch {
       setError(true);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -48,7 +57,7 @@ function UnlockPage() {
           Oturum açın
         </h1>
         <p className="mt-1 text-[13px] text-[#4a4a4a]">
-          https://sales.mintyapi.com
+          plan.mintyapi.com
         </p>
 
         <div className="mt-6 space-y-4">
@@ -99,9 +108,10 @@ function UnlockPage() {
         <div className="mt-7 flex items-center justify-end gap-3">
           <button
             type="submit"
-            className="h-10 rounded-full bg-[#8a5a1f] px-6 text-[14px] font-semibold text-white shadow-sm transition-colors hover:bg-[#73491a] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8a5a1f]/40"
+            disabled={busy}
+            className="h-10 rounded-full bg-[#8a5a1f] px-6 text-[14px] font-semibold text-white shadow-sm transition-colors hover:bg-[#73491a] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8a5a1f]/40 disabled:opacity-60"
           >
-            Oturum açın
+            {busy ? "Kontrol ediliyor…" : "Oturum açın"}
           </button>
           <button
             type="button"

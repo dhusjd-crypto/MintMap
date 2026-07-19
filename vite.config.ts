@@ -32,6 +32,9 @@ const SERVER_SECRETS = [
   "OPENAI_API_KEY",
   "OPENROUTER_API_KEY",
   "OLLAMA_BASE_URL",
+  // App gate: password + the bearer that protects the AI endpoints.
+  "APP_PASSWORD",
+  "APP_ACCESS_TOKEN",
 ] as const;
 
 const ssrDefine: Record<string, string> = {};
