@@ -1,58 +1,27 @@
-// @lovable.dev/vite-tanstack-config already includes the following — do NOT add them manually
-// or the app will break with duplicate plugins:
-//   - tanstackStart, viteReact, tailwindcss, tsConfigPaths, nitro (build-only using cloudflare as a default target),
-//     componentTagger (dev-only), VITE_* env injection, @ path alias, React/TanStack dedupe,
-//     error logger plugins, and sandbox detection (port/host/strictPort).
-// You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
-import { loadEnv, type ConfigEnv, type PluginOption } from "vite";
-import { defineConfig } from "@lovable.dev/vite-tanstack-config";
-
-// The Lovable config hardcodes @tanstack/devtools-vite's `injectSource`, which
-// stamps `data-tsd-source="__root.tsx:LINE"` onto every JSX element for the
-// devtools "jump to source" feature. In this project that transform computes
-// DIFFERENT line numbers for the SSR vs client build of the root shell
-// (<html>/<head>/<body>), so React reports a hydration mismatch on those
-// attributes on every load. It's dev-only (the plugin never runs in a
-// production build) but the mismatch is exactly the kind of root-level
-// hydration breakage that was destabilising framer-motion. We drop just that
-// one plugin from the resolved config — everything else stays intact, and the
-// only thing lost is devtools source-jump. Recurse because Vite's `plugins`
-// field may hold nested arrays / promises.
-const INJECT_SOURCE_PLUGIN = "@tanstack/devtools:inject-source";
-async function stripInjectSourcePlugin(
-  plugins: PluginOption[] | undefined,
-): Promise<PluginOption[]> {
-  const out: PluginOption[] = [];
-  for (const entry of plugins ?? []) {
-    const resolved = await entry;
-    if (!resolved) continue;
-    if (Array.isArray(resolved)) {
-      out.push(...(await stripInjectSourcePlugin(resolved)));
-    } else if (
-      typeof resolved === "object" &&
-      "name" in resolved &&
-      resolved.name === INJECT_SOURCE_PLUGIN
-    ) {
-      // drop it
-    } else {
-      out.push(resolved);
-    }
-  }
-  return out;
-}
+// Plain, self-hosted Vite config (no Lovable). Reconstructs the plugin stack the
+// old @lovable.dev/vite-tanstack-config bundled — TanStack Start + React +
+// Tailwind + tsconfig paths, with Nitro producing the deployable Cloudflare
+// Worker at build time — minus all Lovable/sandbox/dev-tooling plugins
+// (componentTagger, hmr-gate, dev-server-bridge, assets proxy, devtools
+// inject-source).
+//
+// Note: the config MUST be a plain object or a *sync* function. An async config
+// function makes TanStack Start's builder fall back to a default client build
+// ("Could not resolve entry module index.html"), so nitro is imported statically
+// and only added to the plugin list on `build`.
+import { defineConfig, loadEnv } from "vite";
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+import viteReact from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import tsConfigPaths from "vite-tsconfig-paths";
+import { nitro } from "nitro/vite";
 
 // --- Server-only secrets -----------------------------------------------------
-// Server functions read process.env.OPENAI_API_KEY / LOVABLE_API_KEY, but inside
-// the SSR module graph `process` resolves to a polyfill (the Cloudflare target),
-// so real env vars never arrive: every AI call reported "no provider configured"
-// even with the key exported in the shell. Verified: same pid, config sees the
-// key, the server fn sees "".
-//
-// Fix: statically inline the secrets into the SSR environment only. They are
-// never added to the client environment, so nothing reaches the browser. Values
-// come from .env (gitignored) or the real shell env. If a key is absent we omit
-// it, leaving the runtime `process.env` lookup intact — which is how the
-// deployed app gets its Cloudflare secrets.
+// Server functions read process.env.*; under the SSR/edge module graph `process`
+// is a polyfill, so real env vars never arrive. Statically inline them into the
+// SSR environment ONLY (never the client bundle). Values come from .env
+// (gitignored) or the real shell env; absent keys are omitted so the runtime
+// process.env lookup (e.g. Cloudflare secrets) still applies.
 const mode = process.env.NODE_ENV || "development";
 const fileEnv = loadEnv(mode, process.cwd(), "");
 const SERVER_SECRETS = [
@@ -68,27 +37,62 @@ for (const key of SERVER_SECRETS) {
   if (value) ssrDefine[`process.env.${key}`] = JSON.stringify(value);
 }
 
-const baseConfig = defineConfig({
-  tanstackStart: {
-    // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
-    // nitro/vite builds from this
-    server: { entry: "server" },
-  },
-  // Local-dev only: allow the Claude preview proxy's Host header so Vite serves
-  // its HMR client (/@vite/client) instead of rejecting it (403/404), which
-  // otherwise breaks client hydration when the app is viewed through a proxy.
-  vite: {
-    server: {
-      allowedHosts: true,
-    },
-    environments: {
-      ssr: { define: ssrDefine },
-    },
-  },
-});
+export default defineConfig(({ command }) => {
+  const isDev = command === "serve";
 
-export default async (env: ConfigEnv) => {
-  const config = await baseConfig(env);
-  config.plugins = await stripInjectSourcePlugin(config.plugins);
-  return config;
-};
+  return {
+    css: { transformer: "lightningcss" },
+    resolve: {
+      alias: { "@": `${process.cwd()}/src` },
+      // React/Query must resolve to a single copy or hydration/context breaks.
+      dedupe: [
+        "react",
+        "react-dom",
+        "react/jsx-runtime",
+        "react/jsx-dev-runtime",
+        "@tanstack/react-query",
+        "@tanstack/query-core",
+      ],
+    },
+    optimizeDeps: {
+      include: [
+        "react",
+        "react-dom",
+        "react-dom/client",
+        "react/jsx-runtime",
+        "react/jsx-dev-runtime",
+      ],
+      ignoreOutdatedRequests: true,
+    },
+    // host "::" so the dev server is reachable through the preview proxy;
+    // allowedHosts lets the proxy's Host header through for HMR.
+    server: { host: "::", port: 8080, allowedHosts: true },
+    environments: {
+      // Inline server-only secrets into the SSR environment (never the client).
+      ssr: { define: ssrDefine },
+      // Client-scoped dev NODE_ENV so React DevTools gets dev react-dom without a
+      // global flip emitting jsxDEV that the react-server SSR can't resolve.
+      ...(isDev
+        ? { client: { define: { "process.env.NODE_ENV": JSON.stringify("development") } } }
+        : {}),
+    },
+    ...(isDev ? { esbuild: { keepNames: true } } : {}),
+    plugins: [
+      tailwindcss(),
+      tsConfigPaths({ projects: ["./tsconfig.json"] }),
+      tanstackStart({
+        // Keep server-only modules out of the client bundle.
+        importProtection: {
+          behavior: "error",
+          client: { files: ["**/server/**"], specifiers: ["server-only"] },
+        },
+        // Our SSR error wrapper (src/server.ts) is the server entry.
+        server: { entry: "server" },
+      }),
+      // Nitro builds the deployable server bundle. Cloudflare Worker by default;
+      // override with NITRO_PRESET (node-server, vercel, netlify, …). Build only.
+      ...(command === "build" ? [nitro({ defaultPreset: "cloudflare-module" })] : []),
+      viteReact(),
+    ],
+  };
+});
