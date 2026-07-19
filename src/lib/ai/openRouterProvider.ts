@@ -1,9 +1,9 @@
 import { AIError, messageForStatus, type AIProvider, type ChatMessage, type ChatOptions, type ChatResult, type ProviderId } from "./aiTypes";
 
-// One adapter for every OpenAI-compatible endpoint. OpenRouter, OpenAI,
-// the Lovable gateway and Ollama all speak the same /chat/completions shape,
-// so they differ only by baseUrl + key + headers. Gemini reuses this too via
-// its OpenAI-compatible endpoint (see geminiProvider.ts).
+// One adapter for every OpenAI-compatible endpoint. OpenRouter, OpenAI and
+// Ollama all speak the same /chat/completions shape, so they differ only by
+// baseUrl + key + headers. Gemini reuses this too via its OpenAI-compatible
+// endpoint (see geminiProvider.ts).
 
 const TRANSIENT = new Set([408, 409, 429, 500, 502, 503, 504]);
 
@@ -128,17 +128,6 @@ export function openAIProvider(): AIProvider {
     baseUrl: "https://api.openai.com/v1",
     getApiKey: () => process.env.OPENAI_API_KEY,
     defaultModel: process.env.OPENAI_MODEL || "gpt-4o-mini",
-  });
-}
-
-/** Lovable AI gateway — kept so existing deployments keep working. */
-export function lovableProvider(): AIProvider {
-  return createOpenAICompatibleProvider({
-    id: "lovable",
-    label: "Lovable Gateway",
-    baseUrl: "https://ai.gateway.lovable.dev/v1",
-    getApiKey: () => process.env.LOVABLE_API_KEY,
-    defaultModel: "google/gemini-2.5-flash",
   });
 }
 

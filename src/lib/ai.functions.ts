@@ -11,10 +11,11 @@ type Msg = { role: "system" | "user" | "assistant"; content: string };
 
 const FALLBACK_STATUSES = new Set([401, 402, 429, 500, 502, 503, 504]);
 
-/** Clients used to store "gateway"; the provider layer calls that one "lovable". */
+/** Legacy clients stored "gateway" (the old Lovable option). Treat it as
+ * "let the server auto-pick", which now lands on Gemini (primary). */
 function normalizeProvider(pref?: string): ProviderId | undefined {
-  if (!pref) return undefined;
-  return pref === "gateway" ? "lovable" : (pref as ProviderId);
+  if (!pref || pref === "gateway") return undefined;
+  return pref as ProviderId;
 }
 
 /** Retry transient failures (429/500/502/503) with exponential backoff. */
@@ -36,8 +37,8 @@ async function fetchWithRetry(url: string, init: RequestInit, retries = 2): Prom
 }
 
 /**
- * Runs one chat through the provider layer (OpenRouter / Gemini / OpenAI /
- * Lovable / Ollama, or the demo provider when nothing is configured).
+ * Runs one chat through the provider layer (Gemini / OpenRouter / OpenAI /
+ * Ollama, or the demo provider when nothing is configured).
  */
 async function chatCompletion(
   messages: unknown[],
@@ -68,12 +69,7 @@ async function callAI(
 /** Returns which providers are configured server-side. Safe to expose. */
 export const aiStatus = createServerFn({ method: "GET" }).handler(async () => {
   const snap = aiStatusSnapshot();
-  const configured = (id: ProviderId) => snap.providers.some((p) => p.id === id && p.configured);
   return {
-    // Legacy shape — existing callers still read these two.
-    openai: configured("openai"),
-    gateway: configured("lovable"),
-    // Provider layer view.
     active: snap.active,
     /** true → nothing configured, answers come from the demo provider. */
     demo: snap.demo,
@@ -81,7 +77,12 @@ export const aiStatus = createServerFn({ method: "GET" }).handler(async () => {
   };
 });
 
-/** Transcribe an audio recording. Uses OpenAI if key present, else Lovable Gateway STT. */
+/**
+ * Transcribe an audio recording. Gemini (native generateContent with inline
+ * audio) is the primary; OpenAI Whisper is an optional fallback if its key is
+ * set. Explicit `provider` ("gemini"/"openai") pins one; "gateway" (legacy) and
+ * default auto-pick Gemini first.
+ */
 export const aiTranscribe = createServerFn({ method: "POST" })
   .inputValidator((data: { audio: string; mime?: string; language?: string; provider?: Provider }) => {
     if (!data.audio) throw new Error("audio gerekli");
@@ -91,71 +92,102 @@ export const aiTranscribe = createServerFn({ method: "POST" })
     const bin = Uint8Array.from(atob(data.audio), (c) => c.charCodeAt(0));
     if (bin.byteLength < 1024) throw new Error("Kayıt çok kısa — tekrar dene");
     const mime = data.mime || "audio/webm";
-    const ext = mime.includes("mp4")
-      ? "mp4"
-      : mime.includes("mpeg")
-        ? "mp3"
-        : mime.includes("wav")
-          ? "wav"
-          : mime.includes("ogg")
-            ? "ogg"
-            : "webm";
+    const lang = data.language || "tr";
 
-    const hasOpenAI = !!process.env.OPENAI_API_KEY;
-    const hasGateway = !!process.env.LOVABLE_API_KEY;
-    if (!hasOpenAI && !hasGateway) throw new Error("Hiçbir AI sağlayıcı yapılandırılmamış");
+    const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    const openaiKey = process.env.OPENAI_API_KEY;
+    if (!geminiKey && !openaiKey) throw new Error("Hiçbir AI sağlayıcı yapılandırılmamış");
 
-    type Attempt = { name: "openai" | "gateway"; url: string; headers: HeadersInit; model: string };
-    const mkOpenAI = (): Attempt => ({
-      name: "openai",
-      url: "https://api.openai.com/v1/audio/transcriptions",
-      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-      model: "gpt-4o-mini-transcribe",
-    });
-    const mkGateway = (): Attempt => ({
-      name: "gateway",
-      url: "https://ai.gateway.lovable.dev/v1/audio/transcriptions",
-      headers: {
-        "Lovable-API-Key": process.env.LOVABLE_API_KEY!,
-        "X-Lovable-AIG-SDK": "raw",
-      },
-      model: "openai/gpt-4o-mini-transcribe",
-    });
+    type STTError = { provider: string; status: number; body: string };
 
-    // Respect user preference strictly — no auto-fallback when explicit.
-    const attempts: Attempt[] = [];
-    if (data.provider === "openai") {
-      if (!hasOpenAI) throw new Error("OpenAI yapılandırılmamış — Ayarlar'dan kontrol et");
-      attempts.push(mkOpenAI());
-    } else if (data.provider === "gateway") {
-      if (!hasGateway) throw new Error("Lovable AI yapılandırılmamış");
-      attempts.push(mkGateway());
-    } else {
-      if (hasOpenAI) attempts.push(mkOpenAI());
-      if (hasGateway) attempts.push(mkGateway());
+    // Gemini native transcription — send the audio inline to generateContent.
+    async function viaGemini(): Promise<string> {
+      const model = process.env.GEMINI_STT_MODEL || "gemini-flash-latest";
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
+      const res = await fetchWithRetry(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: `Bu ses kaydını (${lang}) birebir yazıya dök. Sadece transkript metnini döndür, başka açıklama ekleme.`,
+                },
+                { inline_data: { mime_type: mime, data: data.audio } },
+              ],
+            },
+          ],
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw { provider: "gemini", status: res.status, body } satisfies STTError;
+      }
+      const json = (await res.json()) as {
+        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      };
+      return (json.candidates?.[0]?.content?.parts ?? [])
+        .map((p) => p.text ?? "")
+        .join("")
+        .trim();
     }
 
-    let lastErr: { provider: string; status: number; body: string } | null = null;
-    for (const a of attempts) {
+    // OpenAI Whisper transcription — multipart upload.
+    async function viaOpenAI(): Promise<string> {
+      const ext = mime.includes("mp4")
+        ? "mp4"
+        : mime.includes("mpeg")
+          ? "mp3"
+          : mime.includes("wav")
+            ? "wav"
+            : mime.includes("ogg")
+              ? "ogg"
+              : "webm";
       const fd = new FormData();
       fd.append("file", new Blob([bin], { type: mime }), `recording.${ext}`);
-      fd.append("model", a.model);
+      fd.append("model", "gpt-4o-mini-transcribe");
       if (data.language) fd.append("language", data.language);
-
-      const res = await fetchWithRetry(a.url, {
+      const res = await fetchWithRetry("https://api.openai.com/v1/audio/transcriptions", {
         method: "POST",
-        headers: a.headers,
+        headers: { Authorization: `Bearer ${openaiKey}` },
         body: fd,
       });
-      if (res.ok) {
-        const json = (await res.json()) as { text?: string };
-        return { text: (json.text ?? "").trim() };
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw { provider: "openai", status: res.status, body } satisfies STTError;
       }
-      const body = await res.text().catch(() => "");
-      console.error(`[transcribe] ${a.name} ${res.status}: ${body.slice(0, 300)}`);
-      lastErr = { provider: a.name, status: res.status, body };
-      // try the next provider on transient/limit errors (only when no explicit pref)
-      if (!FALLBACK_STATUSES.has(res.status)) break;
+      const json = (await res.json()) as { text?: string };
+      return (json.text ?? "").trim();
+    }
+
+    const order: Array<() => Promise<string>> = [];
+    if (data.provider === "openai") {
+      if (!openaiKey) throw new Error("OpenAI yapılandırılmamış — Ayarlar'dan kontrol et");
+      order.push(viaOpenAI);
+    } else if (data.provider === "gemini") {
+      if (!geminiKey) throw new Error("Gemini yapılandırılmamış — Ayarlar'dan kontrol et");
+      order.push(viaGemini);
+    } else {
+      if (geminiKey) order.push(viaGemini);
+      if (openaiKey) order.push(viaOpenAI);
+    }
+
+    let lastErr: STTError | null = null;
+    for (const attempt of order) {
+      try {
+        return { text: await attempt() };
+      } catch (e) {
+        const err = e as Partial<STTError>;
+        if (typeof err.status === "number") {
+          console.error(`[transcribe] ${err.provider} ${err.status}: ${(err.body ?? "").slice(0, 300)}`);
+          lastErr = { provider: err.provider ?? "?", status: err.status, body: err.body ?? "" };
+          // Fall through to the next provider only on transient/limit errors.
+          if (!FALLBACK_STATUSES.has(err.status)) break;
+        } else {
+          throw e;
+        }
+      }
     }
 
     if (!lastErr) throw new Error("Transkript başarısız");
@@ -163,7 +195,8 @@ export const aiTranscribe = createServerFn({ method: "POST" })
       throw new Error(`AI çok yoğun (${lastErr.provider}) — birkaç saniye sonra tekrar dene`);
     }
     if (lastErr.status === 402) throw new Error("Kredi tükendi — Ayarlar'dan AI sağlayıcısını değiştir");
-    if (lastErr.status === 401) throw new Error("API anahtarı geçersiz — Ayarlar'dan kontrol et");
+    if (lastErr.status === 401 || lastErr.status === 403)
+      throw new Error("API anahtarı geçersiz — Ayarlar'dan kontrol et");
     throw new Error(`Transkript hatası (${lastErr.status}): ${lastErr.body.slice(0, 200)}`);
   });
 

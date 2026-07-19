@@ -1,22 +1,22 @@
 import { AIError, type AIProvider, type ChatMessage, type ChatOptions, type ChatResult, type ProviderId, type ProviderStatus } from "./aiTypes";
 import { geminiProvider } from "./geminiProvider";
 import { mockProvider } from "./mockProvider";
-import { lovableProvider, ollamaProvider, openAIProvider, openRouterProvider } from "./openRouterProvider";
+import { ollamaProvider, openAIProvider, openRouterProvider } from "./openRouterProvider";
 
 // The single entry point every server function goes through. Swapping models
 // or adding a provider happens here, not in 15 scattered handlers.
 //
 // SERVER-ONLY — reads process.env. Never import from a component.
 
-/** Order we auto-pick from when the user hasn't chosen. */
-const PRIORITY: ProviderId[] = ["openrouter", "gemini", "openai", "lovable", "ollama"];
+/** Order we auto-pick from when the user hasn't chosen. Gemini is the primary
+ * infrastructure for the project; the rest are optional fallbacks. */
+const PRIORITY: ProviderId[] = ["gemini", "openrouter", "openai", "ollama"];
 
 function build(): Record<Exclude<ProviderId, "off" | "mock">, AIProvider> {
   return {
-    openrouter: openRouterProvider(),
     gemini: geminiProvider(),
+    openrouter: openRouterProvider(),
     openai: openAIProvider(),
-    lovable: lovableProvider(),
     ollama: ollamaProvider(),
   };
 }

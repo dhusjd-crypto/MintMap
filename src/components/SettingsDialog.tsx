@@ -12,7 +12,7 @@ import { aiStatus } from "@/lib/ai.functions";
 import { runCalendarSync } from "@/lib/calendar-sync";
 import { useServerFn } from "@tanstack/react-start";
 
-type ProviderPref = "auto" | "off" | "openrouter" | "gemini" | "openai" | "lovable" | "ollama" | "mock";
+type ProviderPref = "auto" | "off" | "openrouter" | "gemini" | "openai" | "ollama" | "mock";
 type AiInfo = {
   active: string;
   /** true → nothing configured; answers come from the demo provider. */
@@ -25,7 +25,6 @@ const KEY_HINT: Record<string, { env: string; url?: string; note?: string }> = {
   openrouter: { env: "OPENROUTER_API_KEY", url: "https://openrouter.ai/keys", note: "Tek anahtar, çok model. Ücretsiz modeller var." },
   gemini: { env: "GEMINI_API_KEY", url: "https://aistudio.google.com/apikey", note: "Desteklenen bölgelerde ücretsiz katman. Limitler proje bazlı (RPM/TPM/RPD), günlük kota Pasifik saatiyle gece yarısı sıfırlanır." },
   openai: { env: "OPENAI_API_KEY", url: "https://platform.openai.com/api-keys" },
-  lovable: { env: "LOVABLE_API_KEY", note: "Eski Lovable kurulumu." },
   ollama: { env: "OLLAMA_BASE_URL", note: "Yerel model, anahtar gerekmez. Örn: http://127.0.0.1:11434/v1" },
 };
 

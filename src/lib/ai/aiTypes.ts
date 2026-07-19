@@ -4,7 +4,7 @@
 // must only ever be imported from inside a createServerFn handler. Never
 // import them from a component.
 
-export type ProviderId = "off" | "openrouter" | "gemini" | "openai" | "lovable" | "ollama" | "mock";
+export type ProviderId = "off" | "openrouter" | "gemini" | "openai" | "ollama" | "mock";
 
 export type ChatRole = "system" | "user" | "assistant" | "tool";
 
