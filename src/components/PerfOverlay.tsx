@@ -10,7 +10,18 @@ import { useEffect, useRef, useState } from "react";
 export const perfCounters = {
   pointerMoves: 0,
   dragFlushes: 0,
+  /**
+   * NodeButton renders. With memo() holding, a drag should re-render only the
+   * node being moved (~1 per frame); if it climbs with the node count, some
+   * prop lost its stable identity again.
+   */
+  nodeRenders: 0,
 };
+
+// Dev-only handle so perf work can be measured from the console/automation.
+if (import.meta.env.DEV && typeof window !== "undefined") {
+  (window as unknown as { __perfCounters?: typeof perfCounters }).__perfCounters = perfCounters;
+}
 
 type Stats = {
   fps: number;

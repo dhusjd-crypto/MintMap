@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { useSavedNodeId } from "@/lib/save-feedback";
 import {
@@ -386,6 +386,103 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
   useEffect(() => {
     if (linkMode) setReparentMode(false);
   }, [linkMode]);
+
+  // `NodeButton` is memo()'d, but that was dead weight while every handler was
+  // an inline arrow: fresh identities each render meant all ~600 nodes
+  // re-rendered on every pointermove of a drag (measured: ~900ms frozen).
+  // The handlers below are stable, and read volatile state through this ref
+  // instead of closing over it.
+  const liveRef = useRef({
+    linkMode, linkSource, reparentMode, reparentSource, nodes,
+    originX, originY, scale,
+  });
+  liveRef.current = {
+    linkMode, linkSource, reparentMode, reparentSource, nodes,
+    originX, originY, scale,
+  };
+  const toggleCollapseRef = useRef(toggleCollapse);
+  toggleCollapseRef.current = toggleCollapse;
+  const callbacksRef = useRef({ onSelect, onOpenSheet });
+  callbacksRef.current = { onSelect, onOpenSheet };
+
+  const handleToggleCollapse = useCallback((id: string) => {
+    toggleCollapseRef.current(id);
+  }, []);
+
+  const handleCancelEdit = useCallback(() => setEditingId(null), []);
+
+  const handleCommitEdit = useCallback((id: string, title: string) => {
+    const t = title.trim();
+    const node = liveRef.current.nodes.find((x) => x.id === id);
+    if (t && t !== node?.title) {
+      mindmap.update(id, { title: t });
+      setLiveMsg(`Yeniden adlandırıldı: ${t}`);
+    }
+    setEditingId(null);
+  }, []);
+
+  const handleStartDrag = useCallback(
+    (e: React.PointerEvent, pos: { x: number; y: number }, id: string) => {
+      const { originX: ox, originY: oy, scale: sc } = liveRef.current;
+      const rect = containerRef.current!.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      dragNode.current = {
+        id,
+        offsetX: (sx - ox) / sc - pos.x,
+        offsetY: (sy - oy) / sc - pos.y,
+      };
+      pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    },
+    [],
+  );
+
+  const handleTap = useCallback((id: string) => {
+    const { linkMode: lm, linkSource: ls, reparentMode: rm, reparentSource: rs, nodes: ns } =
+      liveRef.current;
+
+    if (lm) {
+      if (!ls) {
+        setLinkSource(id);
+        toast("Şimdi bağlanacak ikinci düğüme dokun");
+      } else if (ls === id) {
+        setLinkSource(null);
+      } else {
+        mindmap.toggleLink(ls, id);
+        const a = ns.find((x) => x.id === ls);
+        const b = ns.find((x) => x.id === id);
+        const existed = a?.links?.includes(id);
+        toast.success(existed ? "Bağlantı kaldırıldı" : `🔗 ${a?.title} ↔ ${b?.title}`);
+        setLinkSource(null);
+      }
+      return;
+    }
+
+    if (rm) {
+      if (!rs) {
+        const src = ns.find((x) => x.id === id);
+        if (!src || src.parentId === null) {
+          toast.error("Kök düğüm taşınamaz");
+          return;
+        }
+        setReparentSource(id);
+        toast("Yeni üst düğüme dokun");
+      } else if (rs === id) {
+        setReparentSource(null);
+      } else {
+        const ok = mindmap.setParent(rs, id);
+        const a = ns.find((x) => x.id === rs);
+        const b = ns.find((x) => x.id === id);
+        if (ok) toast.success(`↳ ${a?.title} → ${b?.title}`);
+        else toast.error("Geçersiz hedef (döngü veya aynı üst)");
+        setReparentSource(null);
+      }
+      return;
+    }
+
+    callbacksRef.current.onSelect(id);
+    callbacksRef.current.onOpenSheet(id);
+  }, []);
 
   // Keyboard undo/redo
   useEffect(() => {
@@ -862,17 +959,10 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
               depth={depthOf(n.id)}
               hasChildren={kids > 0}
               collapsed={collapsedIds.has(n.id)}
-              onToggleCollapse={() => toggleCollapse(n.id)}
+              onToggleCollapse={handleToggleCollapse}
               editing={editingId === n.id}
-              onCommitEdit={(title) => {
-                const t = title.trim();
-                if (t && t !== n.title) {
-                  mindmap.update(n.id, { title: t });
-                  setLiveMsg(`Yeniden adlandırıldı: ${t}`);
-                }
-                setEditingId(null);
-              }}
-              onCancelEdit={() => setEditingId(null)}
+              onCommitEdit={handleCommitEdit}
+              onCancelEdit={handleCancelEdit}
               isSelected={
                 selectedId === n.id ||
                 (linkMode && linkSource === n.id) ||
@@ -881,58 +971,8 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
               dimmed={dimmed}
               highlighted={matchedIds ? matchedIds.has(n.id) : false}
               justSaved={savedNodeId === n.id}
-              onTap={(id) => {
-                if (linkMode) {
-                  if (!linkSource) {
-                    setLinkSource(id);
-                    toast("Şimdi bağlanacak ikinci düğüme dokun");
-                  } else if (linkSource === id) {
-                    setLinkSource(null);
-                  } else {
-                    mindmap.toggleLink(linkSource, id);
-                    const a = nodes.find((x) => x.id === linkSource);
-                    const b = nodes.find((x) => x.id === id);
-                    const existed = a?.links?.includes(id);
-                    toast.success(existed ? "Bağlantı kaldırıldı" : `🔗 ${a?.title} ↔ ${b?.title}`);
-                    setLinkSource(null);
-                  }
-                  return;
-                }
-                if (reparentMode) {
-                  if (!reparentSource) {
-                    const src = nodes.find((x) => x.id === id);
-                    if (!src || src.parentId === null) {
-                      toast.error("Kök düğüm taşınamaz");
-                      return;
-                    }
-                    setReparentSource(id);
-                    toast("Yeni üst düğüme dokun");
-                  } else if (reparentSource === id) {
-                    setReparentSource(null);
-                  } else {
-                    const ok = mindmap.setParent(reparentSource, id);
-                    const a = nodes.find((x) => x.id === reparentSource);
-                    const b = nodes.find((x) => x.id === id);
-                    if (ok) toast.success(`↳ ${a?.title} → ${b?.title}`);
-                    else toast.error("Geçersiz hedef (döngü veya aynı üst)");
-                    setReparentSource(null);
-                  }
-                  return;
-                }
-                onSelect(id);
-                onOpenSheet(id);
-              }}
-              onStartDrag={(e, pos) => {
-                const rect = containerRef.current!.getBoundingClientRect();
-                const sx = e.clientX - rect.left;
-                const sy = e.clientY - rect.top;
-                dragNode.current = {
-                  id: n.id,
-                  offsetX: (sx - originX) / scale - pos.x,
-                  offsetY: (sy - originY) / scale - pos.y,
-                };
-                pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-              }}
+              onTap={handleTap}
+              onStartDrag={handleStartDrag}
             />
           );
         })}
@@ -1225,17 +1265,20 @@ const NodeButton = memo(function NodeButton({
   editing?: boolean;
   hasChildren?: boolean;
   collapsed?: boolean;
-  onToggleCollapse?: () => void;
+  // These take the node id rather than closing over it, so the parent can pass
+  // stable references and memo() actually holds.
+  onToggleCollapse?: (id: string) => void;
   isSelected: boolean;
   dimmed?: boolean;
   highlighted?: boolean;
   /** Just created/updated — brief post-save flash (§13). */
   justSaved?: boolean;
   onTap: (id: string) => void;
-  onStartDrag: (e: React.PointerEvent, pos: { x: number; y: number }) => void;
-  onCommitEdit?: (title: string) => void;
+  onStartDrag: (e: React.PointerEvent, pos: { x: number; y: number }, id: string) => void;
+  onCommitEdit?: (id: string, title: string) => void;
   onCancelEdit?: () => void;
 }) {
+  perfCounters.nodeRenders += 1;
   const isRoot = node.parentId === null;
   const downPos = useRef<{ x: number; y: number } | null>(null);
   const moved = useRef(false);
@@ -1266,7 +1309,7 @@ const NodeButton = memo(function NodeButton({
         transition={{ type: "spring", stiffness: 260, damping: 22 }}
         onPointerDown={(e) => {
           e.stopPropagation();
-          onStartDrag(e, { x: node.x, y: node.y });
+          onStartDrag(e, { x: node.x, y: node.y }, node.id);
           (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
           downPos.current = { x: e.clientX, y: e.clientY };
           moved.current = false;
@@ -1317,11 +1360,11 @@ const NodeButton = memo(function NodeButton({
             onChange={(e) => setDraft(e.target.value)}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
-            onBlur={() => onCommitEdit?.(draft)}
+            onBlur={() => onCommitEdit?.(node.id, draft)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
-                onCommitEdit?.(draft);
+                onCommitEdit?.(node.id, draft);
               } else if (e.key === "Escape") {
                 e.preventDefault();
                 onCancelEdit?.();
@@ -1360,13 +1403,13 @@ const NodeButton = memo(function NodeButton({
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
-            onToggleCollapse?.();
+            onToggleCollapse?.(node.id);
           }}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
               e.stopPropagation();
-              onToggleCollapse?.();
+              onToggleCollapse?.(node.id);
             }
           }}
           aria-label={collapsed ? `${node.title} dalını genişlet` : `${node.title} dalını daralt`}
