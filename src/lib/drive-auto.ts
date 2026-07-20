@@ -21,7 +21,7 @@ export function useAutoDriveBackup() {
       if (cancelled) return;
       if (Date.now() - last.current < INTERVAL) return;
       try {
-        const snapshot = mindmap.getFullSnapshot();
+        const snapshot = await mindmap.getPortableSnapshot();
         if (!shouldAllowCloudSave(snapshot)) {
           last.current = Date.now();
           return;

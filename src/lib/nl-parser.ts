@@ -52,16 +52,22 @@ export function parseQuickAdd(input: string, now = new Date()): ParsedQuickAdd {
   }
 
   // ----- Priority (!1..!4 or p1..p4) -----
-  const prioMatch = s.match(/\b(?:!|p)([1-4])\b/i);
+  // `\b` can't anchor the `!` form — `!` is not a word char, so `\b!` never
+  // matches after a space. Anchor on whitespace instead.
+  const prioMatch = s.match(/(?:^|\s)(?:!|p)([1-4])(?=\s|$)/i);
   if (prioMatch) {
     result.priority = parseInt(prioMatch[1], 10) as Priority;
     s = s.replace(prioMatch[0], " ");
   }
 
   // ----- Flags -----
-  if (/!{1,}\s|!{1,}$|\bönemli\b|\bonemli\b/i.test(s)) {
+  // `\bönemli\b` is a trap: JS `\b` only knows [A-Za-z0-9_], so a leading `ö`
+  // never forms a boundary and the word never matched. Use Unicode-aware edges.
+  // Built fresh each call: a /g regex carries lastIndex between .test() calls.
+  const ONEMLI = /(?<![\p{L}\p{N}])(önemli|onemli)(?![\p{L}\p{N}])/giu;
+  if (/!{1,}\s|!{1,}$/.test(s) || s.search(ONEMLI) !== -1) {
     result.starred = true;
-    s = s.replace(/!+/g, " ").replace(/\b(önemli|onemli)\b/gi, " ");
+    s = s.replace(/!+/g, " ").replace(ONEMLI, " ");
   }
   if (/\bgünüm\b|\bgunum\b|\bbugünüm\b/i.test(s)) {
     result.myDay = true;

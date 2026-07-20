@@ -522,7 +522,7 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
   const handleDriveSave = async () => {
     const t = toast.loading("Drive'a kaydediliyor...");
     try {
-      const snapshot = mindmap.getFullSnapshot();
+      const snapshot = await mindmap.getPortableSnapshot();
       if (!shouldAllowCloudSave(snapshot)) {
         toast.error("Varsayılan boş veri Drive'a yazılmadı. Önce Drive'dan yükle.", { id: t });
         return;
@@ -674,8 +674,8 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
     }
   };
 
-  const handleExport = () => {
-    const data = mindmap.getFullSnapshot();
+  const handleExport = async () => {
+    const data = await mindmap.getPortableSnapshot();
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

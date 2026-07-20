@@ -286,8 +286,9 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           <Button
             variant="outline"
             className="w-full justify-start"
-            onClick={() => {
-              downloadText("mintmap-backup.json", JSON.stringify(mindmap.getFullSnapshot(), null, 2), "application/json");
+            onClick={async () => {
+              const snapshot = await mindmap.getPortableSnapshot();
+              downloadText("mintmap-backup.json", JSON.stringify(snapshot, null, 2), "application/json");
               toast.success("Yedek indirildi");
             }}
           >
@@ -313,7 +314,7 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
             className="w-full justify-start"
             disabled={busy === "drive-up"}
             onClick={() => handle("drive-up", async () => {
-              const snapshot = mindmap.getFullSnapshot();
+              const snapshot = await mindmap.getPortableSnapshot();
               if (!shouldAllowCloudSave(snapshot)) {
                 toast.error("Varsayılan boş veri buluta yazılmadı. Önce buluttan geri yükle.");
                 return;

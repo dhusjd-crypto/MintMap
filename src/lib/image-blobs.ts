@@ -131,6 +131,22 @@ export async function deleteImage(id: string): Promise<void> {
   }
 }
 
+/** Every stored key — used to find orphaned blobs. */
+export async function listImageIds(): Promise<string[]> {
+  if (!isBrowser()) return [];
+  try {
+    const db = await openDb();
+    return await new Promise<string[]>((resolve) => {
+      const tx = db.transaction(STORE, "readonly");
+      const req = tx.objectStore(STORE).getAllKeys();
+      req.onsuccess = () => resolve((req.result as IDBValidKey[]).map(String));
+      req.onerror = () => resolve([]);
+    });
+  } catch {
+    return [];
+  }
+}
+
 /** Rough total bytes held, for a storage indicator. */
 export async function totalBytes(): Promise<number> {
   if (!isBrowser()) return 0;

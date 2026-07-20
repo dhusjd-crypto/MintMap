@@ -124,10 +124,10 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem
             onSelect={() =>
-              run(() => {
+              run(async () => {
                 downloadText(
                   "mintmap-backup.json",
-                  JSON.stringify(mindmap.getFullSnapshot(), null, 2),
+                  JSON.stringify(await mindmap.getPortableSnapshot(), null, 2),
                   "application/json",
                 );
                 toast.success("Yedek indirildi");

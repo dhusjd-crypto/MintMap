@@ -26,6 +26,7 @@ import {
   type MindNode,
 } from "@/lib/mindmap-store";
 import { compressImages } from "@/lib/image-compress";
+import { getImageUrl, putImage } from "@/lib/image-blobs";
 import {
   enqueueFiles,
   itemToFile,
@@ -103,6 +104,19 @@ async function transformDataUrl(
   if (op.flip === "v") ctx.scale(1, -1);
   ctx.drawImage(img, -w / 2, -h / 2);
   return canvas.toDataURL("image/jpeg", 0.92);
+}
+
+/**
+ * Persists a data URL to the blob store and returns what the node should hold.
+ * Falls back to the inline data URL when IndexedDB is unavailable, so an image
+ * is never lost outright — it just costs quota like before.
+ */
+async function storeImage(dataUrl: string): Promise<{ src: string; blobId?: string }> {
+  const blobId = nanoid(12);
+  if (!(await putImage(blobId, dataUrl))) return { src: dataUrl };
+  // Go through getImageUrl so the object URL lands in the shared cache and gets
+  // revoked when the image is deleted.
+  return { src: (await getImageUrl(blobId)) ?? dataUrl, blobId };
 }
 
 function getImages(node: MindNode): MindImage[] {
@@ -225,12 +239,15 @@ export function NodeImagePanel({ node, compact = false }: { node: MindNode; comp
     let failed = 0;
     for (const item of items) {
       try {
-        const [src] = await compressImages([itemToFile(item)]);
+        const [dataUrl] = await compressImages([itemToFile(item)]);
         const fresh = mindmap.getSnapshot().find((n) => n.id === node.id);
         const baseImages = fresh ? getImages(fresh) : [];
+        // Bytes go to IndexedDB; the node keeps a short id plus a runtime URL.
+        const { src, blobId } = await storeImage(dataUrl);
         const newImg: MindImage = {
           id: nanoid(6),
           src,
+          blobId,
           aspect: "auto" as ImageAspect,
           fit: "cover" as ImageFit,
           focus: { x: 0.5, y: 0.5 },
@@ -313,8 +330,17 @@ export function NodeImagePanel({ node, compact = false }: { node: MindNode; comp
   const applyCrop = async (rect: { x: number; y: number; w: number; h: number }) => {
     if (!active) return;
     try {
-      const src = await cropDataUrl(active.srcOriginal ?? active.src, rect);
-      updateActive({ src, srcOriginal: active.srcOriginal ?? active.src });
+      const cropped = await cropDataUrl(active.srcOriginal ?? active.src, rect);
+      const { src, blobId } = await storeImage(cropped);
+      // The pre-crop image becomes the "original" so Reset still works after a
+      // reload. Superseded blobs are left for sweepUnusedImageBlobs — undo
+      // history still references them.
+      updateActive({
+        src,
+        blobId,
+        srcOriginal: active.srcOriginal ?? active.src,
+        blobIdOriginal: active.blobIdOriginal ?? active.blobId,
+      });
       setMode("view");
       toast.success("Kırpıldı");
     } catch {
@@ -324,15 +350,26 @@ export function NodeImagePanel({ node, compact = false }: { node: MindNode; comp
 
   const resetCrop = () => {
     if (!active?.srcOriginal) return;
-    updateActive({ src: active.srcOriginal, srcOriginal: undefined });
+    updateActive({
+      src: active.srcOriginal,
+      blobId: active.blobIdOriginal,
+      srcOriginal: undefined,
+      blobIdOriginal: undefined,
+    });
     toast.success("Orijinale döndü");
   };
 
   const transformActive = async (op: { rotate?: 90 | -90 | 180; flip?: "h" | "v" }) => {
     if (!active) return;
     try {
-      const src = await transformDataUrl(active.src, op);
-      updateActive({ src, srcOriginal: active.srcOriginal ?? active.src });
+      const transformed = await transformDataUrl(active.src, op);
+      const { src, blobId } = await storeImage(transformed);
+      updateActive({
+        src,
+        blobId,
+        srcOriginal: active.srcOriginal ?? active.src,
+        blobIdOriginal: active.blobIdOriginal ?? active.blobId,
+      });
     } catch {
       toast.error("İşlem başarısız");
     }

@@ -33,8 +33,16 @@ export type ImageAspect = "auto" | "1:1" | "16:9" | "4:3" | "3:4";
 export type ImageFit = "cover" | "contain";
 export type MindImage = {
   id: string;
+  /**
+   * Display URL. When `blobId` is set this is a runtime object URL rebuilt from
+   * IndexedDB on load and deliberately NOT persisted — see `serializeStore`.
+   */
   src: string;
   srcOriginal?: string;
+  /** Key into the IndexedDB blob store. Absent only for legacy inline images. */
+  blobId?: string;
+  /** Blob key for the pre-crop original, when one was kept. */
+  blobIdOriginal?: string;
   aspect?: ImageAspect;
   fit?: ImageFit;
   focus?: { x: number; y: number }; // 0..1 — object-position for cover
@@ -167,6 +175,7 @@ function load() {
       const parsed = JSON.parse(raw) as StoreShape;
       if (parsed?.workspaces?.length) {
         store = parsed;
+        void hydrateImageBlobs().then(migrateInlineImages).then(sweepUnusedImageBlobs);
         return;
       }
     }
@@ -184,9 +193,149 @@ function load() {
   }
 }
 
+/**
+ * Strips image payloads that live in IndexedDB. Base64 inflates ~33% and
+ * localStorage caps near 5MB, so persisting `src` would blow the quota after a
+ * handful of screenshots. `hydrateImageBlobs` puts the URLs back on load.
+ */
+function serializeStore(s: StoreShape): StoreShape {
+  return {
+    currentId: s.currentId,
+    workspaces: s.workspaces.map((w) => ({
+      ...w,
+      nodes: w.nodes.map((n) => {
+        if (!n.images?.length) return n;
+        const images = n.images.map((im) =>
+          im.blobId
+            ? { ...im, src: "", srcOriginal: im.blobIdOriginal ? "" : im.srcOriginal }
+            : im,
+        );
+        const active = images.find((im) => im.id === n.activeImageId) ?? images[0];
+        return { ...n, images, image: active?.blobId ? undefined : n.image };
+      }),
+    })),
+  };
+}
+
+let quotaWarned = false;
+
 function persist() {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY_V2, JSON.stringify(store));
+  try {
+    localStorage.setItem(STORAGE_KEY_V2, JSON.stringify(serializeStore(store)));
+    quotaWarned = false;
+  } catch (err) {
+    // A silent throw here used to lose the write outright. Surface it once so
+    // the user knows their edits are not being saved.
+    if (!quotaWarned) {
+      quotaWarned = true;
+      console.error("MintMap: kayıt başarısız (depolama kotası dolu olabilir)", err);
+      window.dispatchEvent(new CustomEvent("mintmap:persist-failed"));
+    }
+  }
+}
+
+/**
+ * Rebuilds object URLs for blob-backed images after a reload. Async because
+ * IndexedDB is; notifies once at the end so the canvas repaints.
+ */
+export async function hydrateImageBlobs() {
+  if (typeof window === "undefined") return;
+  const { getImageUrl } = await import("./image-blobs");
+  let changed = false;
+
+  // Resolve every missing URL first, then rebuild the tree with fresh object
+  // references — components subscribe by identity, so in-place edits would not
+  // repaint.
+  const resolved = new Map<string, string>();
+  for (const w of store.workspaces) {
+    for (const n of w.nodes) {
+      for (const im of n.images ?? []) {
+        for (const key of [im.blobId, im.blobIdOriginal]) {
+          if (!key || resolved.has(key)) continue;
+          const url = await getImageUrl(key);
+          if (url) resolved.set(key, url);
+        }
+      }
+    }
+  }
+  if (!resolved.size) return;
+
+  store = {
+    currentId: store.currentId,
+    workspaces: store.workspaces.map((w) => ({
+      ...w,
+      nodes: w.nodes.map((n) => {
+        if (!n.images?.length) return n;
+        const images = n.images.map((im) => {
+          const src = im.src || (im.blobId ? resolved.get(im.blobId) ?? "" : "");
+          const srcOriginal =
+            im.srcOriginal || (im.blobIdOriginal ? resolved.get(im.blobIdOriginal) : undefined);
+          if (src === im.src && srcOriginal === im.srcOriginal) return im;
+          changed = true;
+          return { ...im, src, srcOriginal };
+        });
+        const active = images.find((im) => im.id === n.activeImageId) ?? images[0];
+        return { ...n, images, image: active?.src || n.image };
+      }),
+    })),
+  };
+  if (changed) notifyOnly();
+}
+
+/**
+ * One-time move of legacy inline base64 images into the blob store, so old maps
+ * stop occupying the localStorage quota. Keeps `src` (it is already a valid
+ * data URL) and only adds the `blobId` that lets `persist` drop it.
+ */
+export async function migrateInlineImages() {
+  if (typeof window === "undefined") return;
+  const { putImage } = await import("./image-blobs");
+  let migrated = false;
+  for (const w of store.workspaces) {
+    for (const n of w.nodes) {
+      for (const im of n.images ?? []) {
+        if (im.blobId || !im.src.startsWith("data:")) continue;
+        const key = nanoid(12);
+        if (await putImage(key, im.src)) {
+          im.blobId = key;
+          migrated = true;
+        }
+      }
+    }
+  }
+  if (migrated) persist();
+}
+
+/** Blob keys still referenced by some node, in any workspace. */
+function referencedBlobIds(): Set<string> {
+  const ids = new Set<string>();
+  for (const w of store.workspaces) {
+    for (const n of w.nodes) {
+      for (const im of n.images ?? []) {
+        if (im.blobId) ids.add(im.blobId);
+        if (im.blobIdOriginal) ids.add(im.blobIdOriginal);
+      }
+    }
+  }
+  return ids;
+}
+
+/**
+ * Deletes blobs no node points at any more. Deleting eagerly on crop/remove
+ * would break undo, which still holds the old ids — so orphans are collected
+ * here instead, on the next load when the history is gone.
+ */
+export async function sweepUnusedImageBlobs() {
+  if (typeof window === "undefined") return;
+  const { listImageIds, deleteImage } = await import("./image-blobs");
+  const { keep } = await import("./keep-store");
+  // Keep cards share the same blob store — their ids must survive the sweep.
+  const live = referencedBlobIds();
+  for (const card of keep.list()) if (card.imageId) live.add(card.imageId);
+  for (const id of await listImageIds()) {
+    if (!live.has(id)) await deleteImage(id);
+  }
 }
 
 function emit() {
@@ -619,6 +768,45 @@ export const mindmap = {
     load();
     return store;
   },
+  /**
+   * Backup for anything leaving this device (file download, Drive sync).
+   * `getFullSnapshot` carries `blob:` object URLs that mean nothing elsewhere,
+   * so image bytes are inlined back as data URLs here.
+   */
+  async getPortableSnapshot(): Promise<StoreShape> {
+    load();
+    const { getImageDataUrl } = await import("./image-blobs");
+    const cache = new Map<string, string | null>();
+    const inline = async (key: string | undefined, fallback: string) => {
+      if (!key) return fallback;
+      if (!cache.has(key)) cache.set(key, await getImageDataUrl(key));
+      return cache.get(key) ?? fallback;
+    };
+    return {
+      currentId: store.currentId,
+      workspaces: await Promise.all(
+        store.workspaces.map(async (w) => ({
+          ...w,
+          nodes: await Promise.all(
+            w.nodes.map(async (n) => {
+              if (!n.images?.length) return n;
+              const images = await Promise.all(
+                n.images.map(async (im) => ({
+                  ...im,
+                  src: await inline(im.blobId, im.src),
+                  srcOriginal: im.srcOriginal
+                    ? await inline(im.blobIdOriginal, im.srcOriginal)
+                    : undefined,
+                })),
+              );
+              const active = images.find((im) => im.id === n.activeImageId) ?? images[0];
+              return { ...n, images, image: active?.src || n.image };
+            }),
+          ),
+        })),
+      ),
+    };
+  },
   importFullSnapshot(s: StoreShape) {
     if (!s?.workspaces?.length) return;
     mutate(() => {
@@ -627,6 +815,9 @@ export const mindmap = {
         : s.workspaces[0].id;
       store = { ...s, currentId };
     });
+    // An imported backup carries inline data URLs; move them straight back into
+    // the blob store so they never hit the localStorage quota.
+    void migrateInlineImages();
   },
   /** Update a todo in any workspace (used by background scheduler). */
   updateTodoIn(wsId: string, nodeId: string, todoId: string, patch: Partial<Todo>) {
