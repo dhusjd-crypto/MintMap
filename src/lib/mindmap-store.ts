@@ -291,20 +291,38 @@ export async function hydrateImageBlobs() {
 export async function migrateInlineImages() {
   if (typeof window === "undefined") return;
   const { putImage } = await import("./image-blobs");
-  let migrated = false;
+
+  // Resolve first, then rebuild immutably — history holds references to these
+  // objects, so editing one in place would rewrite the past too.
+  const newKeys = new Map<string, string>();
   for (const w of store.workspaces) {
     for (const n of w.nodes) {
       for (const im of n.images ?? []) {
         if (im.blobId || !im.src.startsWith("data:")) continue;
         const key = nanoid(12);
-        if (await putImage(key, im.src)) {
-          im.blobId = key;
-          migrated = true;
-        }
+        if (await putImage(key, im.src)) newKeys.set(im.src, key);
       }
     }
   }
-  if (migrated) persist();
+  if (!newKeys.size) return;
+
+  store = {
+    currentId: store.currentId,
+    workspaces: store.workspaces.map((w) => ({
+      ...w,
+      nodes: w.nodes.map((n) => {
+        if (!n.images?.length) return n;
+        return {
+          ...n,
+          images: n.images.map((im) => {
+            const key = im.blobId ? undefined : newKeys.get(im.src);
+            return key ? { ...im, blobId: key } : im;
+          }),
+        };
+      }),
+    })),
+  };
+  persist();
 }
 
 /** Blob keys still referenced by some node, in any workspace. */
@@ -351,8 +369,14 @@ function notifyOnly() {
 }
 
 
+// Every mutation goes through setCurrentNodes/importFullSnapshot, which rebuild
+// `store` immutably — so the outgoing object is already a private snapshot and
+// deep-cloning it was pure waste. History is now O(1) per edit instead of
+// copying every node in every workspace.
+//
+// The invariant this rests on: NEVER mutate a node, todo or image in place.
 function pushHistory() {
-  history.past.push(cloneStore(store));
+  history.past.push(store);
   if (history.past.length > HISTORY_LIMIT) history.past.shift();
   history.future = [];
 }
@@ -490,7 +514,7 @@ export const mindmap = {
   undo() {
     const prev = history.past.pop();
     if (!prev) return;
-    history.future.push(cloneStore(store));
+    history.future.push(store);
     store = prev;
     persist();
     notifyOnly();
@@ -498,7 +522,7 @@ export const mindmap = {
   redo() {
     const next = history.future.pop();
     if (!next) return;
-    history.past.push(cloneStore(store));
+    history.past.push(store);
     store = next;
     persist();
     notifyOnly();
