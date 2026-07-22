@@ -770,7 +770,7 @@ export const aiWeeklyReport = createServerFn({ method: "POST" }).middleware([req
 export const aiCategorizeCard = createServerFn({ method: "POST" }).middleware([requireAppAuth])
   .inputValidator(
     (data: {
-      type: "note" | "link" | "image";
+      type: "note" | "link" | "image" | "file";
       text?: string;
       url?: string;
       title?: string;

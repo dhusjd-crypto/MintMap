@@ -607,10 +607,13 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
       toast.error("Kök düğüm silinemez");
       return;
     }
-    if (confirm("Silme işlemini onaylıyor musunuz?")) {
-      mindmap.remove(selectedNode.id);
-      toast.success("Silindi");
-    }
+    // No confirm() — it's silently blocked in installed PWAs. Deleting is
+    // undoable, so delete immediately and offer the undo in the toast.
+    const title = selectedNode.title;
+    mindmap.remove(selectedNode.id);
+    toast.success(`'${title}' silindi`, {
+      action: { label: "Geri al", onClick: () => mindmap.undo() },
+    });
   };
 
   const saveToDrive = driveSaveSnapshot;
@@ -632,7 +635,17 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
   };
 
   const handleDriveLoad = async () => {
-    if (!confirm("Drive'daki veriyle değiştirilsin mi?")) return;
+    // Heavyweight replace — worth an explicit confirm, but confirm() is dead
+    // in installed PWAs, so ask via a toast action instead.
+    toast("Drive'daki veriyle değiştirilsin mi?", {
+      description: "Mevcut haritanın yerine Drive'daki yedek gelir (geri alınabilir).",
+      action: { label: "Değiştir", onClick: () => void doDriveLoad() },
+      cancel: { label: "Vazgeç", onClick: () => {} },
+      duration: 10000,
+    });
+  };
+
+  const doDriveLoad = async () => {
     const t = toast.loading("Drive'dan yükleniyor...");
     try {
       const res = await loadFromDrive();
@@ -749,11 +762,13 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
         return;
       }
       const parentId = cur.parentId;
-      if (window.confirm(`"${cur.title}" silinsin mi?`)) {
-        mindmap.remove(curId);
-        onSelect(parentId);
-        setLiveMsg("Düğüm silindi");
-      }
+      // Same PWA-safe pattern as handleDeleteSelected: delete now, undo in toast.
+      mindmap.remove(curId);
+      onSelect(parentId);
+      setLiveMsg("Düğüm silindi");
+      toast.success(`'${cur.title}' silindi`, {
+        action: { label: "Geri al", onClick: () => mindmap.undo() },
+      });
       return;
     }
     if (e.key === "Escape") {

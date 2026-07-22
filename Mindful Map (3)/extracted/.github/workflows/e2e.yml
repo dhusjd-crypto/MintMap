@@ -1,0 +1,85 @@
+name: E2E
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install JS deps
+        run: bun install --frozen-lockfile
+
+      - name: Unit tests (fab-slots overlap algorithm)
+        run: bun run test:unit
+
+
+
+      - name: Install Playwright (Python) + browsers
+        run: |
+          pip install playwright pillow
+          python -m playwright install --with-deps chromium webkit
+
+      - name: Start dev server
+        run: |
+          bun run dev &
+          echo $! > /tmp/dev.pid
+          for i in {1..60}; do
+            curl -sf http://localhost:8080 > /dev/null && exit 0
+            sleep 1
+          done
+          echo "dev server did not become ready"; exit 1
+
+      - name: Composer overlap
+        run: python3 tests/e2e/composer_overlap.py
+
+      - name: FAB layout (overlap + clickability across viewports/states)
+        run: python3 tests/e2e/fab_layout.py
+
+      - name: FAB ARIA & focus management
+        run: python3 tests/e2e/fab_a11y.py
+
+      - name: FAB performance budgets
+        run: python3 tests/e2e/fab_perf.py
+
+      - name: FAB visual regression (per viewport × state)
+        run: python3 tests/e2e/fab_visual.py
+
+      - name: ARIA labels
+        run: python3 tests/e2e/a11y_aria_labels.py
+
+      - name: Keyboard navigation
+        run: python3 tests/e2e/a11y_keyboard.py
+
+      - name: ARIA tree
+        run: python3 tests/e2e/a11y_aria_tree.py
+
+      - name: Visual regression
+        run: python3 tests/e2e/visual_regression.py
+
+      - name: Cross-browser matrix (Chromium + WebKit)
+        run: python3 tests/e2e/cross_browser_matrix.py
+
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: tests/e2e/screenshots/
+
+      - name: Stop dev server
+        if: always()
+        run: kill $(cat /tmp/dev.pid) || true

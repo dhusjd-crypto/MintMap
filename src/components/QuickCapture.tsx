@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { FormPanel, Field } from "@/components/FormPanel";
 import { notifySaved, notifySaveFailed } from "@/lib/save-feedback";
-import { Mic, MicOff, Sparkles } from "lucide-react";
+import { Mic, MicOff, Paperclip, Sparkles, X } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { aiQuickCapture } from "@/lib/ai.functions";
@@ -38,6 +38,9 @@ export function QuickCapture({ open, onClose }: { open: boolean; onClose: () => 
   const [text, setText] = useState("");
   const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Files picked before saving; attached to the node the AI creates.
+  const [pending, setPending] = useState<File[]>([]);
+  const fileRef = useRef<HTMLInputElement>(null);
   const recRef = useRef<SpeechRecognitionLike | null>(null);
   const speechSupported =
     typeof window !== "undefined" &&
@@ -50,6 +53,7 @@ export function QuickCapture({ open, onClose }: { open: boolean; onClose: () => 
   useEffect(() => {
     if (!open) {
       setText("");
+      setPending([]);
       stopRecording();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -107,11 +111,19 @@ export function QuickCapture({ open, onClose }: { open: boolean; onClose: () => 
       if (res.tags.length) patch.tags = res.tags;
       if (Object.keys(patch).length) mindmap.update(node.id, patch);
       res.todos.forEach((t2) => mindmap.addTodo(node.id, t2));
+      // Attach any files picked before saving. Failures shouldn't sink the
+      // capture — the node with text/todos is already in; report and move on.
+      for (const f of pending) {
+        const ok = await mindmap.addFile(node.id, f);
+        if (!ok) toast.error(`'${f.name}' eklenemedi — depolama dolu olabilir`);
+      }
       // §12: dismiss the progress toast, announce success, then reveal + flash
       // the new node so the user sees exactly what was added.
       toast.dismiss(t);
-      notifySaved(`"${res.title}" eklendi · ${res.todos.length} görev`, node.id);
+      const fileNote = pending.length ? ` · ${pending.length} dosya` : "";
+      notifySaved(`"${res.title}" eklendi · ${res.todos.length} görev${fileNote}`, node.id);
       setText("");
+      setPending([]);
       onClose();
     } catch (e) {
       // §14: panel stays open, text preserved, long dismissible error.
@@ -138,7 +150,7 @@ export function QuickCapture({ open, onClose }: { open: boolean; onClose: () => 
       title="Hızlı yakala"
       description="Aklındaki fikri yaz veya söyle — AI başlık, etiket ve görevlere çevirsin."
       icon={<Sparkles className="h-4 w-4" />}
-      dirty={text.trim().length > 0}
+      dirty={text.trim().length > 0 || pending.length > 0}
       saving={busy}
       canSave
       saveLabel="AI ile ekle"
@@ -175,6 +187,50 @@ export function QuickCapture({ open, onClose }: { open: boolean; onClose: () => 
           className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
         />
       </Field>
+
+      {/* Attachments picked up-front land on the node the AI creates. */}
+      <div className="space-y-1.5">
+        {pending.map((f, i) => (
+          <div
+            key={`${f.name}-${i}`}
+            className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-2.5 py-1.5 text-xs"
+          >
+            <Paperclip className="h-3 w-3 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate font-medium">{f.name}</span>
+            <span className="shrink-0 text-muted-foreground">
+              {f.size < 1024 * 1024 ? `${(f.size / 1024).toFixed(0)} KB` : `${(f.size / (1024 * 1024)).toFixed(1)} MB`}
+            </span>
+            <button
+              onClick={() => setPending((p) => p.filter((_, j) => j !== i))}
+              className="shrink-0 rounded p-0.5 hover:bg-muted"
+              aria-label={`${f.name} — kaldır`}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          className="flex items-center gap-1.5 rounded-lg border border-dashed border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/50"
+        >
+          <Paperclip className="h-3 w-3" /> Dosya iliştir (PDF vb.)
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          multiple
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.csv,.zip,audio/*,video/*,application/*,text/*"
+          className="hidden"
+          onChange={(e) => {
+            const arr = Array.from(e.target.files ?? []).filter((f) => !f.type.startsWith("image/"));
+            const ok = arr.filter((f) => f.size <= 25 * 1024 * 1024);
+            if (arr.length > ok.length) toast.error("25 MB üzeri dosyalar atlandı");
+            if (ok.length) setPending((p) => [...p, ...ok]);
+            e.target.value = "";
+          }}
+        />
+      </div>
     </FormPanel>
   );
 }

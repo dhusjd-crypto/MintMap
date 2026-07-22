@@ -1,0 +1,155 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-display: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  --font-sans: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 6px);
+  --radius-2xl: calc(var(--radius) + 12px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-leaf: var(--leaf);
+  --color-bark: var(--bark);
+  --color-sand: var(--sand);
+  --color-moss: var(--moss);
+}
+
+:root {
+  --radius: 0.5rem;
+  /* Microsoft To Do esinli teal/sunset palet */
+  --sand: oklch(0.99 0.002 240);
+  --moss: oklch(0.95 0.015 210);
+  --leaf: oklch(0.62 0.07 210);
+  --bark: oklch(0.25 0.02 240);
+
+  --background: oklch(0.99 0.003 240);
+  --foreground: oklch(0.22 0.02 240);
+  --card: #ffffff;
+  --card-foreground: oklch(0.22 0.02 240);
+  --popover: #ffffff;
+  --popover-foreground: oklch(0.22 0.02 240);
+  --primary: oklch(0.6 0.07 210);
+  --primary-foreground: #ffffff;
+  --secondary: oklch(0.95 0.015 210);
+  --secondary-foreground: oklch(0.22 0.02 240);
+  --muted: oklch(0.96 0.008 230);
+  --muted-foreground: oklch(0.45 0.02 230);
+  --accent: oklch(0.55 0.12 250);
+  --accent-foreground: #ffffff;
+  --destructive: oklch(0.6 0.18 28);
+  --destructive-foreground: #ffffff;
+  --border: oklch(0.9 0.012 230);
+  --input: oklch(0.94 0.01 230);
+  --ring: oklch(0.55 0.12 250);
+
+  --shadow-soft: 0 2px 12px -4px oklch(0.25 0.05 230 / 0.15);
+  --shadow-leaf: 0 6px 24px -8px oklch(0.55 0.12 250 / 0.35);
+  --gradient-canvas: linear-gradient(180deg, oklch(0.62 0.07 210) 0%, oklch(0.78 0.04 80) 60%, oklch(0.88 0.05 30) 100%);
+  --gradient-node: linear-gradient(135deg, oklch(0.6 0.07 210), oklch(0.55 0.09 220));
+}
+
+.dark {
+  --background: oklch(0.18 0.02 150);
+  --foreground: oklch(0.95 0.01 100);
+  --card: oklch(0.24 0.02 150);
+  --card-foreground: oklch(0.95 0.01 100);
+  --popover: oklch(0.24 0.02 150);
+  --popover-foreground: oklch(0.95 0.01 100);
+  --primary: oklch(0.74 0.09 145);
+  --primary-foreground: oklch(0.18 0.02 150);
+  --secondary: oklch(0.3 0.025 145);
+  --secondary-foreground: oklch(0.95 0.01 100);
+  --muted: oklch(0.28 0.02 145);
+  --muted-foreground: oklch(0.7 0.02 130);
+  --accent: oklch(0.4 0.04 140);
+  --accent-foreground: oklch(0.95 0.01 100);
+  --border: oklch(0.32 0.02 140);
+  --input: oklch(0.3 0.02 140);
+  --ring: oklch(0.74 0.09 145);
+}
+
+/* Mint Sales paleti — #00C7A7 / #6EE7C7 / #F3FAF7 / #E5E7EB / #111827 / #374151 */
+.mint {
+  --sand: #F3FAF7;
+  --moss: #6EE7C7;
+  --leaf: #00C7A7;
+  --bark: #111827;
+
+  --background: #F3FAF7;
+  --foreground: #111827;
+  --card: #ffffff;
+  --card-foreground: #111827;
+  --popover: #ffffff;
+  --popover-foreground: #111827;
+  --primary: #00C7A7;
+  --primary-foreground: #ffffff;
+  --secondary: #6EE7C7;
+  --secondary-foreground: #111827;
+  --muted: #E5E7EB;
+  --muted-foreground: #374151;
+  --accent: #00C7A7;
+  --accent-foreground: #ffffff;
+  --destructive: oklch(0.6 0.18 28);
+  --destructive-foreground: #ffffff;
+  --border: #E5E7EB;
+  --input: #E5E7EB;
+  --ring: #00C7A7;
+
+  --shadow-soft: 0 2px 12px -4px rgb(17 24 39 / 0.08);
+  --shadow-leaf: 0 6px 24px -8px rgb(0 199 167 / 0.35);
+  --gradient-canvas: linear-gradient(180deg, #F3FAF7 0%, #ffffff 60%, #E5E7EB 100%);
+  --gradient-node: linear-gradient(135deg, #00C7A7, #6EE7C7);
+}
+
+
+@layer base {
+  * { border-color: var(--color-border); }
+  html, body { height: 100%; overscroll-behavior: none; }
+  body {
+    background: var(--gradient-canvas);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -0.01em; }
+}
+
+@layer utilities {
+  .font-display { font-family: var(--font-display); }
+  .shadow-soft { box-shadow: var(--shadow-soft); }
+  .shadow-leaf { box-shadow: var(--shadow-leaf); }
+  .bg-gradient-node { background: var(--gradient-node); }
+  .no-tap-highlight { -webkit-tap-highlight-color: transparent; }
+
+  /* FAB / toolbar layering. Single source of truth — never use
+     ad-hoc z-30/40/50 on floating action buttons. */
+  .layer-fab-context { z-index: 30; }   /* mindmap +/Sil/Görev */
+  .layer-fab { z-index: 35; }           /* AI, Pomodoro */
+  .layer-toolbar { z-index: 40; }       /* wrench toolbar */
+  .layer-popover { z-index: 50; }       /* AI menu, Pomodoro panel */
+  .layer-modal { z-index: 60; }         /* dialogs, sheets */
+}
+

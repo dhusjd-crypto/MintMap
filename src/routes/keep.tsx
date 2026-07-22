@@ -12,6 +12,9 @@ import {
   Wand2,
   Share2,
   Search,
+  Paperclip,
+  FileText,
+  Download,
   X,
 } from "lucide-react";
 import { nanoid } from "nanoid";
@@ -79,6 +82,7 @@ function KeepPage() {
   const [query, setQuery] = useState("");
   const [aiEnabled, setAiEnabled] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const docRef = useRef<HTMLInputElement>(null);
 
   const categorize = useServerFn(aiCategorizeCard);
   const linkMeta = useServerFn(fetchLinkMeta);
@@ -267,6 +271,40 @@ function KeepPage() {
     }
   }
 
+  // Non-image files (PDF, doc, audio…) become "file" cards: bytes in the blob
+  // store, card holds only metadata — same deal as image cards.
+  async function addFileCards(files: File[]) {
+    const arr = files.filter((f) => !f.type.startsWith("image/"));
+    if (!arr.length) return;
+    setBusy(true);
+    try {
+      for (const f of arr) {
+        if (f.size > 25 * 1024 * 1024) {
+          toast.error(`'${f.name}' çok büyük (sınır 25 MB)`);
+          continue;
+        }
+        const fileId = nanoid(12);
+        if (!(await putImage(fileId, f))) {
+          toast.error(`'${f.name}' kaydedilemedi — depolama dolu olabilir`);
+          continue;
+        }
+        const card = keep.add({
+          type: "file",
+          fileId,
+          fileName: f.name,
+          fileType: f.type,
+          fileSize: f.size,
+          title: f.name,
+          aiPending: aiEnabled,
+        });
+        toast.success(`'${f.name}' eklendi`);
+        if (aiEnabled) runCategorize(card);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function onPaste(e: ClipboardEvent<HTMLTextAreaElement>) {
     const items = e.clipboardData?.items;
     if (!items) return;
@@ -371,12 +409,20 @@ function KeepPage() {
             className="max-h-40 w-full resize-none bg-transparent px-1.5 py-1 text-sm outline-none"
           />
           <div className="flex items-center justify-between pt-1">
-            <button
-              onClick={() => fileRef.current?.click()}
-              className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
-            >
-              <ImageIcon className="h-4 w-4" /> Görsel
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
+              >
+                <ImageIcon className="h-4 w-4" /> Görsel
+              </button>
+              <button
+                onClick={() => docRef.current?.click()}
+                className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
+              >
+                <Paperclip className="h-4 w-4" /> Dosya
+              </button>
+            </div>
             <input
               ref={fileRef}
               type="file"
@@ -387,6 +433,18 @@ function KeepPage() {
                 const files = Array.from(e.target.files ?? []);
                 e.target.value = "";
                 void addImages(files);
+              }}
+            />
+            <input
+              ref={docRef}
+              type="file"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.csv,.zip,audio/*,video/*,application/*,text/*"
+              multiple
+              hidden
+              onChange={(e) => {
+                const files = Array.from(e.target.files ?? []);
+                e.target.value = "";
+                void addFileCards(files);
               }}
             />
             <button
@@ -590,6 +648,42 @@ function Card({
         {card.title && <p className="text-sm font-semibold leading-snug">{card.title}</p>}
         {card.type === "note" && card.text && (
           <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">{card.text}</p>
+        )}
+        {card.type === "file" && card.fileId && (
+          <button
+            onClick={async () => {
+              const url = await getImageUrl(card.fileId!);
+              if (!url) {
+                toast.error("Dosya bulunamadı — bu cihazda yüklenmemiş olabilir");
+                return;
+              }
+              const a = document.createElement("a");
+              a.href = url;
+              if (
+                card.fileType === "application/pdf" ||
+                card.fileType?.startsWith("audio/") ||
+                card.fileType?.startsWith("video/")
+              ) {
+                a.target = "_blank";
+                a.rel = "noopener";
+              } else {
+                a.download = card.fileName ?? "dosya";
+              }
+              a.click();
+            }}
+            className="flex w-full items-center gap-2 rounded-lg border border-border bg-muted/30 px-2.5 py-2 text-left hover:bg-muted/60"
+          >
+            <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate text-sm">{card.fileName}</span>
+            <span className="shrink-0 text-[11px] text-muted-foreground">
+              {card.fileSize
+                ? card.fileSize < 1024 * 1024
+                  ? `${(card.fileSize / 1024).toFixed(0)} KB`
+                  : `${(card.fileSize / (1024 * 1024)).toFixed(1)} MB`
+                : ""}
+            </span>
+            <Download className="h-3.5 w-3.5 shrink-0 opacity-60" />
+          </button>
         )}
         {card.url && (
           <a

@@ -386,7 +386,10 @@ export async function sweepUnusedImageBlobs() {
   const { keep } = await import("./keep-store");
   // Keep cards share the same blob store — their ids must survive the sweep.
   const live = referencedBlobIds();
-  for (const card of keep.list()) if (card.imageId) live.add(card.imageId);
+  for (const card of keep.list()) {
+    if (card.imageId) live.add(card.imageId);
+    if (card.fileId) live.add(card.fileId);
+  }
   for (const id of await listImageIds()) {
     if (!live.has(id)) await deleteImage(id);
   }
