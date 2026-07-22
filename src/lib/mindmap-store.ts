@@ -48,6 +48,22 @@ export type MindImage = {
   focus?: { x: number; y: number }; // 0..1 — object-position for cover
   caption?: string;
 };
+/** A file attached to a node (PDF, doc, audio, …). Bytes live in the blob store. */
+export type MindFile = {
+  id: string;
+  name: string;
+  /** MIME type as reported by the browser; may be "" for unknown types. */
+  type: string;
+  size: number;
+  blobId: string;
+  addedAt: number;
+  /**
+   * Transport only: set when a backup carries the bytes, cleared once they are
+   * back in the blob store. Never written to localStorage — see serializeStore.
+   */
+  dataUrl?: string;
+};
+
 export type MindNode = {
   id: string;
   parentId: string | null;
@@ -59,6 +75,7 @@ export type MindNode = {
   todos: Todo[];
   image?: string; // legacy + canvas display: mirrors active image src
   images?: MindImage[];
+  files?: MindFile[];
   activeImageId?: string;
   reminderAt?: number;
   tags?: string[];
@@ -204,14 +221,19 @@ function serializeStore(s: StoreShape): StoreShape {
     workspaces: s.workspaces.map((w) => ({
       ...w,
       nodes: w.nodes.map((n) => {
-        if (!n.images?.length) return n;
+        // Attachment bytes ride along only inside a backup; strip them here so
+        // a restored snapshot can't push megabytes into localStorage.
+        const files = n.files?.some((f) => f.dataUrl)
+          ? n.files.map(({ dataUrl: _drop, ...f }) => f)
+          : n.files;
+        if (!n.images?.length) return files === n.files ? n : { ...n, files };
         const images = n.images.map((im) =>
           im.blobId
             ? { ...im, src: "", srcOriginal: im.blobIdOriginal ? "" : im.srcOriginal }
             : im,
         );
         const active = images.find((im) => im.id === n.activeImageId) ?? images[0];
-        return { ...n, images, image: active?.blobId ? undefined : n.image };
+        return { ...n, images, files, image: active?.blobId ? undefined : n.image };
       }),
     })),
   };
@@ -295,6 +317,9 @@ export async function migrateInlineImages() {
   // Resolve first, then rebuild immutably — history holds references to these
   // objects, so editing one in place would rewrite the past too.
   const newKeys = new Map<string, string>();
+  // Attachment bytes arriving inside a restored backup: store them under the
+  // file's own (stable) blobId so cross-device restores stay idempotent.
+  let filesLanded = false;
   for (const w of store.workspaces) {
     for (const n of w.nodes) {
       for (const im of n.images ?? []) {
@@ -302,18 +327,26 @@ export async function migrateInlineImages() {
         const key = nanoid(12);
         if (await putImage(key, im.src)) newKeys.set(im.src, key);
       }
+      for (const f of n.files ?? []) {
+        if (!f.dataUrl) continue;
+        if (await putImage(f.blobId, f.dataUrl)) filesLanded = true;
+      }
     }
   }
-  if (!newKeys.size) return;
+  if (!newKeys.size && !filesLanded) return;
 
   store = {
     currentId: store.currentId,
     workspaces: store.workspaces.map((w) => ({
       ...w,
       nodes: w.nodes.map((n) => {
-        if (!n.images?.length) return n;
+        const files = n.files?.some((f) => f.dataUrl)
+          ? n.files.map(({ dataUrl: _drop, ...f }) => f)
+          : n.files;
+        if (!n.images?.length) return files === n.files ? n : { ...n, files };
         return {
           ...n,
+          files,
           images: n.images.map((im) => {
             const key = im.blobId ? undefined : newKeys.get(im.src);
             return key ? { ...im, blobId: key } : im;
@@ -334,6 +367,9 @@ function referencedBlobIds(): Set<string> {
         if (im.blobId) ids.add(im.blobId);
         if (im.blobIdOriginal) ids.add(im.blobIdOriginal);
       }
+      // Attachments share the blob store with images — miss these and the
+      // sweep would quietly delete every attached file.
+      for (const f of n.files ?? []) ids.add(f.blobId);
     }
   }
   return ids;
@@ -787,6 +823,41 @@ export const mindmap = {
   importSnapshot(nodes: MindNode[]) {
     mutate(() => setCurrentNodes(() => nodes));
   },
+  // ----- Attachments (PDF & other files) -----
+
+  /** Stores the file's bytes in the blob store and attaches it to the node. */
+  async addFile(nodeId: string, file: File): Promise<MindFile | null> {
+    const { putImage } = await import("./image-blobs");
+    const blobId = nanoid(12);
+    if (!(await putImage(blobId, file))) return null;
+    const entry: MindFile = {
+      id: nanoid(6),
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      blobId,
+      addedAt: Date.now(),
+    };
+    mutate(() =>
+      setCurrentNodes((ns) =>
+        ns.map((n) => (n.id === nodeId ? { ...n, files: [...(n.files ?? []), entry] } : n)),
+      ),
+    );
+    return entry;
+  },
+
+  /** Detaches a file. The blob itself is left for sweepUnusedImageBlobs — undo
+   *  history may still reference it. */
+  removeFile(nodeId: string, fileId: string) {
+    mutate(() =>
+      setCurrentNodes((ns) =>
+        ns.map((n) =>
+          n.id === nodeId ? { ...n, files: (n.files ?? []).filter((f) => f.id !== fileId) } : n,
+        ),
+      ),
+    );
+  },
+
   /** Full backup including all workspaces. */
   getFullSnapshot(): StoreShape {
     load();
@@ -797,8 +868,12 @@ export const mindmap = {
    * `getFullSnapshot` carries `blob:` object URLs that mean nothing elsewhere,
    * so image bytes are inlined back as data URLs here.
    */
-  async getPortableSnapshot(): Promise<StoreShape> {
+  async getPortableSnapshot(opts: { includeFiles?: boolean } = {}): Promise<StoreShape> {
     load();
+    // Attachments can be tens of megabytes. Manual backups carry them; the
+    // 5-minute Drive auto-sync does not, or it would re-upload every PDF twelve
+    // times an hour. `dataUrl` left unset means "bytes stayed on the device".
+    const includeFiles = opts.includeFiles ?? true;
     const { getImageDataUrl } = await import("./image-blobs");
     const cache = new Map<string, string | null>();
     const inline = async (key: string | undefined, fallback: string) => {
@@ -813,7 +888,16 @@ export const mindmap = {
           ...w,
           nodes: await Promise.all(
             w.nodes.map(async (n) => {
-              if (!n.images?.length) return n;
+              const files =
+                includeFiles && n.files?.length
+                  ? await Promise.all(
+                      n.files.map(async (f) => ({
+                        ...f,
+                        dataUrl: (await getImageDataUrl(f.blobId)) ?? undefined,
+                      })),
+                    )
+                  : n.files;
+              if (!n.images?.length) return files === n.files ? n : { ...n, files };
               const images = await Promise.all(
                 n.images.map(async (im) => ({
                   ...im,
@@ -824,7 +908,7 @@ export const mindmap = {
                 })),
               );
               const active = images.find((im) => im.id === n.activeImageId) ?? images[0];
-              return { ...n, images, image: active?.src || n.image };
+              return { ...n, images, files, image: active?.src || n.image };
             }),
           ),
         })),

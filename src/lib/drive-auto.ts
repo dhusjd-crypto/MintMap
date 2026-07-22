@@ -21,7 +21,9 @@ export function useAutoDriveBackup() {
       if (cancelled) return;
       if (Date.now() - last.current < INTERVAL) return;
       try {
-        const snapshot = await mindmap.getPortableSnapshot();
+        // Attachments stay out of the 5-minute auto-sync; they can be tens of
+        // MB and would get re-uploaded every tick. Manual backup carries them.
+        const snapshot = await mindmap.getPortableSnapshot({ includeFiles: false });
         if (!shouldAllowCloudSave(snapshot)) {
           last.current = Date.now();
           return;

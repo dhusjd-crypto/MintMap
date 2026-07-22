@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MarkdownNote } from "@/components/MarkdownNote";
 import { LazyNodeImagePanel as NodeImagePanel } from "@/components/LazyNodeImagePanel";
+import { NodeFilePanel } from "@/components/NodeFilePanel";
 import { TagEditor } from "@/components/TagEditor";
 import type { MindNode, Todo } from "@/lib/mindmap-store";
 import {
@@ -438,6 +439,7 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
                     <NodeImagePanel node={node} />
                   </Suspense>
                 </div>
+                <NodeFilePanel node={node} />
                 <Button
                   variant="outline"
                   className="w-full"
