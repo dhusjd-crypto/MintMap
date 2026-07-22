@@ -125,9 +125,14 @@ export function TaskSheet({ nodeId, todoId, onClose }: Props) {
           </span>
           <button
             onClick={() => {
-              if (!window.confirm("Bu görev silinsin mi? Bu işlem geri alınamaz.")) return;
+              // confirm() is blocked in installed PWAs — and the old message
+              // lied: removeTodo goes through history, so it IS undoable.
+              const text = todo.text;
               mindmap.removeTodo(node.id, todo.id);
               onClose();
+              toast.success(`'${text}' silindi`, {
+                action: { label: "Geri al", onClick: () => mindmap.undo() },
+              });
             }}
             aria-label="Görevi sil"
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-destructive/40"

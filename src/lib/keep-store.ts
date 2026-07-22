@@ -7,7 +7,7 @@ import { deleteImage } from "./image-blobs";
 // sorts each into a short category. Fully usable without AI — cards just
 // stay in "Kategorisiz" until categorized.
 
-export type CardType = "note" | "link" | "image";
+export type CardType = "note" | "link" | "image" | "file";
 
 export type KeepCard = {
   id: string;
@@ -16,6 +16,10 @@ export type KeepCard = {
   url?: string; // for link cards
   imageId?: string; // key into the IndexedDB blob store (image cards)
   image?: string; // LEGACY inline data URL — migrated to imageId on load
+  fileId?: string; // blob-store key for file cards (PDF, doc, …)
+  fileName?: string;
+  fileType?: string; // MIME
+  fileSize?: number;
   title?: string; // display title (link meta or AI-cleaned)
   meta?: { description?: string; image?: string; siteName?: string };
   category?: string; // AI-assigned; empty => "Kategorisiz"
@@ -113,6 +117,7 @@ export const keep = {
     cards = cards.filter((c) => c.id !== id);
     emit();
     if (card?.imageId) void deleteImage(card.imageId);
+    if (card?.fileId) void deleteImage(card.fileId);
   },
   togglePin(id: string) {
     load();
