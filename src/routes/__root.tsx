@@ -151,13 +151,22 @@ function RootComponent() {
     // framer-motion'ın çıkış/animasyon yaşam döngüsünü bozuyordu). Kilitliyse
     // sadece yönlendiriyoruz.
     try {
-      const unlocked = sessionStorage.getItem("mintmap:unlocked") === "1";
+      // Kalıcı bayrak localStorage'da: sessionStorage PWA/tarayıcı her
+      // kapandığında silindiği için her açılışta yeniden giriş istiyordu —
+      // ve sunucu kapalıyken giriş imkânsız olduğundan çevrimdışı uygulama
+      // kendi kapısının arkasında kilitli kalıyordu. Kapı istemci tarafında
+      // kozmetik (AI uçlarını sunucudaki çerez koruyor), kalıcı olması
+      // güvenliği değiştirmez. Eski oturum bayrağı varsa taşı.
+      if (sessionStorage.getItem("mintmap:unlocked") === "1") {
+        localStorage.setItem("mintmap:unlocked", "1");
+      }
+      const unlocked = localStorage.getItem("mintmap:unlocked") === "1";
       if (!unlocked && window.location.pathname !== "/unlock") {
         window.location.replace("/unlock");
         return;
       }
     } catch {
-      // sessionStorage erişilemiyorsa geçişe izin ver.
+      // depolamaya erişilemiyorsa geçişe izin ver.
     }
 
     import("../lib/theme").then((m) => m.initTheme());

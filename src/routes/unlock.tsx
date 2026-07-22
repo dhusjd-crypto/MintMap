@@ -16,26 +16,34 @@ function UnlockPage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<"wrong" | "offline" | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (busy) return;
     setBusy(true);
-    setError(false);
+    setError(null);
     try {
       // Password is validated on the server; on success it sets the HttpOnly
       // mm_auth cookie that gates the AI endpoints.
       await appLogin({ data: { password } });
       try {
-        sessionStorage.setItem("mintmap:unlocked", "1");
+        // Durable flag — the root gate reads localStorage, so one successful
+        // unlock per device is enough (sessionStorage died on every close and
+        // locked the offline PWA out for good when the server was down).
+        localStorage.setItem("mintmap:unlocked", "1");
       } catch {
         // ignore
       }
       void router.navigate({ to: "/" });
-    } catch {
-      setError(true);
+    } catch (err) {
+      // A dead server used to render as "wrong password" — tell the truth so
+      // the user knows to start the dev server rather than retyping.
+      const msg = err instanceof Error ? err.message : String(err);
+      const network =
+        err instanceof TypeError || /fetch|network|failed|ecconn|abort/i.test(msg);
+      setError(network ? "offline" : "wrong");
     } finally {
       setBusy(false);
     }
@@ -99,9 +107,15 @@ function UnlockPage() {
           </div>
         </div>
 
-        {error && (
+        {error === "wrong" && (
           <p className="mt-3 text-[13px] text-red-600">
             Kullanıcı adı veya şifre hatalı.
+          </p>
+        )}
+        {error === "offline" && (
+          <p className="mt-3 text-[13px] text-red-600">
+            Sunucuya ulaşılamıyor. Uygulama sunucusu kapalı olabilir — bilgisayarda
+            geliştirme sunucusunu başlatıp tekrar dene.
           </p>
         )}
 
