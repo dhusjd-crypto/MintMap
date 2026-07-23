@@ -3,6 +3,7 @@ import { nanoid } from "nanoid";
 import type { NodeType } from "./node-types";
 
 export type TodoStep = { id: string; text: string; done: boolean };
+export type TodoActivity = { id: string; text: string; createdAt: number };
 export type Recurrence = "daily" | "weekly" | "monthly";
 export type TodoStatus = "todo" | "doing" | "done";
 export type Priority = 1 | 2 | 3 | 4; // 1 = highest
@@ -29,6 +30,10 @@ export type Todo = {
   blockedBy?: string[]; // todo ids that must be done first
   googleEventId?: string;
   syncedAt?: number;
+  /** Files and images attached directly to this task. Bytes live in IndexedDB. */
+  attachments?: MindFile[];
+  /** Intentional updates such as meeting notes and progress checkpoints. */
+  activity?: TodoActivity[];
 };
 export type ImageAspect = "auto" | "1:1" | "16:9" | "4:3" | "3:4";
 export type ImageFit = "cover" | "contain";
@@ -229,14 +234,22 @@ function serializeStore(s: StoreShape): StoreShape {
         const files = n.files?.some((f) => f.dataUrl)
           ? n.files.map(({ dataUrl: _drop, ...f }) => f)
           : n.files;
-        if (!n.images?.length) return files === n.files ? n : { ...n, files };
+        const todos = n.todos.map((todo) => {
+          const attachments = todo.attachments?.some((f) => f.dataUrl)
+            ? todo.attachments.map(({ dataUrl: _drop, ...f }) => f)
+            : todo.attachments;
+          return attachments === todo.attachments ? todo : { ...todo, attachments };
+        });
+        if (!n.images?.length) {
+          return files === n.files && todos === n.todos ? n : { ...n, files, todos };
+        }
         const images = n.images.map((im) =>
           im.blobId
             ? { ...im, src: "", srcOriginal: im.blobIdOriginal ? "" : im.srcOriginal }
             : im,
         );
         const active = images.find((im) => im.id === n.activeImageId) ?? images[0];
-        return { ...n, images, files, image: active?.blobId ? undefined : n.image };
+        return { ...n, images, files, todos, image: active?.blobId ? undefined : n.image };
       }),
     })),
   };
@@ -334,6 +347,12 @@ export async function migrateInlineImages() {
         if (!f.dataUrl) continue;
         if (await putImage(f.blobId, f.dataUrl)) filesLanded = true;
       }
+      for (const todo of n.todos) {
+        for (const f of todo.attachments ?? []) {
+          if (!f.dataUrl) continue;
+          if (await putImage(f.blobId, f.dataUrl)) filesLanded = true;
+        }
+      }
     }
   }
   if (!newKeys.size && !filesLanded) return;
@@ -346,10 +365,19 @@ export async function migrateInlineImages() {
         const files = n.files?.some((f) => f.dataUrl)
           ? n.files.map(({ dataUrl: _drop, ...f }) => f)
           : n.files;
-        if (!n.images?.length) return files === n.files ? n : { ...n, files };
+        const todos = n.todos.map((todo) => {
+          const attachments = todo.attachments?.some((f) => f.dataUrl)
+            ? todo.attachments.map(({ dataUrl: _drop, ...f }) => f)
+            : todo.attachments;
+          return attachments === todo.attachments ? todo : { ...todo, attachments };
+        });
+        if (!n.images?.length) {
+          return files === n.files && todos === n.todos ? n : { ...n, files, todos };
+        }
         return {
           ...n,
           files,
+          todos,
           images: n.images.map((im) => {
             const key = im.blobId ? undefined : newKeys.get(im.src);
             return key ? { ...im, blobId: key } : im;
@@ -373,6 +401,9 @@ function referencedBlobIds(): Set<string> {
       // Attachments share the blob store with images — miss these and the
       // sweep would quietly delete every attached file.
       for (const f of n.files ?? []) ids.add(f.blobId);
+      for (const todo of n.todos) {
+        for (const f of todo.attachments ?? []) ids.add(f.blobId);
+      }
     }
   }
   return ids;
@@ -864,6 +895,60 @@ export const mindmap = {
     );
   },
 
+  /** Stores a file or image in IndexedDB and attaches it to one task. */
+  async addTodoAttachment(nodeId: string, todoId: string, file: File): Promise<MindFile | null> {
+    const { putImage } = await import("./image-blobs");
+    const blobId = nanoid(12);
+    if (!(await putImage(blobId, file))) return null;
+    const entry: MindFile = {
+      id: nanoid(6),
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      blobId,
+      addedAt: Date.now(),
+    };
+    const ws = currentWs();
+    const node = ws?.nodes.find((n) => n.id === nodeId);
+    const todo = node?.todos.find((t) => t.id === todoId);
+    if (!node || !todo) return null;
+    this.updateTodo(nodeId, todoId, { attachments: [...(todo.attachments ?? []), entry] });
+    return entry;
+  },
+
+  removeTodoAttachment(nodeId: string, todoId: string, attachmentId: string) {
+    const ws = currentWs();
+    const node = ws?.nodes.find((n) => n.id === nodeId);
+    const todo = node?.todos.find((t) => t.id === todoId);
+    if (!todo) return;
+    this.updateTodo(nodeId, todoId, {
+      attachments: (todo.attachments ?? []).filter((file) => file.id !== attachmentId),
+    });
+  },
+
+  addTodoActivity(nodeId: string, todoId: string, text: string) {
+    const ws = currentWs();
+    const node = ws?.nodes.find((n) => n.id === nodeId);
+    const todo = node?.todos.find((t) => t.id === todoId);
+    if (!todo || !text.trim()) return;
+    this.updateTodo(nodeId, todoId, {
+      activity: [
+        ...(todo.activity ?? []),
+        { id: nanoid(6), text: text.trim(), createdAt: Date.now() },
+      ],
+    });
+  },
+
+  removeTodoActivity(nodeId: string, todoId: string, activityId: string) {
+    const ws = currentWs();
+    const node = ws?.nodes.find((n) => n.id === nodeId);
+    const todo = node?.todos.find((t) => t.id === todoId);
+    if (!todo) return;
+    this.updateTodo(nodeId, todoId, {
+      activity: (todo.activity ?? []).filter((entry) => entry.id !== activityId),
+    });
+  },
+
   /** Full backup including all workspaces. */
   getFullSnapshot(): StoreShape {
     load();
@@ -903,7 +988,24 @@ export const mindmap = {
                       })),
                     )
                   : n.files;
-              if (!n.images?.length) return files === n.files ? n : { ...n, files };
+              const todos = includeFiles
+                ? await Promise.all(
+                    n.todos.map(async (todo) => ({
+                      ...todo,
+                      attachments: todo.attachments?.length
+                        ? await Promise.all(
+                            todo.attachments.map(async (file) => ({
+                              ...file,
+                              dataUrl: (await getImageDataUrl(file.blobId)) ?? undefined,
+                            })),
+                          )
+                        : todo.attachments,
+                    })),
+                  )
+                : n.todos;
+              if (!n.images?.length) {
+                return files === n.files && todos === n.todos ? n : { ...n, files, todos };
+              }
               const images = await Promise.all(
                 n.images.map(async (im) => ({
                   ...im,
@@ -914,7 +1016,7 @@ export const mindmap = {
                 })),
               );
               const active = images.find((im) => im.id === n.activeImageId) ?? images[0];
-              return { ...n, images, files, image: active?.src || n.image };
+              return { ...n, images, files, todos, image: active?.src || n.image };
             }),
           ),
         })),

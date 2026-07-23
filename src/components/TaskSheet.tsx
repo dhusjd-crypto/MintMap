@@ -1,14 +1,17 @@
-import { Suspense, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Reorder, useDragControls } from "framer-motion";
 import { FormPanel } from "@/components/FormPanel";
 import {
   Bell,
+  CalendarPlus,
   CalendarDays,
   Check,
   Flag,
   GripVertical,
   Link2,
   ListChecks,
+  Loader2,
+  Paperclip,
   Plus,
   Repeat,
   Sparkles,
@@ -23,11 +26,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 import { TagEditor } from "@/components/TagEditor";
-import { mindmap, useNode, type Priority, type Recurrence, type Todo } from "@/lib/mindmap-store";
+import { mindmap, useNode, type MindFile, type Priority, type Recurrence, type Todo } from "@/lib/mindmap-store";
 import { aiBreakdownTask, aiAutoTag } from "@/lib/ai.functions";
 import { PRIORITY_META } from "@/lib/task-utils";
-
-import { LazyNodeImagePanel as NodeImagePanel } from "@/components/LazyNodeImagePanel";
+import { calendarCreateEvent } from "@/lib/google/calendar";
+import { getImageUrl } from "@/lib/image-blobs";
 
 type Props = {
   nodeId: string | null;
@@ -59,6 +62,10 @@ export function TaskSheet({ nodeId, todoId, onClose }: Props) {
   const [showDue, setShowDue] = useState(false);
   const [showRem, setShowRem] = useState(false);
   const [showRec, setShowRec] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [calendarAt, setCalendarAt] = useState("");
+  const [activityText, setActivityText] = useState("");
+  const [calendarBusy, setCalendarBusy] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [tagBusy, setTagBusy] = useState(false);
   const breakdown = useServerFn(aiBreakdownTask);
@@ -69,11 +76,42 @@ export function TaskSheet({ nodeId, todoId, onClose }: Props) {
     setShowDue(false);
     setShowRem(false);
     setShowRec(false);
+    setShowCalendar(false);
+    setCalendarAt("");
+    setActivityText("");
   }, [todoId]);
 
   if (!node || !todo) return null;
 
   const upd = (patch: Partial<Todo>) => mindmap.updateTodo(node.id, todo.id, patch);
+
+  const addToCalendar = async () => {
+    if (todo.googleEventId) {
+      toast.message("Bu görev zaten Google Takvim'e bağlı");
+      return;
+    }
+    const at = calendarAt ? new Date(calendarAt).getTime() : todo.dueAt ?? todo.reminderAt;
+    if (!at || Number.isNaN(at)) {
+      toast.error("Takvim için bir tarih ve saat seç");
+      return;
+    }
+    setCalendarBusy(true);
+    try {
+      const description = [node.title, todo.note, ...(todo.activity ?? []).slice(-3).map((entry) => entry.text)]
+        .filter(Boolean)
+        .join("\n\n");
+      const result = await calendarCreateEvent({
+        data: { title: todo.text, description, startISO: new Date(at).toISOString() },
+      });
+      upd({ dueAt: todo.dueAt ?? at, googleEventId: result.id ?? undefined });
+      toast.success("Google Takvim'e eklendi");
+      setShowCalendar(false);
+    } catch (error) {
+      toast.error((error as Error).message || "Takvim kaydı oluşturulamadı");
+    } finally {
+      setCalendarBusy(false);
+    }
+  };
 
   const runBreakdown = async () => {
     setAiBusy(true);
@@ -297,6 +335,32 @@ export function TaskSheet({ nodeId, todoId, onClose }: Props) {
             )}
 
             <Row
+              icon={<CalendarPlus className="h-5 w-5" />}
+              active={!!todo.googleEventId}
+              label={todo.googleEventId ? "Google Takvim'e bağlı" : "Google Takvim'e ekle"}
+              onClick={() => setShowCalendar((value) => !value)}
+            />
+            {showCalendar && !todo.googleEventId && (
+              <div className="flex gap-2 px-3 pb-2">
+                <Input
+                  type="datetime-local"
+                  value={calendarAt || toLocalInput(todo.dueAt ?? todo.reminderAt)}
+                  onChange={(event) => setCalendarAt(event.target.value)}
+                  className="h-9 min-w-0 flex-1"
+                />
+                <button
+                  type="button"
+                  onClick={() => void addToCalendar()}
+                  disabled={calendarBusy}
+                  className="flex h-9 shrink-0 items-center gap-1 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                >
+                  {calendarBusy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  Ekle
+                </button>
+              </div>
+            )}
+
+            <Row
               icon={<Repeat className="h-5 w-5" />}
               active={!!todo.recurrence}
               label={
@@ -399,13 +463,186 @@ export function TaskSheet({ nodeId, todoId, onClose }: Props) {
             />
           </div>
 
-          <div className="sticky bottom-0 z-10 -mx-4 mt-3 border-t border-border bg-card/95 px-4 py-3 backdrop-blur-md">
-            <Suspense fallback={<div className="h-24 rounded-xl bg-muted/50 animate-pulse" />}>
-              <NodeImagePanel node={node} compact />
-            </Suspense>
+          <TaskAttachments nodeId={node.id} todo={todo} />
+
+          <div className="mt-3 rounded-2xl border border-border bg-card p-3">
+            <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              GÃ¼ncelleme kaydÄ±
+            </div>
+            <div className="flex gap-2">
+              <Input
+                value={activityText}
+                onChange={(event) => setActivityText(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" || !activityText.trim()) return;
+                  event.preventDefault();
+                  mindmap.addTodoActivity(node.id, todo.id, activityText);
+                  setActivityText("");
+                }}
+                placeholder="GÃ¶rÃ¼ÅŸme yapÄ±ldÄ±, sonraki adÄ±m..."
+                className="h-10 min-w-0 flex-1"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  mindmap.addTodoActivity(node.id, todo.id, activityText);
+                  setActivityText("");
+                }}
+                disabled={!activityText.trim()}
+                className="h-10 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+              >
+                Kaydet
+              </button>
+            </div>
+            {(todo.activity?.length ?? 0) > 0 && (
+              <div className="mt-3 space-y-2">
+                {[...(todo.activity ?? [])].reverse().map((entry) => (
+                  <div key={entry.id} className="flex items-start gap-2 rounded-lg bg-muted/50 px-2.5 py-2 text-sm">
+                    <span className="min-w-0 flex-1">{entry.text}</span>
+                    <span className="shrink-0 text-[10px] text-muted-foreground">
+                      {new Date(entry.createdAt).toLocaleDateString("tr-TR", { day: "2-digit", month: "short" })}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => mindmap.removeTodoActivity(node.id, todo.id, entry.id)}
+                      aria-label="GÃ¼ncelleme kaydÄ±nÄ± sil"
+                      className="shrink-0 text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
     </FormPanel>
+  );
+}
+
+function TaskAttachments({ nodeId, todo }: { nodeId: string; todo: Todo }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [adding, setAdding] = useState(false);
+  const attachments = todo.attachments ?? [];
+
+  const addFiles = async (files: FileList | File[]) => {
+    const list = Array.from(files);
+    if (!list.length) return;
+    setAdding(true);
+    try {
+      for (const file of list) {
+        if (file.size > 25 * 1024 * 1024) {
+          toast.error(`'${file.name}' 25 MB sÄ±nÄ±rÄ±nÄ± aÅŸÄ±yor`);
+          continue;
+        }
+        const saved = await mindmap.addTodoAttachment(nodeId, todo.id, file);
+        if (!saved) toast.error(`'${file.name}' kaydedilemedi`);
+      }
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 rounded-2xl border border-border bg-card p-3">
+      <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <Paperclip className="h-3.5 w-3.5" />
+        Dosya ve gÃ¶rseller {attachments.length > 0 && `(${attachments.length})`}
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="ml-auto flex h-9 w-9 items-center justify-center rounded-lg text-primary hover:bg-primary/10"
+          aria-label="Dosya veya gÃ¶rsel ekle"
+          title="Dosya veya gÃ¶rsel ekle"
+        >
+          {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+        </button>
+      </div>
+      {attachments.length > 0 && (
+        <ul className="mb-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+          {attachments.map((attachment) => (
+            <TaskAttachmentItem
+              key={attachment.id}
+              attachment={attachment}
+              onRemove={() => mindmap.removeTodoAttachment(nodeId, todo.id, attachment.id)}
+            />
+          ))}
+        </ul>
+      )}
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50"
+      >
+        <Paperclip className="h-4 w-4" />
+        Dosya veya gÃ¶rsel ekle
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={(event) => {
+          if (event.target.files?.length) void addFiles(event.target.files);
+          event.target.value = "";
+        }}
+      />
+    </div>
+  );
+}
+
+function TaskAttachmentItem({ attachment, onRemove }: { attachment: MindFile; onRemove: () => void }) {
+  const [url, setUrl] = useState("");
+  const isImage = attachment.type.startsWith("image/");
+
+  useEffect(() => {
+    let cancelled = false;
+    void getImageUrl(attachment.blobId).then((next) => {
+      if (!cancelled && next) setUrl(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [attachment.blobId]);
+
+  const open = () => {
+    if (!url) return toast.error("Dosya bu cihazda bulunamadÄ±");
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.target = "_blank";
+    anchor.rel = "noopener";
+    if (!isImage && !attachment.type.startsWith("audio/") && !attachment.type.startsWith("video/") && attachment.type !== "application/pdf") {
+      anchor.download = attachment.name;
+    }
+    anchor.click();
+  };
+
+  return (
+    <li className="flex min-w-0 items-center gap-2 rounded-xl bg-muted/50 p-2">
+      <button type="button" onClick={open} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+        {isImage && url ? (
+          <img src={url} alt="" className="h-10 w-10 shrink-0 rounded-md object-cover" />
+        ) : (
+          <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+        )}
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-medium">{attachment.name}</span>
+          <span className="block text-[10px] text-muted-foreground">
+            {attachment.size < 1024 * 1024
+              ? `${Math.max(1, Math.round(attachment.size / 1024))} KB`
+              : `${(attachment.size / (1024 * 1024)).toFixed(1)} MB`}
+          </span>
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`${attachment.name} dosyasÄ±nÄ± sil`}
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+    </li>
   );
 }
 

@@ -108,4 +108,34 @@ describe("mindmap store — file attachments", () => {
     expect(fakeBlobs.has(entry!.blobId)).toBe(true);
     expect(localStorage.getItem(STORAGE_KEY)!).not.toContain("dataUrl");
   });
+
+  it("stores task-level attachments without mixing them into node files", async () => {
+    const n = mod.mindmap.add(null, "Ä°nÅŸaat");
+    mod.mindmap.addTodo(n.id, "Mimar GÃ¶khan ile gÃ¶rÃ¼ÅŸ");
+    const todoId = mod.mindmap.getSnapshot().find((x) => x.id === n.id)!.todos[0].id;
+    const entry = await mod.mindmap.addTodoAttachment(n.id, todoId, pdf("plan.pdf"));
+
+    const node = mod.mindmap.getSnapshot().find((x) => x.id === n.id)!;
+    expect(node.files ?? []).toHaveLength(0);
+    expect(node.todos[0].attachments).toHaveLength(1);
+    expect(node.todos[0].attachments![0].name).toBe("plan.pdf");
+    expect(fakeBlobs.has(entry!.blobId)).toBe(true);
+  });
+
+  it("keeps task attachments in portable backups and activity is undoable", async () => {
+    const n = mod.mindmap.add(null, "Ä°nÅŸaat");
+    mod.mindmap.addTodo(n.id, "Mimar GÃ¶khan ile gÃ¶rÃ¼ÅŸ");
+    const todoId = mod.mindmap.getSnapshot().find((x) => x.id === n.id)!.todos[0].id;
+    const entry = await mod.mindmap.addTodoAttachment(n.id, todoId, pdf("notlar.pdf"));
+    mod.mindmap.addTodoActivity(n.id, todoId, "GÃ¶rÃ¼ÅŸme yapÄ±ldÄ±, revize plan beklenecek.");
+
+    const manual = await mod.mindmap.getPortableSnapshot();
+    const todo = manual.workspaces.flatMap((w) => w.nodes).find((x) => x.id === n.id)!.todos[0];
+    expect(todo.attachments![0].dataUrl).toContain(entry!.blobId);
+    expect(todo.activity).toHaveLength(1);
+
+    mod.mindmap.removeTodoActivity(n.id, todoId, todo.activity![0].id);
+    mod.mindmap.undo();
+    expect(mod.mindmap.getSnapshot().find((x) => x.id === n.id)!.todos[0].activity).toHaveLength(1);
+  });
 });

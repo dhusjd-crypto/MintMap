@@ -1,5 +1,6 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { FormPanel } from "@/components/FormPanel";
+import { TaskSheet } from "@/components/TaskSheet";
 import {
   Bell,
   CalendarPlus,
@@ -134,6 +135,7 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
   const [quickAddText, setQuickAddText] = useState("");
   const [quickAddSaving, setQuickAddSaving] = useState(false);
   const quickAddRef = useRef<HTMLDivElement>(null);
+  const [selectedTodoId, setSelectedTodoId] = useState<string | null>(null);
   
   const [notePreview, setNotePreview] = useState(false);
   const [aiBusy, setAiBusy] = useState<"sub" | "sum" | "todos" | "tags" | null>(null);
@@ -151,6 +153,7 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
       setActiveQuickAddTaskId(null);
       setQuickAddText("");
       setQuickAddSaving(false);
+      setSelectedTodoId(null);
     },
     [quickAddText],
   );
@@ -577,6 +580,7 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
                           <div
                             onClick={() => {
                               if (activeQuickAddTaskId) closeQuickAdd(true);
+                              setSelectedTodoId(t.id);
                             }}
                             className="flex items-center gap-3 rounded-xl bg-muted/50 px-3 py-2.5"
                             style={{ marginLeft: depth * 20 }}
@@ -818,6 +822,11 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
             </Tabs>
         </FormPanel>
       )}
+      <TaskSheet
+        nodeId={selectedTodoId ? node?.id ?? null : null}
+        todoId={selectedTodoId}
+        onClose={() => setSelectedTodoId(null)}
+      />
     </>
   );
 }
