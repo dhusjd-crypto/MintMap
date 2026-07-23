@@ -17,6 +17,8 @@ export type Todo = {
   dueAt?: number;
   reminderAt?: number;
   starred?: boolean;
+  /** Manually selected for the short, deliberately limited focus list. */
+  focus?: boolean;
   myDay?: boolean;
   myDayAt?: number;
   steps?: TodoStep[];

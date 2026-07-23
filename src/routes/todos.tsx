@@ -18,6 +18,7 @@ import {
   Sun,
   CalendarDays,
   Bell,
+  Crosshair,
   Tag,
   Flame,
   AlertTriangle,
@@ -56,6 +57,7 @@ type View =
   | { kind: "overdue" }
   | { kind: "highprio" }
   | { kind: "blocked" }
+  | { kind: "focus" }
   | { kind: "list"; nodeId: string };
 
 type FlatTodo = { todo: Todo; node: MindNode };
@@ -70,6 +72,18 @@ function isToday(ts?: number) {
     d.getMonth() === n.getMonth() &&
     d.getDate() === n.getDate()
   );
+}
+
+function descendantProgress(todo: Todo, todos: Todo[]) {
+  const descendants: Todo[] = [];
+  const queue = [todo.id];
+  while (queue.length) {
+    const parentId = queue.shift()!;
+    const children = todos.filter((item) => item.parentId === parentId);
+    descendants.push(...children);
+    queue.push(...children.map((child) => child.id));
+  }
+  return { total: descendants.length, done: descendants.filter((item) => item.done).length };
 }
 
 function TodosPage() {
@@ -130,6 +144,7 @@ function TodosPage() {
     else if (view.kind === "highprio")
       arr = arr.filter((x) => x.todo.priority === 1 || x.todo.priority === 2);
     else if (view.kind === "blocked") arr = arr.filter((x) => isBlocked(x.todo, x.node.todos));
+    else if (view.kind === "focus") arr = arr.filter((x) => x.todo.focus);
     else if (view.kind === "list") arr = arr.filter((x) => x.node.id === view.nodeId);
     if (tagFilter) arr = arr.filter((x) => x.todo.tags?.includes(tagFilter));
     const q = query.trim().toLowerCase();
@@ -205,6 +220,8 @@ function TodosPage() {
         return { title: "Yüksek öncelik", color: "oklch(0.68 0.18 20)", icon: Flag };
       case "blocked":
         return { title: "Engellenen", color: "oklch(0.65 0.05 280)", icon: Lock };
+      case "focus":
+        return { title: "Odak", color: "oklch(0.67 0.14 165)", icon: Crosshair };
       case "list": {
         const n = nodes.find((x) => x.id === view.nodeId);
         return { title: n?.title ?? "Liste", color: n?.color ?? "oklch(0.7 0.05 220)", icon: ListChecks };
@@ -235,6 +252,7 @@ function TodosPage() {
       ).length,
       highprio: all.filter((x) => !x.todo.done && (x.todo.priority === 1 || x.todo.priority === 2)).length,
       blocked: all.filter((x) => !x.todo.done && isBlocked(x.todo, x.node.todos)).length,
+      focus: all.filter((x) => !x.todo.done && x.todo.focus).length,
     };
   }, [all]);
 
@@ -392,6 +410,13 @@ function TodosPage() {
               count={counts.blocked}
               active={view.kind === "blocked"}
               onClick={() => { setView({ kind: "blocked" }); setNavOpen(false); }}
+            />
+            <NavItem
+              icon={<Crosshair className="h-5 w-5" />}
+              label="Odak"
+              count={counts.focus}
+              active={view.kind === "focus"}
+              onClick={() => { setView({ kind: "focus" }); setNavOpen(false); }}
             />
 
             {nodes.length > 0 && (
@@ -686,6 +711,7 @@ function TaskRow({
     const d = node.todos.find((t) => t.id === id);
     return d && !d.done;
   }).length;
+  const subtaskProgress = descendantProgress(todo, node.todos);
 
   return (
     <motion.div
@@ -794,6 +820,12 @@ function TaskRow({
           {stepCount > 0 && (
             <span>
               {stepDone}/{stepCount} adım
+            </span>
+          )}
+          {subtaskProgress.total > 0 && (
+            <span className="inline-flex items-center gap-1">
+              <ListChecks className="h-3 w-3" />
+              {subtaskProgress.done}/{subtaskProgress.total} alt görev
             </span>
           )}
           {todo.note && (

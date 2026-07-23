@@ -6,6 +6,7 @@ import {
   CalendarPlus,
   CalendarDays,
   Check,
+  Crosshair,
   Flag,
   GripVertical,
   Link2,
@@ -283,6 +284,12 @@ export function TaskSheet({ nodeId, todoId, onClose }: Props) {
 
           {/* Quick actions */}
           <div className="space-y-1 border-t border-border pt-2">
+            <Row
+              icon={<Crosshair className="h-5 w-5" />}
+              active={!!todo.focus}
+              label={todo.focus ? "Odak listesinden kaldır" : "Odak listesine ekle"}
+              onClick={() => upd({ focus: !todo.focus })}
+            />
             <Row
               icon={<Sun className="h-5 w-5" />}
               active={!!todo.myDay}
