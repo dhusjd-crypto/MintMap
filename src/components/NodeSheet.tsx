@@ -876,6 +876,7 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
         nodeId={selectedTodoId ? node?.id ?? null : null}
         todoId={selectedTodoId}
         onClose={() => setSelectedTodoId(null)}
+        onSelectTodo={setSelectedTodoId}
       />
     </>
   );

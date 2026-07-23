@@ -646,6 +646,7 @@ function TodosPage() {
           nodeId={openTodo.nodeId}
           todoId={openTodo.todoId}
           onClose={() => setOpenTodo(null)}
+          onSelectTodo={(todoId) => setOpenTodo((current) => (current ? { ...current, todoId } : current))}
         />
       )}
       <Toaster position="top-center" />

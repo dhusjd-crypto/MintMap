@@ -122,6 +122,14 @@ describe("mindmap store — file attachments", () => {
     expect(fakeBlobs.has(entry!.blobId)).toBe(true);
   });
 
+  it("returns the newly created task so follow-up flows can open it immediately", () => {
+    const n = mod.mindmap.add(null, "Takip");
+    const created = mod.mindmap.addTodo(n.id, "Mimar ile görüş");
+
+    expect(created).toMatchObject({ text: "Mimar ile görüş", parentId: null, done: false });
+    expect(mod.mindmap.getSnapshot().find((node) => node.id === n.id)!.todos[0].id).toBe(created!.id);
+  });
+
   it("keeps task attachments in portable backups and activity is undoable", async () => {
     const n = mod.mindmap.add(null, "Ä°nÅŸaat");
     mod.mindmap.addTodo(n.id, "Mimar GÃ¶khan ile gÃ¶rÃ¼ÅŸ");

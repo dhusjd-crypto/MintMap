@@ -38,6 +38,7 @@ type Props = {
   nodeId: string | null;
   todoId: string | null;
   onClose: () => void;
+  onSelectTodo?: (todoId: string) => void;
 };
 
 function fmt(ts?: number) {
@@ -57,7 +58,7 @@ function toLocalInput(ts?: number) {
   return d.toISOString().slice(0, 16);
 }
 
-export function TaskSheet({ nodeId, todoId, onClose }: Props) {
+export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
   const node = useNode(nodeId);
   const todo: Todo | undefined = node?.todos.find((t) => t.id === todoId);
   const [stepText, setStepText] = useState("");
@@ -105,9 +106,10 @@ export function TaskSheet({ nodeId, todoId, onClose }: Props) {
   const addFollowUp = () => {
     const text = followUpText.trim();
     if (!text) return;
-    mindmap.addTodo(node.id, text, todo.id);
+    const followUp = mindmap.addTodo(node.id, text, todo.id);
     setFollowUpText("");
     toast.success("Alt görev eklendi");
+    if (followUp) onSelectTodo?.(followUp.id);
   };
 
   const addToCalendar = async () => {

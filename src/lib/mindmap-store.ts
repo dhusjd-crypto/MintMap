@@ -694,21 +694,20 @@ export const mindmap = {
     const ws = currentWs();
     const n = ws?.nodes.find((x) => x.id === id);
     if (!n) return;
+    const todo: Todo = {
+      id: nanoid(6),
+      text,
+      done: false,
+      status: "todo",
+      parentId,
+      createdAt: Date.now(),
+      steps: [],
+      ...extra,
+    };
     this.update(id, {
-      todos: [
-        ...n.todos,
-        {
-          id: nanoid(6),
-          text,
-          done: false,
-          status: "todo",
-          parentId,
-          createdAt: Date.now(),
-          steps: [],
-          ...extra,
-        },
-      ],
+      todos: [...n.todos, todo],
     });
+    return todo;
   },
   updateTodo(id: string, todoId: string, patch: Partial<Todo>) {
     const ws = currentWs();
