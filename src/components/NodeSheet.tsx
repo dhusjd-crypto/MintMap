@@ -1,4 +1,5 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Reorder } from "framer-motion";
 import { FormPanel } from "@/components/FormPanel";
 import { TaskSheet } from "@/components/TaskSheet";
 import {
@@ -7,6 +8,8 @@ import {
   Check,
   CornerDownRight,
   Eye,
+  GripVertical,
+  ListOrdered,
   Pencil,
   Plus,
   Share2,
@@ -136,6 +139,10 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
   const [quickAddSaving, setQuickAddSaving] = useState(false);
   const quickAddRef = useRef<HTMLDivElement>(null);
   const [selectedTodoId, setSelectedTodoId] = useState<string | null>(null);
+  const [showTaskOrder, setShowTaskOrder] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("mintmap.showTaskOrder") === "true";
+  });
   
   const [notePreview, setNotePreview] = useState(false);
   const [aiBusy, setAiBusy] = useState<"sub" | "sum" | "todos" | "tags" | null>(null);
@@ -286,6 +293,14 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
       setQuickAddSaving(false);
     }
   }, [nodeId, initialTab]);
+
+  const toggleTaskOrder = () => {
+    setShowTaskOrder((current) => {
+      const next = !current;
+      window.localStorage.setItem("mintmap.showTaskOrder", String(next));
+      return next;
+    });
+  };
 
   const buildShareText = (target: MindNode) => {
     const todos = target.todos.map((t) => `${t.done ? "✅" : "⬜️"} ${t.text}`).join("\n");
@@ -555,6 +570,19 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
+                <button
+                  type="button"
+                  onClick={toggleTaskOrder}
+                  aria-pressed={showTaskOrder}
+                  className={`flex h-9 w-full items-center justify-center gap-2 rounded-lg border text-xs font-semibold transition-colors ${
+                    showTaskOrder
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-card text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <ListOrdered className="h-3.5 w-3.5" />
+                  {showTaskOrder ? "Sıralama açık" : "Sıralamayı aç"}
+                </button>
                 <Button
                   variant="outline"
                   size="sm"
@@ -572,11 +600,11 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
                     </p>
                   )}
                   {(() => {
-                    const renderTodo = (t: Todo, depth: number) => {
+                    const renderTodo = (t: Todo, depth: number, position: number) => {
                       const children = node.todos.filter((x) => x.parentId === t.id);
                       const isActive = activeQuickAddTaskId === t.id;
                       return (
-                        <div key={t.id}>
+                        <TodoOrderItem key={t.id} todo={t} enabled={showTaskOrder}>
                           <div
                             onClick={() => {
                               if (activeQuickAddTaskId) closeQuickAdd(true);
@@ -599,6 +627,12 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
                             >
                               {t.done && <Check className="h-3 w-3" />}
                             </button>
+                            {showTaskOrder && (
+                              <span className="flex w-10 shrink-0 items-center gap-0.5 text-xs font-semibold text-primary">
+                                <GripVertical className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                                {position + 1}.
+                              </span>
+                            )}
                             <span
                               className={`flex-1 text-sm ${t.done ? "text-muted-foreground line-through" : ""}`}
                             >
@@ -685,16 +719,25 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
                             </div>
                           )}
                           {children.length > 0 && (
-                            <div className="mt-1.5 space-y-1.5">
-                              {children.map((c) => renderTodo(c, depth + 1))}
-                            </div>
+                            <TodoOrderGroup
+                              todos={children}
+                              parentId={t.id}
+                              nodeId={node.id}
+                              enabled={showTaskOrder}
+                              className="mt-1.5 space-y-1.5"
+                            >
+                              {children.map((c, childPosition) => renderTodo(c, depth + 1, childPosition))}
+                            </TodoOrderGroup>
                           )}
-                        </div>
+                        </TodoOrderItem>
                       );
                     };
-                    return node.todos
-                      .filter((t) => !t.parentId)
-                      .map((t) => renderTodo(t, 0));
+                    const rootTodos = node.todos.filter((t) => !t.parentId);
+                    return (
+                      <TodoOrderGroup todos={rootTodos} parentId={null} nodeId={node.id} enabled={showTaskOrder}>
+                        {rootTodos.map((t, position) => renderTodo(t, 0, position))}
+                      </TodoOrderGroup>
+                    );
                   })()}
                 </div>
               </TabsContent>
@@ -828,5 +871,42 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
         onClose={() => setSelectedTodoId(null)}
       />
     </>
+  );
+}
+
+function TodoOrderGroup({
+  todos,
+  parentId,
+  nodeId,
+  enabled,
+  className,
+  children,
+}: {
+  todos: Todo[];
+  parentId: string | null;
+  nodeId: string;
+  enabled: boolean;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  if (!enabled) return <div className={className}>{children}</div>;
+  return (
+    <Reorder.Group
+      axis="y"
+      values={todos}
+      onReorder={(next) => mindmap.reorderTodos(nodeId, parentId, next.map((todo) => todo.id))}
+      className={className}
+    >
+      {children}
+    </Reorder.Group>
+  );
+}
+
+function TodoOrderItem({ todo, enabled, children }: { todo: Todo; enabled: boolean; children: React.ReactNode }) {
+  if (!enabled) return <div>{children}</div>;
+  return (
+    <Reorder.Item value={todo} className="cursor-grab touch-none active:cursor-grabbing">
+      {children}
+    </Reorder.Item>
   );
 }

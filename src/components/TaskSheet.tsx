@@ -467,7 +467,7 @@ export function TaskSheet({ nodeId, todoId, onClose }: Props) {
 
           <div className="mt-3 rounded-2xl border border-border bg-card p-3">
             <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              GÃ¼ncelleme kaydÄ±
+              Güncelleme kaydı
             </div>
             <div className="flex gap-2">
               <Input
@@ -505,7 +505,7 @@ export function TaskSheet({ nodeId, todoId, onClose }: Props) {
                     <button
                       type="button"
                       onClick={() => mindmap.removeTodoActivity(node.id, todo.id, entry.id)}
-                      aria-label="GÃ¼ncelleme kaydÄ±nÄ± sil"
+                      aria-label="Güncelleme kaydını sil"
                       className="shrink-0 text-muted-foreground hover:text-destructive"
                     >
                       <X className="h-3.5 w-3.5" />
@@ -547,13 +547,13 @@ function TaskAttachments({ nodeId, todo }: { nodeId: string; todo: Todo }) {
     <div className="mt-3 rounded-2xl border border-border bg-card p-3">
       <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
         <Paperclip className="h-3.5 w-3.5" />
-        Dosya ve gÃ¶rseller {attachments.length > 0 && `(${attachments.length})`}
+        Dosya ve görseller {attachments.length > 0 && `(${attachments.length})`}
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
           className="ml-auto flex h-9 w-9 items-center justify-center rounded-lg text-primary hover:bg-primary/10"
-          aria-label="Dosya veya gÃ¶rsel ekle"
-          title="Dosya veya gÃ¶rsel ekle"
+          aria-label="Dosya veya görsel ekle"
+          title="Dosya veya görsel ekle"
         >
           {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
         </button>
@@ -575,7 +575,7 @@ function TaskAttachments({ nodeId, todo }: { nodeId: string; todo: Todo }) {
         className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50"
       >
         <Paperclip className="h-4 w-4" />
-        Dosya veya gÃ¶rsel ekle
+        Dosya veya görsel ekle
       </button>
       <input
         ref={inputRef}
@@ -606,7 +606,7 @@ function TaskAttachmentItem({ attachment, onRemove }: { attachment: MindFile; on
   }, [attachment.blobId]);
 
   const open = () => {
-    if (!url) return toast.error("Dosya bu cihazda bulunamadÄ±");
+    if (!url) return toast.error("Dosya bu cihazda bulunamadı");
     const anchor = document.createElement("a");
     anchor.href = url;
     anchor.target = "_blank";
@@ -637,7 +637,7 @@ function TaskAttachmentItem({ attachment, onRemove }: { attachment: MindFile; on
       <button
         type="button"
         onClick={onRemove}
-        aria-label={`${attachment.name} dosyasÄ±nÄ± sil`}
+        aria-label={`${attachment.name} dosyasını sil`}
         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
       >
         <Trash2 className="h-4 w-4" />

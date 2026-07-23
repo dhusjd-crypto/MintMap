@@ -751,6 +751,24 @@ export const mindmap = {
   reorderSteps(id: string, todoId: string, steps: TodoStep[]) {
     this.updateTodo(id, todoId, { steps });
   },
+  /** Reorders siblings while preserving the task tree and all task metadata. */
+  reorderTodos(id: string, parentId: string | null, orderedIds: string[]) {
+    const ws = currentWs();
+    const node = ws?.nodes.find((x) => x.id === id);
+    if (!node) return;
+    const siblings = node.todos.filter((todo) => (todo.parentId ?? null) === parentId);
+    if (siblings.length < 2 || siblings.length !== orderedIds.length) return;
+    const byId = new Map(siblings.map((todo) => [todo.id, todo]));
+    const nextSiblings = orderedIds.map((todoId) => byId.get(todoId));
+    if (nextSiblings.some((todo) => !todo)) return;
+    let index = 0;
+    this.update(id, {
+      todos: node.todos.map((todo) => {
+        if ((todo.parentId ?? null) !== parentId) return todo;
+        return nextSiblings[index++]!;
+      }),
+    });
+  },
   toggleTodo(id: string, todoId: string) {
     const ws = currentWs();
     const n = ws?.nodes.find((x) => x.id === id);

@@ -138,4 +138,19 @@ describe("mindmap store — file attachments", () => {
     mod.mindmap.undo();
     expect(mod.mindmap.getSnapshot().find((x) => x.id === n.id)!.todos[0].activity).toHaveLength(1);
   });
+
+  it("reorders only siblings and preserves the subtask tree", () => {
+    const n = mod.mindmap.add(null, "Sıralama");
+    mod.mindmap.addTodo(n.id, "Birinci");
+    mod.mindmap.addTodo(n.id, "İkinci");
+    const initial = mod.mindmap.getSnapshot().find((x) => x.id === n.id)!;
+    const [first, second] = initial.todos;
+    mod.mindmap.addTodo(n.id, "Birinci alt görev", first.id);
+
+    mod.mindmap.reorderTodos(n.id, null, [second.id, first.id]);
+
+    const todos = mod.mindmap.getSnapshot().find((x) => x.id === n.id)!.todos;
+    expect(todos.filter((todo) => !todo.parentId).map((todo) => todo.text)).toEqual(["İkinci", "Birinci"]);
+    expect(todos.find((todo) => todo.parentId === first.id)?.text).toBe("Birinci alt görev");
+  });
 });
