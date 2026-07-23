@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { lazy, Suspense, useState } from "react";
 import { BottomNav } from "@/components/BottomNav";
+import { DailyBrief } from "@/components/DailyBrief";
 import { TaskFormPanel } from "@/components/TaskFormPanel";
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 import { useNodes, useReminderScheduler } from "@/lib/mindmap-store";
@@ -80,6 +81,8 @@ function Index() {
           )}
         </div>
       </header>
+
+      <DailyBrief />
 
       <div className="relative flex-1 overflow-hidden">
         <Suspense

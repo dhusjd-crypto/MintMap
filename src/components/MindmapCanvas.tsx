@@ -17,6 +17,7 @@ import { toast } from "sonner";
 
 import { driveLoadSnapshot, driveSaveSnapshot } from "@/lib/google/drive";
 import { mindmap, useNodes, type MindNode } from "@/lib/mindmap-store";
+import { usePulse } from "@/lib/pulse-store";
 import { readBackupPayload, shouldAllowCloudSave, describeStoreSnapshot } from "@/lib/backup-format";
 import { useFabSlot } from "@/lib/fab-slots";
 import { TEMPLATES } from "@/lib/templates";
@@ -1303,6 +1304,15 @@ const NodeButton = memo(function NodeButton({
     if (editing) setDraft(node.title);
   }, [editing, node.title]);
 
+  const overdueCount = node.todos.filter(
+    (t) => !t.done && t.dueAt && t.dueAt < Date.now(),
+  ).length;
+  // Pulse store yalnızca kullanıcı bir gelişmeyi bağladığında değişir; sürükleme
+  // sırasında sabit kalır, o yüzden bu abonelik canvas performansını etkilemez.
+  const pulseUnread = usePulse().filter(
+    (p) => !p.read && p.nodeIds.includes(node.id),
+  ).length;
+
   return (
     <div
       className="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2"
@@ -1410,6 +1420,22 @@ const NodeButton = memo(function NodeButton({
         )}
         {node.reminderAt && node.reminderAt > Date.now() && (
           <div className="mt-0.5 text-[10px] opacity-70">⏰ hatırlatıcı</div>
+        )}
+        {overdueCount > 0 && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-1.5 -top-1.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-soft"
+          >
+            {overdueCount}
+          </span>
+        )}
+        {pulseUnread > 0 && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute -left-1.5 -top-1.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground shadow-soft"
+          >
+            {pulseUnread}
+          </span>
         )}
       </motion.button>
       {hasChildren && (

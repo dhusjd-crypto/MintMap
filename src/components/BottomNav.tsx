@@ -1,9 +1,10 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Network, ListChecks, CalendarDays, Columns3, LayoutGrid } from "lucide-react";
+import { Network, ListChecks, CalendarDays, Columns3, LayoutGrid, Activity } from "lucide-react";
 
 const items = [
   { to: "/", label: "Mindmap", icon: Network },
   { to: "/todos", label: "Görevler", icon: ListChecks },
+  { to: "/pulse", label: "Pulse", icon: Activity },
   { to: "/keep", label: "Kutu", icon: LayoutGrid },
   { to: "/board", label: "Pano", icon: Columns3 },
   { to: "/calendar", label: "Takvim", icon: CalendarDays },

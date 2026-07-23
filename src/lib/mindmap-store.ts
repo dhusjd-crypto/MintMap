@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { nanoid } from "nanoid";
+import type { NodeType } from "./node-types";
 
 export type TodoStep = { id: string; text: string; done: boolean };
 export type Recurrence = "daily" | "weekly" | "monthly";
@@ -67,6 +68,8 @@ export type MindFile = {
 export type MindNode = {
   id: string;
   parentId: string | null;
+  /** Düğümün rolü (Alan/Hedef/Proje…). Atanmamışsa "generic" sayılır. */
+  type?: NodeType;
   title: string;
   note: string;
   color: string;

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, Smartphone, Bell, CloudUpload, CloudDownload, Keyboard, Sparkles, CheckCircle2, AlertCircle, CalendarSync } from "lucide-react";
+import { Download, Smartphone, Bell, CloudUpload, CloudDownload, Keyboard, Sparkles, CheckCircle2, AlertCircle, CalendarSync, Heart, X } from "lucide-react";
 import { canInstall, onInstallAvailability, promptInstall, ensureNotificationPermission } from "@/lib/pwa";
 import { mindmap, useNodes } from "@/lib/mindmap-store";
 import { readBackupPayload, shouldAllowCloudSave, describeStoreSnapshot } from "@/lib/backup-format";
@@ -11,6 +11,7 @@ import { driveLoadSnapshot, driveSaveSnapshot } from "@/lib/google/drive";
 import { isGoogleConfigured } from "@/lib/google/gauth";
 import { aiStatus } from "@/lib/ai.functions";
 import { runCalendarSync } from "@/lib/calendar-sync";
+import { interests, useInterests } from "@/lib/interest-store";
 import { useServerFn } from "@tanstack/react-start";
 
 type ProviderPref = "auto" | "off" | "openrouter" | "gemini" | "openai" | "ollama" | "mock";
@@ -59,6 +60,12 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
     () => (typeof window !== "undefined" ? Number(localStorage.getItem("mintmap.calendar.lastSyncAt") || 0) || null : null),
   );
   const fetchStatus = useServerFn(aiStatus);
+  const interestList = useInterests();
+  const [interestText, setInterestText] = useState("");
+
+  const addInterest = () => {
+    if (interests.add(interestText)) setInterestText("");
+  };
 
   useEffect(() => {
     if (typeof Notification !== "undefined") setNotif(Notification.permission);
@@ -110,6 +117,54 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
         <DialogHeader>
           <DialogTitle>Ayarlar & senkron</DialogTitle>
         </DialogHeader>
+
+        <section className="space-y-2">
+          <h3 className="text-xs font-semibold uppercase text-muted-foreground">
+            <Heart className="inline h-3 w-3 mr-1" /> İlgi alanların
+          </h3>
+          <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2.5 text-sm">
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              Takip ettiğin konular (Borsa, Arsa, Sağlık…). İleride gelişmeleri bu
+              alanlara göre süzeceğiz.
+            </p>
+            <div className="flex gap-2">
+              <input
+                value={interestText}
+                onChange={(e) => setInterestText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addInterest();
+                  }
+                }}
+                placeholder="İlgi alanı ekle…"
+                className="flex-1 rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+              />
+              <Button size="sm" onClick={addInterest} disabled={!interestText.trim()}>
+                Ekle
+              </Button>
+            </div>
+            {interestList.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {interestList.map((it) => (
+                  <span
+                    key={it.id}
+                    className="flex items-center gap-1 rounded-full bg-background px-2.5 py-1 text-[11px] font-semibold"
+                  >
+                    {it.label}
+                    <button
+                      onClick={() => interests.remove(it.id)}
+                      aria-label={`${it.label} kaldır`}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
 
         <section className="space-y-2">
           <h3 className="text-xs font-semibold uppercase text-muted-foreground">

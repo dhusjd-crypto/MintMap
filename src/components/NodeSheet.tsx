@@ -29,6 +29,7 @@ import {
   requestNotificationPermission,
   useNode,
 } from "@/lib/mindmap-store";
+import { NODE_TYPES, NODE_TYPE_ORDER, nodeTypeOf } from "@/lib/node-types";
 import { calendarCreateEvent } from "@/lib/google/calendar";
 import { aiSuggestSubnodes, aiSummarize, aiBreakdownTask, aiAutoTag } from "@/lib/ai.functions";
 
@@ -585,6 +586,31 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
 
 
               <TabsContent value="extra" className="mt-4 space-y-4">
+                <div>
+                  <p className="mb-2 text-sm font-semibold">Tür</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {NODE_TYPE_ORDER.map((t) => {
+                      const meta = NODE_TYPES[t];
+                      const Icon = meta.icon;
+                      const active = nodeTypeOf(node) === t;
+                      return (
+                        <button
+                          key={t}
+                          onClick={() => mindmap.update(node.id, { type: t })}
+                          className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                            active
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          <Icon className="h-3 w-3" />
+                          {meta.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div>
                   <p className="mb-2 text-sm font-semibold">
                     <Bell className="mr-1 inline h-4 w-4" /> Hatırlatıcı
