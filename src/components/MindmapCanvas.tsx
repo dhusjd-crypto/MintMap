@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { driveLoadSnapshot, driveSaveSnapshot } from "@/lib/google/drive";
 import { mindmap, useNodes, type MindNode } from "@/lib/mindmap-store";
 import { usePulse } from "@/lib/pulse-store";
+import { NODE_TYPES, nodeTypeOf } from "@/lib/node-types";
 import { readBackupPayload, shouldAllowCloudSave, describeStoreSnapshot } from "@/lib/backup-format";
 import { useFabSlot } from "@/lib/fab-slots";
 import { TEMPLATES } from "@/lib/templates";
@@ -1312,6 +1313,8 @@ const NodeButton = memo(function NodeButton({
   const pulseUnread = usePulse().filter(
     (p) => !p.read && p.nodeIds.includes(node.id),
   ).length;
+  const nType = nodeTypeOf(node);
+  const TypeIcon = NODE_TYPES[nType].icon;
 
   return (
     <div
@@ -1399,7 +1402,15 @@ const NodeButton = memo(function NodeButton({
             className="w-full rounded-md border border-input bg-background px-2 py-0.5 text-center text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           />
         ) : (
-          <div className="break-words">{node.title}</div>
+          <div>
+            {nType !== "generic" && (
+              <div className="mb-0.5 flex items-center justify-center gap-1 text-[9px] font-semibold opacity-70">
+                <TypeIcon className="h-2.5 w-2.5" />
+                {NODE_TYPES[nType].label}
+              </div>
+            )}
+            <div className="break-words">{node.title}</div>
+          </div>
         )}
         {node.todos.length > 0 && (
           <div className="mt-1 text-[10px] font-medium opacity-70">

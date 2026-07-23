@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { Star, Clock, Target, Plus, X } from "lucide-react";
-import { useNodes } from "@/lib/mindmap-store";
+import { mindmap, useNodes } from "@/lib/mindmap-store";
 import { goals, useGoals, goalProgress } from "@/lib/goal-store";
+import { computeFocus } from "@/lib/focus-engine";
 
 // Ana ekranın üstünde sakin bir "Bugünkü Durum" özeti. Mevcut verilerden
 // hesaplanır (AI yok): kaç öncelikli görev, kaç geciken, kaç aktif hedef.
@@ -23,6 +24,7 @@ export function DailyBrief() {
     };
   }, [nodes]);
 
+  const focus = useMemo(() => computeFocus(nodes), [nodes]);
   const activeGoals = allGoals.filter((g) => g.status === "active");
 
   const submit = () => {
@@ -55,6 +57,27 @@ export function DailyBrief() {
           <Target className="h-3.5 w-3.5 text-primary" /> {activeGoals.length} hedef
         </span>
       </div>
+
+      {focus.length > 0 && (
+        <div className="mt-2.5 space-y-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Bugünkü odakların
+          </p>
+          {focus.map((f) => (
+            <div key={f.todo.id} className="flex items-center gap-2">
+              <button
+                onClick={() => mindmap.toggleTodo(f.nodeId, f.todo.id)}
+                aria-label={`${f.todo.text} tamamla`}
+                className="h-4 w-4 shrink-0 rounded-full border-2 border-primary/40 hover:bg-primary/10"
+              />
+              <span className="flex-1 truncate text-[12px]">{f.todo.text}</span>
+              <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-semibold text-muted-foreground">
+                {f.reason}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {adding && (
         <div className="mt-2 flex gap-2">

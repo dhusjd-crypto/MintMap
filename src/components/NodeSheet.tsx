@@ -8,6 +8,7 @@ import {
   Eye,
   Pencil,
   Plus,
+  Scale,
   Share2,
   Sparkles,
   Trash2,
@@ -30,6 +31,7 @@ import {
   useNode,
 } from "@/lib/mindmap-store";
 import { NODE_TYPES, NODE_TYPE_ORDER, nodeTypeOf } from "@/lib/node-types";
+import { decisions, useDecisions } from "@/lib/decision-store";
 import { calendarCreateEvent } from "@/lib/google/calendar";
 import { aiSuggestSubnodes, aiSummarize, aiBreakdownTask, aiAutoTag } from "@/lib/ai.functions";
 
@@ -134,6 +136,17 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
   
   const [notePreview, setNotePreview] = useState(false);
   const [aiBusy, setAiBusy] = useState<"sub" | "sum" | "todos" | "tags" | null>(null);
+  const allDecisions = useDecisions();
+  const [decTitle, setDecTitle] = useState("");
+  const [decWhy, setDecWhy] = useState("");
+
+  const addDecision = () => {
+    if (!node) return;
+    if (decisions.add({ title: decTitle, nodeId: node.id, rationale: decWhy })) {
+      setDecTitle("");
+      setDecWhy("");
+    }
+  };
 
   const suggestSub = useServerFn(aiSuggestSubnodes);
   const summarize = useServerFn(aiSummarize);
@@ -688,6 +701,65 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
                   <Button variant="outline" className="flex-1" onClick={share}>
                     <Share2 className="mr-2 h-4 w-4" /> Paylaş
                   </Button>
+                </div>
+
+                <div>
+                  <p className="mb-2 text-sm font-semibold">
+                    <Scale className="mr-1 inline h-4 w-4" /> Kararlar
+                  </p>
+                  <div className="space-y-2">
+                    <Input
+                      value={decTitle}
+                      onChange={(e) => setDecTitle(e.target.value)}
+                      placeholder="Karar başlığı (örn. Arsayı almayı ertele)"
+                    />
+                    <Textarea
+                      value={decWhy}
+                      onChange={(e) => setDecWhy(e.target.value)}
+                      placeholder="Neden? (gerekçe — opsiyonel)"
+                      className="min-h-[60px] resize-none bg-muted/50 text-[13px]"
+                    />
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      disabled={!decTitle.trim()}
+                      onClick={addDecision}
+                    >
+                      <Plus className="mr-1 h-4 w-4" /> Karar ekle
+                    </Button>
+                  </div>
+                  {(() => {
+                    const list = allDecisions.filter((d) => d.nodeId === node.id);
+                    if (!list.length) return null;
+                    return (
+                      <div className="mt-2 space-y-1.5">
+                        {list.map((d) => (
+                          <div key={d.id} className="rounded-xl bg-muted/50 px-3 py-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="text-sm font-medium">{d.title}</span>
+                              <button
+                                onClick={() => decisions.remove(d.id)}
+                                aria-label="Kararı sil"
+                                className="shrink-0 text-muted-foreground hover:text-destructive"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                            {d.rationale && (
+                              <p className="mt-0.5 text-[12px] text-muted-foreground">{d.rationale}</p>
+                            )}
+                            <p className="mt-0.5 text-[10px] text-muted-foreground">
+                              {new Date(d.decidedAt).toLocaleDateString("tr-TR", {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
                 {node.parentId && (
                   <Button
