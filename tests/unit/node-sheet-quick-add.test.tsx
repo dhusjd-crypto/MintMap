@@ -22,11 +22,15 @@ vi.mock("@tanstack/react-start", () => ({
 import { NodeSheet } from "@/components/NodeSheet";
 import { mindmap } from "@/lib/mindmap-store";
 
-function setup() {
+function setup({ withNestedTask = false }: { withNestedTask?: boolean } = {}) {
   mindmap.getSnapshot();
   const node = mindmap.add(null, "Taşınma planı");
   mindmap.addTodo(node.id, "Nakliyeci ile Görüş Tarihi Belirle");
   mindmap.addTodo(node.id, "Koli listesi hazırla");
+  if (withNestedTask) {
+    const first = mindmap.getSnapshot().find((item) => item.id === node.id)!.todos[0];
+    mindmap.addTodo(node.id, "Tarihi netleştir", first.id);
+  }
   render(<NodeSheet nodeId={node.id} onClose={() => {}} initialTab="todo" />);
   return { nodeId: node.id };
 }
@@ -55,6 +59,21 @@ describe("NodeSheet quick subtask add UX", () => {
 
     fireEvent.click(screen.getByLabelText("Alt görev eklemeyi kapat"));
     expect(screen.queryByPlaceholderText("Alt görev...")).toBeNull();
+  });
+
+  it("keeps drag handles available while hierarchy numbers are optional", async () => {
+    setup({ withNestedTask: true });
+
+    expect(await screen.findAllByLabelText("Görevi sürükle")).toHaveLength(3);
+    expect(screen.queryByTestId("todo-order-number")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Sıra numaralarını göster" }));
+
+    expect(screen.getAllByTestId("todo-order-number").map((element) => element.textContent)).toEqual([
+      "1.",
+      "1.1.",
+      "2.",
+    ]);
   });
 
   it("closes on outside pointerdown without creating an empty task", async () => {
