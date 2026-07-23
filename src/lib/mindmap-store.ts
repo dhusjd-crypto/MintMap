@@ -905,6 +905,20 @@ export const mindmap = {
     visit(todoId);
     this.update(id, { todos: n.todos.filter((t) => !toRemove.has(t.id)) });
   },
+  /** Removes several tasks in one history entry, including every descendant. */
+  removeTodos(id: string, todoIds: string[]) {
+    const ws = currentWs();
+    const node = ws?.nodes.find((x) => x.id === id);
+    if (!node || !todoIds.length) return;
+    const toRemove = new Set<string>();
+    const visit = (todoId: string) => {
+      if (toRemove.has(todoId)) return;
+      toRemove.add(todoId);
+      node.todos.filter((todo) => todo.parentId === todoId).forEach((child) => visit(child.id));
+    };
+    todoIds.forEach(visit);
+    this.update(id, { todos: node.todos.filter((todo) => !toRemove.has(todo.id)) });
+  },
   reset() {
     mutate(() => setCurrentNodes(() => seedNodes()));
   },

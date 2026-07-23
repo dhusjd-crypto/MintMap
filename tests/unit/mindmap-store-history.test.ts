@@ -111,6 +111,19 @@ describe("mindmap store — history and immutability", () => {
     expect(todos.find((todo) => todo.id === child.id)?.parentId).toBe(first.id);
   });
 
+  it("removes a group of tasks and their descendants in one edit", () => {
+    const n = mindmap.add(null, "Temizleme");
+    const parent = mindmap.addTodo(n.id, "tamam")!;
+    const child = mindmap.addTodo(n.id, "alt", parent.id)!;
+    const keep = mindmap.addTodo(n.id, "kalsın")!;
+
+    mindmap.removeTodos(n.id, [parent.id]);
+
+    expect(byTitle("Temizleme")!.todos.map((todo) => todo.id)).toEqual([keep.id]);
+    mindmap.undo();
+    expect(byTitle("Temizleme")!.todos.map((todo) => todo.id)).toEqual([parent.id, child.id, keep.id]);
+  });
+
   it("a fresh edit clears the redo stack", () => {
     const n = mindmap.add(null, "İlk");
     mindmap.update(n.id, { title: "İkinci" });

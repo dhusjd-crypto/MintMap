@@ -302,6 +302,24 @@ function TodosPage() {
     setDraftText("");
   };
 
+  const reopenCompleted = () => {
+    done.forEach(({ todo, node }) => {
+      mindmap.updateTodo(node.id, todo.id, { done: false, status: "todo", completedAt: undefined });
+    });
+    toast.success(`${done.length} görev yeniden açıldı`);
+  };
+
+  const clearCompleted = () => {
+    if (!done.length) return;
+    if (!window.confirm(`${done.length} tamamlanan görev temizlensin mi? Bu işlem geri alınabilir.`)) return;
+    const byNode = new Map<string, string[]>();
+    done.forEach(({ todo, node }) => {
+      byNode.set(node.id, [...(byNode.get(node.id) ?? []), todo.id]);
+    });
+    byNode.forEach((todoIds, nodeId) => mindmap.removeTodos(nodeId, todoIds));
+    toast.success(`${done.length} tamamlanan görev temizlendi`);
+  };
+
   const ViewIcon = viewMeta.icon;
 
   return (
@@ -624,8 +642,24 @@ function TodosPage() {
             {done.length > 0 && (
               <details className="pt-3" open>
                 <summary className="cursor-pointer list-none rounded-lg px-2 py-1.5 text-sm font-semibold text-muted-foreground">
-                  Tamamlanan · {done.length}
+                  <span>Tamamlanan · {done.length}</span>
                 </summary>
+                <div className="mt-1 flex items-center justify-end gap-2 px-2">
+                  <button
+                    type="button"
+                    onClick={reopenCompleted}
+                    className="text-[11px] font-semibold text-primary hover:underline"
+                  >
+                    Tümünü geri aç
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearCompleted}
+                    className="text-[11px] font-semibold text-muted-foreground hover:text-destructive"
+                  >
+                    Temizle
+                  </button>
+                </div>
                 <div className="mt-2 space-y-2">
                   {done.map(({ todo, node }) => (
                     <TaskRow
