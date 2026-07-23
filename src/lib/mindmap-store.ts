@@ -770,6 +770,30 @@ export const mindmap = {
       }),
     });
   },
+  /**
+   * Applies an order received from a flattened task list. Parent relationships
+   * are untouched; each sibling group adopts its relative order from the list.
+   */
+  reorderTodosFromFlatList(id: string, orderedIds: string[]) {
+    const ws = currentWs();
+    const node = ws?.nodes.find((x) => x.id === id);
+    if (!node || orderedIds.length < 2) return;
+    const position = new Map(orderedIds.map((todoId, index) => [todoId, index]));
+    if (!node.todos.some((todo) => position.has(todo.id))) return;
+    this.update(id, {
+      todos: node.todos
+        .map((todo, index) => ({ todo, index }))
+        .sort((a, b) => {
+          const aPosition = position.get(a.todo.id);
+          const bPosition = position.get(b.todo.id);
+          if (aPosition === undefined && bPosition === undefined) return a.index - b.index;
+          if (aPosition === undefined) return 1;
+          if (bPosition === undefined) return -1;
+          return aPosition - bPosition;
+        })
+        .map(({ todo }) => todo),
+    });
+  },
   toggleTodo(id: string, todoId: string) {
     const ws = currentWs();
     const n = ws?.nodes.find((x) => x.id === id);

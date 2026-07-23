@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Suspense, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, Reorder, useDragControls } from "framer-motion";
 import {
   Check,
   FileText,
@@ -23,6 +23,8 @@ import {
   Tag,
   Flame,
   AlertTriangle,
+  GripVertical,
+  ListOrdered,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -62,6 +64,7 @@ type View =
   | { kind: "list"; nodeId: string };
 
 type FlatTodo = { todo: Todo; node: MindNode };
+type SortMode = "priority" | "manual";
 
 
 function isToday(ts?: number) {
@@ -100,6 +103,7 @@ function TodosPage() {
   const [planBusy, setPlanBusy] = useState(false);
   const [plan, setPlan] = useState<{ order: string[]; reasons: Record<string, string> } | null>(null);
   const [liveMsg, setLiveMsg] = useState("");
+  const [sortMode, setSortMode] = useState<SortMode>("priority");
   const planDay = useServerFn(aiPlanDay);
 
 
@@ -174,8 +178,11 @@ function TodosPage() {
         (a, b) => (idx.get(a.todo.id) ?? 999) - (idx.get(b.todo.id) ?? 999),
       );
     }
+    if (view.kind === "list" && sortMode === "manual" && !query.trim() && !tagFilter) {
+      return activeRaw;
+    }
     return [...activeRaw].sort((a, b) => comparePriority(a.todo, b.todo));
-  }, [activeRaw, view.kind, plan]);
+  }, [activeRaw, view.kind, plan, sortMode, query, tagFilter]);
 
   const runSmartPlan = async () => {
     if (activeRaw.length < 2) {
@@ -517,6 +524,34 @@ function TodosPage() {
         </div>
       )}
 
+      {view.kind === "list" && (
+        <div className="shrink-0 flex items-center justify-between gap-2 border-t border-border bg-card px-4 py-2">
+          <span className="text-xs font-medium text-muted-foreground">Görev sırası</span>
+          <div className="inline-flex rounded-lg bg-muted p-0.5">
+            <button
+              type="button"
+              onClick={() => setSortMode("priority")}
+              aria-pressed={sortMode === "priority"}
+              className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                sortMode === "priority" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+              }`}
+            >
+              Öncelik
+            </button>
+            <button
+              type="button"
+              onClick={() => setSortMode("manual")}
+              aria-pressed={sortMode === "manual"}
+              className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                sortMode === "manual" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+              }`}
+            >
+              <ListOrdered className="h-3 w-3" /> El ile
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Task list */}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">
         {activeNode && (
@@ -567,17 +602,24 @@ function TodosPage() {
           <EmptyState viewKind={view.kind} />
         ) : (
           <div className="space-y-2">
-            {active.map(({ todo, node }, i) => (
-              <TaskRow
-                key={todo.id}
-                todo={todo}
-                node={node}
-                showList={view.kind !== "list"}
-                reason={plan?.reasons[todo.id]}
-                rank={view.kind === "myday" && plan ? i + 1 : undefined}
-                onOpen={() => setOpenTodo({ nodeId: node.id, todoId: todo.id })}
+            {view.kind === "list" && sortMode === "manual" && !query.trim() && !tagFilter ? (
+              <ManualTaskOrder
+                items={active}
+                onOpen={(nodeId, todoId) => setOpenTodo({ nodeId, todoId })}
               />
-            ))}
+            ) : (
+              active.map(({ todo, node }, i) => (
+                <TaskRow
+                  key={todo.id}
+                  todo={todo}
+                  node={node}
+                  showList={view.kind !== "list"}
+                  reason={plan?.reasons[todo.id]}
+                  rank={view.kind === "myday" && plan ? i + 1 : undefined}
+                  onOpen={() => setOpenTodo({ nodeId: node.id, todoId: todo.id })}
+                />
+              ))
+            )}
 
             {done.length > 0 && (
               <details className="pt-3" open>
@@ -699,6 +741,7 @@ function TaskRow({
   onOpen,
   reason,
   rank,
+  onStartDrag,
 }: {
   todo: Todo;
   node: MindNode;
@@ -706,6 +749,7 @@ function TaskRow({
   onOpen: () => void;
   reason?: string;
   rank?: number;
+  onStartDrag?: (event: React.PointerEvent<HTMLButtonElement>) => void;
 }) {
   const stepCount = todo.steps?.length ?? 0;
   const stepDone = todo.steps?.filter((s) => s.done).length ?? 0;
@@ -745,6 +789,21 @@ function TaskRow({
         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
           {rank}
         </span>
+      )}
+      {onStartDrag && (
+        <button
+          type="button"
+          onPointerDown={(event) => {
+            event.stopPropagation();
+            onStartDrag(event);
+          }}
+          onClick={(event) => event.stopPropagation()}
+          aria-label="Görevi sürükle"
+          title="Görevi sürükle"
+          className="flex h-7 w-4 shrink-0 touch-none items-center justify-center text-muted-foreground/70 hover:text-foreground active:cursor-grabbing"
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
       )}
       <button
         onClick={(e) => {
@@ -881,6 +940,52 @@ function TaskRow({
         />
       </button>
     </motion.div>
+  );
+}
+
+function ManualTaskOrder({
+  items,
+  onOpen,
+}: {
+  items: FlatTodo[];
+  onOpen: (nodeId: string, todoId: string) => void;
+}) {
+  const node = items[0]?.node;
+  if (!node) return null;
+  return (
+    <Reorder.Group
+      axis="y"
+      values={items.map((item) => item.todo)}
+      onReorder={(next) => mindmap.reorderTodosFromFlatList(node.id, next.map((todo) => todo.id))}
+      className="space-y-2"
+    >
+      {items.map(({ todo }) => (
+        <ManualTaskOrderItem key={todo.id} todo={todo} node={node} onOpen={() => onOpen(node.id, todo.id)} />
+      ))}
+    </Reorder.Group>
+  );
+}
+
+function ManualTaskOrderItem({
+  todo,
+  node,
+  onOpen,
+}: {
+  todo: Todo;
+  node: MindNode;
+  onOpen: () => void;
+}) {
+  const controls = useDragControls();
+  return (
+    <Reorder.Item value={todo} dragListener={false} dragControls={controls}>
+      <TaskRow
+        todo={todo}
+        node={node}
+        showList={false}
+        onStartDrag={(event) => controls.start(event)}
+        onOpen={onOpen}
+      />
+    </Reorder.Item>
   );
 }
 

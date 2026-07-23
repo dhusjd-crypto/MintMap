@@ -98,6 +98,19 @@ describe("mindmap store — history and immutability", () => {
     expect(byTitle("Görevli")!.todos[0].done).toBe(true);
   });
 
+  it("uses the manual list order without changing parent relationships", () => {
+    const n = mindmap.add(null, "Sıralı");
+    const first = mindmap.addTodo(n.id, "bir")!;
+    const second = mindmap.addTodo(n.id, "iki")!;
+    const child = mindmap.addTodo(n.id, "alt", first.id)!;
+
+    mindmap.reorderTodosFromFlatList(n.id, [second.id, child.id, first.id]);
+
+    const todos = byTitle("Sıralı")!.todos;
+    expect(todos.map((todo) => todo.id)).toEqual([second.id, child.id, first.id]);
+    expect(todos.find((todo) => todo.id === child.id)?.parentId).toBe(first.id);
+  });
+
   it("a fresh edit clears the redo stack", () => {
     const n = mindmap.add(null, "İlk");
     mindmap.update(n.id, { title: "İkinci" });
