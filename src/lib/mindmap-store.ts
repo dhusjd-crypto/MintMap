@@ -774,6 +774,17 @@ export const mindmap = {
     const ws = currentWs();
     const n = ws?.nodes.find((x) => x.id === id);
     if (!n) return;
+    const target = n.todos.find((todo) => todo.id === todoId);
+    if (!target) return;
+    if (!target.done) {
+      const pending = [target.id];
+      while (pending.length) {
+        const parentId = pending.pop()!;
+        const children = n.todos.filter((todo) => todo.parentId === parentId);
+        if (children.some((todo) => !todo.done)) return false;
+        pending.push(...children.map((todo) => todo.id));
+      }
+    }
     this.update(id, {
       todos: n.todos.map((t) => {
         if (t.id !== todoId) return t;
@@ -794,6 +805,7 @@ export const mindmap = {
         };
       }),
     });
+    return true;
   },
   toggleLink(aId: string, bId: string) {
     if (aId === bId) return;

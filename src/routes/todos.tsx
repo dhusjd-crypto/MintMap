@@ -36,7 +36,7 @@ import { LazyNodeImagePanel as NodeImagePanel } from "@/components/LazyNodeImage
 import { mindmap, useNodes, useReminderScheduler, type MindNode, type Todo } from "@/lib/mindmap-store";
 import { parseQuickAdd } from "@/lib/nl-parser";
 import { aiPlanDay } from "@/lib/ai.functions";
-import { PRIORITY_META, comparePriority, isBlocked } from "@/lib/task-utils";
+import { PRIORITY_META, comparePriority, hasOpenDescendants, isBlocked } from "@/lib/task-utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/todos")({
@@ -751,6 +751,10 @@ function TaskRow({
           e.stopPropagation();
           if (blocked) {
             toast.message("Bu görev başka göreve bağlı, önce onu tamamla.");
+            return;
+          }
+          if (!todo.done && hasOpenDescendants(todo, node.todos)) {
+            toast.message("Açık alt görevler tamamlanmadan ana görev kapatılamaz.");
             return;
           }
           mindmap.toggleTodo(node.id, todo.id);

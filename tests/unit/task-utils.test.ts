@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { comparePriority, isBlocked } from "@/lib/task-utils";
+import { comparePriority, hasOpenDescendants, isBlocked, wouldCreateDependencyCycle } from "@/lib/task-utils";
 import type { Todo } from "@/lib/mindmap-store";
 
 const todo = (over: Partial<Todo> & { id: string }): Todo => ({
@@ -75,5 +75,22 @@ describe("comparePriority", () => {
       "low",
       "none",
     ]);
+  });
+});
+
+describe("task graph safety", () => {
+  it("finds unfinished descendants at any depth", () => {
+    const parent = todo({ id: "parent" });
+    const child = todo({ id: "child", parentId: "parent", done: true });
+    const grandchild = todo({ id: "grandchild", parentId: "child", done: false });
+    expect(hasOpenDescendants(parent, [parent, child, grandchild])).toBe(true);
+  });
+
+  it("rejects a dependency that would close a loop", () => {
+    const a = todo({ id: "a", blockedBy: ["b"] });
+    const b = todo({ id: "b", blockedBy: ["c"] });
+    const c = todo({ id: "c" });
+    expect(wouldCreateDependencyCycle("c", "a", [a, b, c])).toBe(true);
+    expect(wouldCreateDependencyCycle("a", "c", [a, b, c])).toBe(false);
   });
 });

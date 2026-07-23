@@ -20,6 +20,31 @@ export function isBlocked(todo: Todo, siblings: Todo[]): boolean {
   });
 }
 
+/** True when completing this task would hide unfinished work below it. */
+export function hasOpenDescendants(todo: Todo, todos: Todo[]): boolean {
+  const pending = [todo.id];
+  while (pending.length) {
+    const parentId = pending.pop()!;
+    const children = todos.filter((item) => item.parentId === parentId);
+    if (children.some((item) => !item.done)) return true;
+    pending.push(...children.map((item) => item.id));
+  }
+  return false;
+}
+
+/** Adding `candidateId` as a blocker for `todoId` must not close a dependency loop. */
+export function wouldCreateDependencyCycle(todoId: string, candidateId: string, todos: Todo[]): boolean {
+  const byId = new Map(todos.map((item) => [item.id, item]));
+  const seen = new Set<string>();
+  const visit = (id: string): boolean => {
+    if (id === todoId) return true;
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return (byId.get(id)?.blockedBy ?? []).some(visit);
+  };
+  return visit(candidateId);
+}
+
 /** Sort by priority (lower number first), then due date, then created. */
 export function comparePriority(a: Todo, b: Todo): number {
   const pa = a.priority ?? 5;
