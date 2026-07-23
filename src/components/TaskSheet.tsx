@@ -356,11 +356,11 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
             {showDue && (
               <div className="px-3 pb-2">
                 <Input
-                  type="date"
-                  value={todo.dueAt ? new Date(todo.dueAt).toISOString().slice(0, 10) : ""}
+                  type="datetime-local"
+                  value={toLocalInput(todo.dueAt)}
                   onChange={(e) => {
                     const v = e.target.value;
-                    upd({ dueAt: v ? new Date(v + "T09:00").getTime() : undefined });
+                    upd({ dueAt: v ? new Date(v).getTime() : undefined });
                   }}
                   className="h-9"
                 />

@@ -18,6 +18,7 @@ import {
   Sun,
   CalendarDays,
   Bell,
+  CornerDownRight,
   Crosshair,
   Tag,
   Flame,
@@ -151,10 +152,13 @@ function TodosPage() {
     if (q)
       arr = arr.filter(
         (x) =>
-          x.todo.text.toLowerCase().includes(q) ||
+        x.todo.text.toLowerCase().includes(q) ||
           (x.todo.note ?? "").toLowerCase().includes(q) ||
           x.node.title.toLowerCase().includes(q) ||
-          (x.todo.tags ?? []).some((t) => t.toLowerCase().includes(q)),
+          (x.todo.tags ?? []).some((t) => t.toLowerCase().includes(q)) ||
+          (x.todo.steps ?? []).some((step) => step.text.toLowerCase().includes(q)) ||
+          (x.todo.activity ?? []).some((entry) => entry.text.toLowerCase().includes(q)) ||
+          (x.todo.attachments ?? []).some((attachment) => attachment.name.toLowerCase().includes(q)),
       );
     return arr;
   }, [all, view, query, tagFilter]);
@@ -713,6 +717,7 @@ function TaskRow({
     return d && !d.done;
   }).length;
   const subtaskProgress = descendantProgress(todo, node.todos);
+  const parent = todo.parentId ? node.todos.find((item) => item.id === todo.parentId) : undefined;
 
   return (
     <motion.div
@@ -780,6 +785,12 @@ function TaskRow({
             <span className="flex items-center gap-1">
               <Home className="h-3 w-3" />
               {node.title}
+            </span>
+          )}
+          {parent && (
+            <span className="flex items-center gap-1">
+              <CornerDownRight className="h-3 w-3" />
+              {parent.text}
             </span>
           )}
           {prio && (
