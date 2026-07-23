@@ -6,6 +6,7 @@ import {
   CalendarPlus,
   CalendarDays,
   Check,
+  CornerDownRight,
   Crosshair,
   Flag,
   GripVertical,
@@ -66,6 +67,7 @@ export function TaskSheet({ nodeId, todoId, onClose }: Props) {
   const [showCalendar, setShowCalendar] = useState(false);
   const [calendarAt, setCalendarAt] = useState("");
   const [activityText, setActivityText] = useState("");
+  const [followUpText, setFollowUpText] = useState("");
   const [calendarBusy, setCalendarBusy] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [tagBusy, setTagBusy] = useState(false);
@@ -80,11 +82,33 @@ export function TaskSheet({ nodeId, todoId, onClose }: Props) {
     setShowCalendar(false);
     setCalendarAt("");
     setActivityText("");
+    setFollowUpText("");
   }, [todoId]);
 
   if (!node || !todo) return null;
 
   const upd = (patch: Partial<Todo>) => mindmap.updateTodo(node.id, todo.id, patch);
+
+  const toggleFocus = () => {
+    if (todo.focus) {
+      upd({ focus: false });
+      return;
+    }
+    const focusCount = mindmap.getSnapshot().flatMap((item) => item.todos).filter((item) => item.focus && !item.done).length;
+    if (focusCount >= 5) {
+      toast.message("Odak listesi en fazla 5 açık görev içerir.");
+      return;
+    }
+    upd({ focus: true });
+  };
+
+  const addFollowUp = () => {
+    const text = followUpText.trim();
+    if (!text) return;
+    mindmap.addTodo(node.id, text, todo.id);
+    setFollowUpText("");
+    toast.success("Alt görev eklendi");
+  };
 
   const addToCalendar = async () => {
     if (todo.googleEventId) {
@@ -288,7 +312,7 @@ export function TaskSheet({ nodeId, todoId, onClose }: Props) {
               icon={<Crosshair className="h-5 w-5" />}
               active={!!todo.focus}
               label={todo.focus ? "Odak listesinden kaldır" : "Odak listesine ekle"}
-              onClick={() => upd({ focus: !todo.focus })}
+              onClick={toggleFocus}
             />
             <Row
               icon={<Sun className="h-5 w-5" />}
@@ -468,6 +492,34 @@ export function TaskSheet({ nodeId, todoId, onClose }: Props) {
               placeholder="Not ekle"
               className="min-h-[80px] resize-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
             />
+          </div>
+
+          <div className="mt-3 rounded-2xl border border-border bg-card p-3">
+            <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <CornerDownRight className="h-3.5 w-3.5" />
+              Sonraki adım
+            </div>
+            <div className="flex gap-2">
+              <Input
+                value={followUpText}
+                onChange={(event) => setFollowUpText(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") return;
+                  event.preventDefault();
+                  addFollowUp();
+                }}
+                placeholder="Alt görev olarak ekle..."
+                className="h-10 min-w-0 flex-1"
+              />
+              <button
+                type="button"
+                onClick={addFollowUp}
+                disabled={!followUpText.trim()}
+                className="h-10 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+              >
+                Ekle
+              </button>
+            </div>
           </div>
 
           <TaskAttachments nodeId={node.id} todo={todo} />
