@@ -120,8 +120,8 @@ function CalendarPage() {
   const monthLabel = cursor.toLocaleDateString("tr-TR", { month: "long", year: "numeric" });
 
   return (
-    <main className="flex h-svh flex-col">
-      <header className="flex items-center justify-between px-5 pt-5 pb-3">
+    <main className="flex h-svh min-h-0 flex-col overflow-hidden">
+      <header className="flex shrink-0 items-center justify-between px-5 pt-5 pb-3">
         <div className="flex items-center gap-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-leaf">
             <CalendarDays className="h-5 w-5" />
@@ -147,7 +147,7 @@ function CalendarPage() {
         </div>
       </header>
 
-      <div className="px-5">
+      <div className="shrink-0 px-5">
         <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-muted-foreground">
           {["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"].map((d) => (
             <div key={d} className="py-1">{d}</div>
@@ -166,7 +166,7 @@ function CalendarPage() {
               <button
                 key={i}
                 onClick={() => setSelected(d)}
-                className={`relative flex aspect-square flex-col items-center justify-center rounded-lg text-sm transition-colors ${
+                className={`relative flex h-14 flex-col items-center justify-center rounded-lg text-sm transition-colors sm:h-20 ${
                   isSel ? "bg-primary text-primary-foreground" : isToday ? "bg-accent" : "hover:bg-accent/60"
                 }`}
               >
@@ -189,7 +189,7 @@ function CalendarPage() {
         </div>
       </div>
 
-      <div className="mt-4 flex-1 overflow-auto px-5 pb-4">
+      <div className="mt-4 min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-muted-foreground">
             {selected.toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" })}
