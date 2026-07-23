@@ -65,7 +65,20 @@ export function resolveProvider(pref?: ProviderId): AIProvider {
 /** Chat through the active provider. Falls back to demo answers when unconfigured. */
 export async function chat(messages: ChatMessage[], opts: ChatOptions = {}, pref?: ProviderId): Promise<ChatResult> {
   const provider = resolveProvider(pref);
-  return provider.chat(messages, opts);
+  try {
+    return await provider.chat(messages, opts);
+  } catch (error) {
+    // Model names saved in browser settings can be retired by a provider. A
+    // configured default is safer than making every AI feature unusable until
+    // the user manually discovers the replacement model name.
+    const modelUnavailable =
+      error instanceof AIError &&
+      (error.status === 400 || error.status === 404) &&
+      /model/i.test(error.message);
+    if (!opts.model || !modelUnavailable) throw error;
+    const result = await provider.chat(messages, { ...opts, model: undefined });
+    return { ...result, modelFallback: true };
+  }
 }
 
 /** What the Settings screen renders. */

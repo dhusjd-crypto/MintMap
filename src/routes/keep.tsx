@@ -248,6 +248,14 @@ function KeepPage() {
         title: card.title ?? res.title,
         aiPending: false,
       });
+      if (res.modelFallback) {
+        try {
+          localStorage.removeItem("mintmap.ai.model");
+        } catch {
+          // Categorization still succeeded; storage cleanup is best effort.
+        }
+        toast.message("Geçersiz model tercihi kaldırıldı; varsayılan model kullanıldı.");
+      }
     } catch (e) {
       keep.update(card.id, { aiPending: false });
       handleAiError(e);

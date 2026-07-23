@@ -39,6 +39,8 @@ export type ChatResult = {
   provider: ProviderId;
   /** true when the answer is a canned demo (no key configured). */
   demo?: boolean;
+  /** A stale client-side model preference was replaced with the provider default. */
+  modelFallback?: boolean;
 };
 
 export type ProviderStatus = {

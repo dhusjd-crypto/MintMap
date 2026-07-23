@@ -836,6 +836,6 @@ export const aiCategorizeCard = createServerFn({ method: "POST" }).middleware([r
             .slice(0, 4)
         : [],
       title: obj?.title ? String(obj.title).trim().slice(0, 80) : undefined,
+      modelFallback: res.modelFallback,
     };
   });
-
