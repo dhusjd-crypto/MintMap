@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { FormPanel } from "@/components/FormPanel";
 import {
   Bell,
@@ -8,7 +8,6 @@ import {
   Eye,
   Pencil,
   Plus,
-  Scale,
   Share2,
   Sparkles,
   Trash2,
@@ -31,9 +30,10 @@ import {
   useNode,
 } from "@/lib/mindmap-store";
 import { NODE_TYPES, NODE_TYPE_ORDER, nodeTypeOf } from "@/lib/node-types";
-import { decisions, useDecisions } from "@/lib/decision-store";
+import { DecisionList } from "@/components/DecisionList";
 import { calendarCreateEvent } from "@/lib/google/calendar";
 import { aiSuggestSubnodes, aiSummarize, aiBreakdownTask, aiAutoTag } from "@/lib/ai.functions";
+import { useClickOutside } from "@/hooks/use-click-outside";
 
 const REMINDER_PRESETS = [
   { l: "5 dk", m: 5 },
@@ -66,7 +66,6 @@ function safeShareFileName(title: string) {
     .slice(0, 48);
   return clean || "mintmap-gorsel";
 }
-
 function extensionForMime(type: string) {
   if (type === "application/pdf") return "pdf";
   if (type === "image/png") return "png";
@@ -131,27 +130,79 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
   const retryFileInputRef = useRef<HTMLInputElement>(null);
   const [tab, setTab] = useState(initialTab);
   const [todoText, setTodoText] = useState("");
-  const [subParentId, setSubParentId] = useState<string | null>(null);
-  const [subText, setSubText] = useState("");
+  const [activeQuickAddTaskId, setActiveQuickAddTaskId] = useState<string | null>(null);
+  const [quickAddText, setQuickAddText] = useState("");
+  const [quickAddSaving, setQuickAddSaving] = useState(false);
+  const quickAddRef = useRef<HTMLDivElement>(null);
   
   const [notePreview, setNotePreview] = useState(false);
   const [aiBusy, setAiBusy] = useState<"sub" | "sum" | "todos" | "tags" | null>(null);
-  const allDecisions = useDecisions();
-  const [decTitle, setDecTitle] = useState("");
-  const [decWhy, setDecWhy] = useState("");
-
-  const addDecision = () => {
-    if (!node) return;
-    if (decisions.add({ title: decTitle, nodeId: node.id, rationale: decWhy })) {
-      setDecTitle("");
-      setDecWhy("");
-    }
-  };
 
   const suggestSub = useServerFn(aiSuggestSubnodes);
   const summarize = useServerFn(aiSummarize);
   const breakdown = useServerFn(aiBreakdownTask);
   const autoTag = useServerFn(aiAutoTag);
+
+  const closeQuickAdd = useCallback(
+    (warn = false) => {
+      if (warn && quickAddText.trim()) {
+        toast.message("Yazdığınız alt görev kaydedilmedi");
+      }
+      setActiveQuickAddTaskId(null);
+      setQuickAddText("");
+      setQuickAddSaving(false);
+    },
+    [quickAddText],
+  );
+
+  const openQuickAdd = (taskId: string) => {
+    setActiveQuickAddTaskId((current) => {
+      if (current === taskId) {
+        if (quickAddText.trim()) toast.message("Yazdığınız alt görev kaydedilmedi");
+        setQuickAddText("");
+        return null;
+      }
+      if (current && quickAddText.trim()) {
+        toast.message("Yazdığınız alt görev kaydedilmedi");
+      }
+      setQuickAddText("");
+      return taskId;
+    });
+  };
+
+  const submitQuickAdd = (parentTaskId: string) => {
+    if (!node || quickAddSaving) return;
+    const text = quickAddText.trim();
+    if (!text) return;
+    setQuickAddSaving(true);
+    try {
+      mindmap.addTodo(node.id, text, parentTaskId);
+      setActiveQuickAddTaskId(null);
+      setQuickAddText("");
+    } catch {
+      toast.error("Alt görev eklenemedi. Tekrar deneyin.");
+    } finally {
+      setQuickAddSaving(false);
+    }
+  };
+
+  useClickOutside(
+    quickAddRef,
+    () => closeQuickAdd(true),
+    open && activeQuickAddTaskId !== null,
+  );
+
+  useEffect(() => {
+    if (!open || activeQuickAddTaskId === null) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      closeQuickAdd(true);
+    };
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
+  }, [activeQuickAddTaskId, closeQuickAdd, open]);
 
   const runAutoTag = async () => {
     if (!node) return;
@@ -225,7 +276,12 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
   };
 
   useEffect(() => {
-    if (nodeId) setTab(initialTab);
+    if (nodeId) {
+      setTab(initialTab);
+      setActiveQuickAddTaskId(null);
+      setQuickAddText("");
+      setQuickAddSaving(false);
+    }
   }, [nodeId, initialTab]);
 
   const buildShareText = (target: MindNode) => {
@@ -300,7 +356,7 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
         await navigator.share(primaryPayload);
         return;
       } catch (err) {
-        // User dismissed — stay silent.
+        // User dismissed - stay silent.
         if (err instanceof DOMException && err.name === "AbortError") return;
         // Otherwise fall through to clipboard so the action is never a no-op.
       }
@@ -359,7 +415,7 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
           open={open}
           onClose={onClose}
           ariaLabel={node.title || "Düğüm"}
-          description="Düğümü düzenle — değişiklikler anında kaydedilir"
+          description="Düğümü düzenle - değişiklikler anında kaydedilir"
           icon={
             <span
               className="block h-3 w-3 rounded-full"
@@ -387,7 +443,13 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
               void shareFiles(files, files.length > 1 ? "Seçili dosyalar" : "Seçili dosya");
             }}
           />
-            <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+            <Tabs
+              value={tab}
+              onValueChange={(v) => {
+                closeQuickAdd(true);
+                setTab(v as typeof tab);
+              }}
+            >
               <TabsList className="grid w-full grid-cols-3 bg-muted">
                 <TabsTrigger value="note">Not</TabsTrigger>
                 <TabsTrigger value="todo">
@@ -509,15 +571,22 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
                   {(() => {
                     const renderTodo = (t: Todo, depth: number) => {
                       const children = node.todos.filter((x) => x.parentId === t.id);
-                      const isActive = subParentId === t.id;
+                      const isActive = activeQuickAddTaskId === t.id;
                       return (
                         <div key={t.id}>
                           <div
+                            onClick={() => {
+                              if (activeQuickAddTaskId) closeQuickAdd(true);
+                            }}
                             className="flex items-center gap-3 rounded-xl bg-muted/50 px-3 py-2.5"
                             style={{ marginLeft: depth * 20 }}
                           >
                             <button
-                              onClick={() => mindmap.toggleTodo(node.id, t.id)}
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                mindmap.toggleTodo(node.id, t.id);
+                              }}
                               className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 ${
                                 t.done
                                   ? "border-primary bg-primary text-primary-foreground"
@@ -532,53 +601,82 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
                               {t.text}
                             </span>
                             <button
-                              onClick={() => {
-                                setSubParentId(isActive ? null : t.id);
-                                setSubText("");
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                openQuickAdd(t.id);
                               }}
-                              className={`shrink-0 ${isActive ? "text-primary" : "text-muted-foreground"}`}
-                              aria-label="Alt görev"
+                              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+                                isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"
+                              }`}
+                              aria-label={isActive ? "Alt görev eklemeyi kapat" : "Alt görev ekle"}
                               title="Alt görev ekle"
+                              aria-expanded={isActive}
                             >
                               <CornerDownRight className="h-4 w-4" />
                             </button>
                             <button
-                              onClick={() => mindmap.removeTodo(node.id, t.id)}
-                              className="text-muted-foreground"
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                closeQuickAdd(false);
+                                mindmap.removeTodo(node.id, t.id);
+                              }}
+                              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                               aria-label="Sil"
+                              title="Görevi sil"
                             >
                               <X className="h-4 w-4" />
                             </button>
                           </div>
                           {isActive && (
                             <div
-                              className="mt-1.5 flex gap-2"
+                              ref={quickAddRef}
+                              className="mt-1.5 flex items-center gap-2 rounded-xl border border-border bg-card/95 p-2 shadow-soft"
                               style={{ marginLeft: (depth + 1) * 20 }}
+                              onClick={(event) => event.stopPropagation()}
+                              onPointerDown={(event) => event.stopPropagation()}
                             >
                               <Input
                                 autoFocus
-                                value={subText}
-                                onChange={(e) => setSubText(e.target.value)}
+                                value={quickAddText}
+                                onChange={(e) => setQuickAddText(e.target.value)}
                                 placeholder="Alt görev..."
-                                className="h-9"
+                                className="h-11 min-w-0 flex-1"
                                 onKeyDown={(e) => {
-                                  if (e.key === "Enter" && subText.trim()) {
-                                    mindmap.addTodo(node.id, subText.trim(), t.id);
-                                    setSubText("");
+                                  if (e.nativeEvent.isComposing) return;
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    submitQuickAdd(t.id);
                                   }
-                                  if (e.key === "Escape") setSubParentId(null);
+                                  if (e.key === "Escape") {
+                                    e.preventDefault();
+                                    closeQuickAdd(true);
+                                  }
                                 }}
                               />
                               <Button
                                 size="icon"
-                                className="h-9 w-9"
+                                className="h-11 w-11 shrink-0"
+                                disabled={!quickAddText.trim() || quickAddSaving}
+                                aria-label="Alt görevi ekle"
+                                title="Alt görevi ekle"
                                 onClick={() => {
-                                  if (!subText.trim()) return;
-                                  mindmap.addTodo(node.id, subText.trim(), t.id);
-                                  setSubText("");
+                                  submitQuickAdd(t.id);
                                 }}
                               >
-                                <Plus className="h-4 w-4" />
+                                <Check className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-11 w-11 shrink-0"
+                                aria-label="Alt görev eklemeyi iptal et"
+                                title="İptal"
+                                onClick={() => closeQuickAdd(true)}
+                              >
+                                <X className="h-4 w-4" />
                               </Button>
                             </div>
                           )}
@@ -703,64 +801,7 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
                   </Button>
                 </div>
 
-                <div>
-                  <p className="mb-2 text-sm font-semibold">
-                    <Scale className="mr-1 inline h-4 w-4" /> Kararlar
-                  </p>
-                  <div className="space-y-2">
-                    <Input
-                      value={decTitle}
-                      onChange={(e) => setDecTitle(e.target.value)}
-                      placeholder="Karar başlığı (örn. Arsayı almayı ertele)"
-                    />
-                    <Textarea
-                      value={decWhy}
-                      onChange={(e) => setDecWhy(e.target.value)}
-                      placeholder="Neden? (gerekçe — opsiyonel)"
-                      className="min-h-[60px] resize-none bg-muted/50 text-[13px]"
-                    />
-                    <Button
-                      size="sm"
-                      className="w-full"
-                      disabled={!decTitle.trim()}
-                      onClick={addDecision}
-                    >
-                      <Plus className="mr-1 h-4 w-4" /> Karar ekle
-                    </Button>
-                  </div>
-                  {(() => {
-                    const list = allDecisions.filter((d) => d.nodeId === node.id);
-                    if (!list.length) return null;
-                    return (
-                      <div className="mt-2 space-y-1.5">
-                        {list.map((d) => (
-                          <div key={d.id} className="rounded-xl bg-muted/50 px-3 py-2">
-                            <div className="flex items-start justify-between gap-2">
-                              <span className="text-sm font-medium">{d.title}</span>
-                              <button
-                                onClick={() => decisions.remove(d.id)}
-                                aria-label="Kararı sil"
-                                className="shrink-0 text-muted-foreground hover:text-destructive"
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
-                            </div>
-                            {d.rationale && (
-                              <p className="mt-0.5 text-[12px] text-muted-foreground">{d.rationale}</p>
-                            )}
-                            <p className="mt-0.5 text-[10px] text-muted-foreground">
-                              {new Date(d.decidedAt).toLocaleDateString("tr-TR", {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                              })}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </div>
+                <DecisionList nodeId={node.id} />
                 {node.parentId && (
                   <Button
                     variant="outline"

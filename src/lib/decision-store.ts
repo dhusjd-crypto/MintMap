@@ -8,6 +8,8 @@ export type Decision = {
   id: string;
   title: string;
   nodeId?: string;
+  /** Borsa izleme listesi kaydına bağlıysa. */
+  watchId?: string;
   /** Neden bu karar verildi. */
   rationale?: string;
   /** Sonradan doldurulan gerçekleşen sonuç. */
@@ -80,7 +82,16 @@ export const decisions = {
     load();
     return items.filter((d) => d.nodeId === nodeId);
   },
-  add(input: { title: string; nodeId?: string; rationale?: string }): Decision | null {
+  forWatch(watchId: string): Decision[] {
+    load();
+    return items.filter((d) => d.watchId === watchId);
+  },
+  add(input: {
+    title: string;
+    nodeId?: string;
+    watchId?: string;
+    rationale?: string;
+  }): Decision | null {
     load();
     const title = input.title.trim();
     if (!title) return null;
@@ -89,6 +100,7 @@ export const decisions = {
       id: nanoid(8),
       title,
       nodeId: input.nodeId,
+      watchId: input.watchId,
       rationale: input.rationale?.trim() || undefined,
       decidedAt: now,
       createdAt: now,
