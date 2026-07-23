@@ -27,7 +27,7 @@ function UnlockPage() {
     try {
       // Password is validated on the server; on success it sets the HttpOnly
       // mm_auth cookie that gates the AI endpoints.
-      await appLogin({ data: { password } });
+      await appLogin({ data: { username, password } });
       try {
         // Durable flag — the root gate reads localStorage, so one successful
         // unlock per device is enough (sessionStorage died on every close and
@@ -35,6 +35,17 @@ function UnlockPage() {
         localStorage.setItem("mintmap:unlocked", "1");
       } catch {
         // ignore
+      }
+      let returnTo = "";
+      try {
+        returnTo = localStorage.getItem("mintmap:returnTo") || "";
+        localStorage.removeItem("mintmap:returnTo");
+      } catch {
+        // ignore
+      }
+      if (returnTo.startsWith("/") && !returnTo.startsWith("//") && returnTo !== "/unlock") {
+        window.location.assign(returnTo);
+        return;
       }
       void router.navigate({ to: "/" });
     } catch (err) {

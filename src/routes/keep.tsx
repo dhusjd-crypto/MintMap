@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type ReactNode } from "react";
 import {
   Plus,
@@ -74,6 +74,7 @@ function catHue(cat: string): number {
 }
 
 function KeepPage() {
+  const router = useRouter();
   const cards = useCards();
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -87,6 +88,22 @@ function KeepPage() {
   const categorize = useServerFn(aiCategorizeCard);
   const linkMeta = useServerFn(fetchLinkMeta);
   const status = useServerFn(aiStatus);
+
+  const handleAiError = (error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/yetkisiz|unauthorized/i.test(message)) {
+      try {
+        localStorage.removeItem("mintmap:unlocked");
+        localStorage.setItem("mintmap:returnTo", window.location.pathname + window.location.search);
+      } catch {
+        // The navigation remains useful even when browser storage is unavailable.
+      }
+      toast.error("Oturum süresi doldu. Lütfen tekrar giriş yapın.");
+      void router.navigate({ to: "/unlock" });
+      return;
+    }
+    toast.error(message);
+  };
 
   const addLinkCard = (rawUrl: string, enabled: boolean, presetTitle?: string) => {
     const url = normalizeUrl(rawUrl);
@@ -233,7 +250,7 @@ function KeepPage() {
       });
     } catch (e) {
       keep.update(card.id, { aiPending: false });
-      toast.error((e as Error).message);
+      handleAiError(e);
     }
   }
 
