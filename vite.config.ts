@@ -109,6 +109,9 @@ export default defineConfig(({ command }) => {
         ? [
             nitro({
               defaultPreset: "cloudflare-module",
+              // Cloudflare validates this against its UTC clock. Pin it instead
+              // of inheriting a local date that can be one day ahead of UTC.
+              compatibilityDate: "2026-07-22",
               cloudflare: {
                 wrangler: {
                   name: "mintmap",
