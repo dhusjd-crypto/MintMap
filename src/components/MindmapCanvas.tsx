@@ -1308,6 +1308,10 @@ const NodeButton = memo(function NodeButton({
   const overdueCount = node.todos.filter(
     (t) => !t.done && t.dueAt && t.dueAt < Date.now(),
   ).length;
+  const openTodoCount = node.todos.filter((t) => !t.done).length;
+  const nextDue = node.todos
+    .filter((t) => !t.done && t.dueAt && t.dueAt >= Date.now())
+    .sort((a, b) => (a.dueAt ?? 0) - (b.dueAt ?? 0))[0]?.dueAt;
   // Pulse store yalnızca kullanıcı bir gelişmeyi bağladığında değişir; sürükleme
   // sırasında sabit kalır, o yüzden bu abonelik canvas performansını etkilemez.
   const pulseUnread = usePulse().filter(
@@ -1415,6 +1419,11 @@ const NodeButton = memo(function NodeButton({
         {node.todos.length > 0 && (
           <div className="mt-1 text-[10px] font-medium opacity-70">
             {node.todos.filter((t) => t.done).length}/{node.todos.length} görev
+          </div>
+        )}
+        {node.todos.length > 0 && (
+          <div className="mt-0.5 text-[10px] font-medium opacity-70">
+            {openTodoCount} açık{nextDue ? ` · ${new Date(nextDue).toLocaleDateString("tr-TR", { day: "2-digit", month: "short" })}` : ""}
           </div>
         )}
         {(node.tags?.length ?? 0) > 0 && (
