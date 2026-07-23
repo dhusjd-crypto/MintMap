@@ -1,10 +1,19 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Network, ListChecks, CalendarDays, Columns3, LayoutGrid, Activity } from "lucide-react";
+import {
+  Network,
+  ListChecks,
+  CalendarDays,
+  Columns3,
+  LayoutGrid,
+  Activity,
+  TrendingUp,
+} from "lucide-react";
 
 const items = [
   { to: "/", label: "Mindmap", icon: Network },
   { to: "/todos", label: "Görevler", icon: ListChecks },
   { to: "/pulse", label: "Pulse", icon: Activity },
+  { to: "/borsa", label: "Borsa", icon: TrendingUp },
   { to: "/keep", label: "Kutu", icon: LayoutGrid },
   { to: "/board", label: "Pano", icon: Columns3 },
   { to: "/calendar", label: "Takvim", icon: CalendarDays },
@@ -26,7 +35,7 @@ export function BottomNav() {
             }`}
           >
             <div
-              className={`flex h-9 w-14 items-center justify-center rounded-full transition-all ${
+              className={`flex h-9 w-full max-w-[3.5rem] items-center justify-center rounded-full transition-all ${
                 active ? "bg-primary/15" : ""
               }`}
             >

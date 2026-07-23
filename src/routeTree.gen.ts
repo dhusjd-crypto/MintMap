@@ -17,6 +17,7 @@ import { Route as ShareAnalyticsRouteImport } from './routes/share-analytics'
 import { Route as PulseRouteImport } from './routes/pulse'
 import { Route as KeepRouteImport } from './routes/keep'
 import { Route as CalendarRouteImport } from './routes/calendar'
+import { Route as BorsaRouteImport } from './routes/borsa'
 import { Route as BoardRouteImport } from './routes/board'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -60,6 +61,11 @@ const CalendarRoute = CalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BorsaRoute = BorsaRouteImport.update({
+  id: '/borsa',
+  path: '/borsa',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BoardRoute = BoardRouteImport.update({
   id: '/board',
   path: '/board',
@@ -74,6 +80,7 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/board': typeof BoardRoute
+  '/borsa': typeof BorsaRoute
   '/calendar': typeof CalendarRoute
   '/keep': typeof KeepRoute
   '/pulse': typeof PulseRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/board': typeof BoardRoute
+  '/borsa': typeof BorsaRoute
   '/calendar': typeof CalendarRoute
   '/keep': typeof KeepRoute
   '/pulse': typeof PulseRoute
@@ -99,6 +107,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/board': typeof BoardRoute
+  '/borsa': typeof BorsaRoute
   '/calendar': typeof CalendarRoute
   '/keep': typeof KeepRoute
   '/pulse': typeof PulseRoute
@@ -113,6 +122,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/board'
+    | '/borsa'
     | '/calendar'
     | '/keep'
     | '/pulse'
@@ -125,6 +135,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/board'
+    | '/borsa'
     | '/calendar'
     | '/keep'
     | '/pulse'
@@ -137,6 +148,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/board'
+    | '/borsa'
     | '/calendar'
     | '/keep'
     | '/pulse'
@@ -150,6 +162,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BoardRoute: typeof BoardRoute
+  BorsaRoute: typeof BorsaRoute
   CalendarRoute: typeof CalendarRoute
   KeepRoute: typeof KeepRoute
   PulseRoute: typeof PulseRoute
@@ -218,6 +231,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CalendarRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/borsa': {
+      id: '/borsa'
+      path: '/borsa'
+      fullPath: '/borsa'
+      preLoaderRoute: typeof BorsaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/board': {
       id: '/board'
       path: '/board'
@@ -238,6 +258,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BoardRoute: BoardRoute,
+  BorsaRoute: BorsaRoute,
   CalendarRoute: CalendarRoute,
   KeepRoute: KeepRoute,
   PulseRoute: PulseRoute,
