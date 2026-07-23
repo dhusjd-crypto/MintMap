@@ -8,6 +8,7 @@ import { readBackupPayload, shouldAllowCloudSave, describeStoreSnapshot } from "
 import { exportICS, exportMarkdown, downloadText } from "@/lib/export";
 import { toast } from "sonner";
 import { driveLoadSnapshot, driveSaveSnapshot } from "@/lib/google/drive";
+import { createDriveBackup, restoreDriveBackup } from "@/lib/drive-backup";
 import { isGoogleConfigured } from "@/lib/google/gauth";
 import { aiStatus } from "@/lib/ai.functions";
 import { runCalendarSync } from "@/lib/calendar-sync";
@@ -369,15 +370,15 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
             className="w-full justify-start"
             disabled={busy === "drive-up"}
             onClick={() => handle("drive-up", async () => {
-              const snapshot = await mindmap.getPortableSnapshot();
-              if (!shouldAllowCloudSave(snapshot)) {
+              const snapshot = await createDriveBackup();
+              if (!shouldAllowCloudSave(snapshot.store)) {
                 toast.error("Varsayılan boş veri buluta yazılmadı. Önce buluttan geri yükle.");
                 return;
               }
               const json = JSON.stringify(snapshot);
               const r = await driveSaveSnapshot({ data: { json } });
               localStorage.setItem("mintmap.drive.savedAt", String(r.savedAt));
-              toast.success(`Buluta yedeklendi (${describeStoreSnapshot(snapshot)})`);
+              toast.success(`Buluta yedeklendi (${describeStoreSnapshot(snapshot.store)})`);
             })}
           >
             <CloudUpload className="mr-2 h-4 w-4" /> Şimdi buluta yedekle
@@ -393,6 +394,11 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                 return;
               }
               const parsed = JSON.parse(r.json);
+              if (parsed && typeof parsed === "object" && "keep" in parsed) {
+                const restored = await restoreDriveBackup(parsed);
+                toast.success(`Buluttan geri yüklendi (${restored.summary})`);
+                return;
+              }
               const backup = readBackupPayload(parsed);
               if (backup.isDefaultSeed) {
                 toast.error("Buluttaki yedek varsayılan boş veri. Telefonda sayfayı yenileyip tekrar buluta yedekle.");

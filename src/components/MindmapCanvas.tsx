@@ -16,6 +16,7 @@ import { toast } from "sonner";
 // initial canvas bundle.
 
 import { driveLoadSnapshot, driveSaveSnapshot } from "@/lib/google/drive";
+import { createDriveBackup, restoreDriveBackup } from "@/lib/drive-backup";
 import { mindmap, useNodes, type MindNode } from "@/lib/mindmap-store";
 import { usePulse } from "@/lib/pulse-store";
 import { NODE_TYPES, nodeTypeOf } from "@/lib/node-types";
@@ -624,13 +625,13 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
   const handleDriveSave = async () => {
     const t = toast.loading("Drive'a kaydediliyor...");
     try {
-      const snapshot = await mindmap.getPortableSnapshot();
-      if (!shouldAllowCloudSave(snapshot)) {
+      const snapshot = await createDriveBackup();
+      if (!shouldAllowCloudSave(snapshot.store)) {
         toast.error("Varsayılan boş veri Drive'a yazılmadı. Önce Drive'dan yükle.", { id: t });
         return;
       }
       await saveToDrive({ data: { json: JSON.stringify(snapshot) } });
-      toast.success(`Drive'a kaydedildi (${describeStoreSnapshot(snapshot)})`, { id: t });
+      toast.success(`Drive'a kaydedildi (${describeStoreSnapshot(snapshot.store)})`, { id: t });
     } catch (e) {
       toast.error("Drive kaydı başarısız: " + (e as Error).message, { id: t });
     }
@@ -656,6 +657,11 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
         return;
       }
       const parsed = JSON.parse(res.json);
+      if (parsed && typeof parsed === "object" && "keep" in parsed) {
+        const restored = await restoreDriveBackup(parsed);
+        toast.success(`Drive'dan yüklendi (${restored.summary})`, { id: t });
+        return;
+      }
       const backup = readBackupPayload(parsed);
       if (backup.isDefaultSeed) {
         toast.error("Drive'daki yedek varsayılan boş veri. Telefonda sayfayı yenileyip tekrar Drive'a kaydet.", { id: t });

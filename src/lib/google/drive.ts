@@ -48,7 +48,8 @@ export async function driveSaveSnapshot({
       "Varsayılan boş veri buluta yazılmadı. Önce buluttan geri yükle veya telefondaki dolu veriden yedek al.",
     );
   }
-  const json = JSON.stringify(backup.store);
+  // Preserve the full envelope: v2 also carries Kutu cards and their media.
+  const json = JSON.stringify(parsed);
   const existing = await findFileId();
   const metadata = existing ? {} : { name: FILE_NAME, parents: ["appDataFolder"] };
   const boundary = "----mintmap" + Math.random().toString(36).slice(2);

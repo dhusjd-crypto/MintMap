@@ -1,6 +1,6 @@
 import { useCallback, useSyncExternalStore } from "react";
 import { nanoid } from "nanoid";
-import { deleteImage } from "./image-blobs";
+import { deleteImage, getImageDataUrl, putImage } from "./image-blobs";
 
 // A Google-Keep-style capture box. The user throws in notes, links
 // (sites / movies / investment ideas) and images (screenshots); the AI
@@ -133,6 +133,27 @@ export const keep = {
       if (cat) counts.set(cat, (counts.get(cat) ?? 0) + 1);
     });
     return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([c]) => c);
+  },
+  async getPortableSnapshot(): Promise<KeepCard[]> {
+    load();
+    return Promise.all(
+      cards.map(async (card) => ({
+        ...card,
+        image: card.imageId ? (await getImageDataUrl(card.imageId)) ?? card.image : card.image,
+        imageId: undefined,
+      })),
+    );
+  },
+  async importPortableSnapshot(next: KeepCard[]) {
+    const restored = await Promise.all(
+      next.map(async (card) => {
+        if (card.type !== "image" || !card.image?.startsWith("data:")) return card;
+        const imageId = nanoid(12);
+        return (await putImage(imageId, card.image)) ? { ...card, imageId, image: undefined } : card;
+      }),
+    );
+    cards = restored;
+    emit();
   },
 };
 
