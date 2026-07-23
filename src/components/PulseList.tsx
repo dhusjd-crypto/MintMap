@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Check, Link2, ListPlus, StickyNote, X, ExternalLink } from "lucide-react";
+import { Check, Link2, ListPlus, StickyNote, X, ExternalLink, TrendingUp } from "lucide-react";
 import { pulse, usePulse, type PulseItem } from "@/lib/pulse-store";
 import { mindmap, useNodes } from "@/lib/mindmap-store";
+import { useWatchlist } from "@/lib/watchlist-store";
 
 // Pulse akışının listesi. Şu an tüm kayıtlar DEMO — bu üstte açıkça belirtilir.
 // Her kayıt bir düğüme bağlanabilir, göreve dönüştürülebilir veya nota eklenebilir.
@@ -25,8 +26,10 @@ function relTime(ms: number): string {
 export function PulseList() {
   const items = usePulse();
   const nodes = useNodes();
+  const companies = useWatchlist();
   const [openId, setOpenId] = useState<string | null>(null);
   const [targetNode, setTargetNode] = useState<string>("");
+  const [targetWatch, setTargetWatch] = useState<string>("");
 
   const anyDemo = items.some((p) => p.demo);
 
@@ -37,6 +40,13 @@ export function PulseList() {
     if (!n) return toast.error("Önce bir düğüm seç");
     pulse.toggleNode(item.id, n.id);
     toast.success(`"${n.title}" düğümüne bağlandı`);
+  };
+
+  const linkWatch = (item: PulseItem) => {
+    const c = companies.find((w) => w.id === targetWatch);
+    if (!c) return toast.error("Önce bir şirket seç");
+    pulse.toggleWatch(item.id, c.id);
+    toast.success(`${c.symbol} şirketine bağlandı`);
   };
 
   const toTask = (item: PulseItem) => {
@@ -184,6 +194,29 @@ export function PulseList() {
                     <StickyNote className="h-3 w-3" /> Nota ekle
                   </button>
                 </div>
+                {companies.length > 0 && (
+                  <div className="flex gap-1.5">
+                    <select
+                      value={targetWatch}
+                      onChange={(e) => setTargetWatch(e.target.value)}
+                      className="flex-1 rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+                    >
+                      <option value="">Borsa şirketi…</option>
+                      {companies.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.symbol}
+                          {c.name ? ` · ${c.name}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => linkWatch(item)}
+                      className="flex items-center gap-1 rounded-full bg-background px-2.5 py-1 text-[11px] font-semibold shadow-soft"
+                    >
+                      <TrendingUp className="h-3 w-3" /> Şirkete bağla
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

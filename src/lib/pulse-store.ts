@@ -17,6 +17,8 @@ export type PulseItem = {
   addedAt: number;
   /** Bağlı mindmap düğümlerinin id'leri. */
   nodeIds: string[];
+  /** Bağlı Borsa izleme kayıtlarının id'leri. */
+  watchIds?: string[];
   /** Önem: 1 düşük, 2 orta, 3 yüksek. */
   importance: 1 | 2 | 3;
   read: boolean;
@@ -102,6 +104,17 @@ export const pulse = {
         ...p,
         nodeIds: has ? p.nodeIds.filter((n) => n !== nodeId) : [...p.nodeIds, nodeId],
       };
+    });
+    emit();
+  },
+  /** Bir gelişmeyi bir Borsa şirketine bağla/çöz. */
+  toggleWatch(id: string, watchId: string) {
+    load();
+    items = items.map((p) => {
+      if (p.id !== id) return p;
+      const cur = p.watchIds ?? [];
+      const has = cur.includes(watchId);
+      return { ...p, watchIds: has ? cur.filter((w) => w !== watchId) : [...cur, watchId] };
     });
     emit();
   },
