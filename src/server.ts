@@ -7,10 +7,15 @@ type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
 };
 
+type D1Statement = { bind: (...values: unknown[]) => D1Statement; first: <T>() => Promise<T | null> };
+type D1Database = { prepare: (query: string) => D1Statement };
+
 type WorkerBindings = {
-  MINTMAP_SYNC?: unknown;
+  MINTMAP_SYNC?: D1Database;
   ASSETS?: { fetch: (request: Request) => Promise<Response> };
 };
+
+type SyncRow = { payload: string };
 
 declare global {
   // Server functions run behind this Worker entry. Retain the current request's
@@ -50,11 +55,37 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   });
 }
 
+function recoveryPage(payload: string | null) {
+  const snapshot = payload ? JSON.parse(payload) as { mindmap?: unknown } : null;
+  const store = JSON.stringify(JSON.stringify(snapshot?.mindmap ?? null)).replace(/</g, "\\u003c");
+  return `<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MintMap eşitleme</title><body><script>
+    const cloudStore = ${store};
+    if (cloudStore && JSON.parse(cloudStore)?.workspaces?.length) {
+      localStorage.setItem("mindgrove.v2", cloudStore);
+      location.replace("/?cloud-recovered=1");
+    } else {
+      document.body.textContent = "Bulut kopyası bulunamadı.";
+    }
+  </script></body></html>`;
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const bindings = env as WorkerBindings;
       globalThis.__mintmapWorkerBindings = bindings;
+
+      // A deterministic, one-time repair path for an installed PWA whose
+      // local snapshot predates cloud sync. It runs before the app bundle and
+      // therefore works even if that bundle is stale.
+      if (new URL(request.url).pathname === "/sync-recover") {
+        const row = bindings.MINTMAP_SYNC
+          ? await bindings.MINTMAP_SYNC.prepare("SELECT payload FROM sync_documents WHERE id = ?").bind("personal").first<SyncRow>()
+          : null;
+        return new Response(recoveryPage(row?.payload ?? null), {
+          headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
+        });
+      }
 
       // The site has an edge cache rule that can retain /sw.js across Worker
       // deployments. Read it through the versioned Worker asset binding and
