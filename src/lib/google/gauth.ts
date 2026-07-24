@@ -11,6 +11,7 @@
 
 const CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined) || "";
 const GIS_SRC = "https://accounts.google.com/gsi/client";
+const GRANT_STORAGE_KEY = "mintmap.googleGrant.v1";
 
 // One consent covers every Google feature in the app.
 export const GOOGLE_SCOPES = [
@@ -60,6 +61,24 @@ function loadGis(): Promise<void> {
 let cached: { token: string; expiresAt: number } | null = null;
 let everGranted = false;
 
+function hasRememberedGrant(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(GRANT_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function rememberGrant(): void {
+  everGranted = true;
+  try {
+    window.localStorage.setItem(GRANT_STORAGE_KEY, "true");
+  } catch {
+    // The authorization still works when browser storage is unavailable.
+  }
+}
+
 /** True when a Google OAuth client id is configured (build/env). */
 export function isGoogleConfigured(): boolean {
   return !!CLIENT_ID;
@@ -95,7 +114,7 @@ export function getAccessToken(opts: { forcePrompt?: boolean } = {}): Promise<st
               reject(new Error(resp.error || "Google yetkilendirme iptal edildi"));
               return;
             }
-            everGranted = true;
+            rememberGrant();
             cached = {
               token: resp.access_token,
               expiresAt: Date.now() + (resp.expires_in ?? 3600) * 1000,
@@ -104,9 +123,11 @@ export function getAccessToken(opts: { forcePrompt?: boolean } = {}): Promise<st
           },
           error_callback: (e) => reject(new Error(e.type || "Google yetkilendirme başarısız")),
         });
-        // Silent once the user has granted this session; consent popup otherwise.
+        // Google persists consent per account/client id. Keep a local marker so
+        // a page reload does not force the test-app warning again. With an
+        // empty prompt, GIS asks only if a new consent is genuinely required.
         client.requestAccessToken({
-          prompt: opts.forcePrompt ? "consent" : everGranted ? "" : "consent",
+          prompt: opts.forcePrompt ? "consent" : everGranted || hasRememberedGrant() ? "" : "consent",
         });
       }),
   );
@@ -116,4 +137,9 @@ export function getAccessToken(opts: { forcePrompt?: boolean } = {}): Promise<st
 export function forgetGoogleToken(): void {
   cached = null;
   everGranted = false;
+  try {
+    window.localStorage.removeItem(GRANT_STORAGE_KEY);
+  } catch {
+    // Ignore unavailable storage; the in-memory token has still been cleared.
+  }
 }
