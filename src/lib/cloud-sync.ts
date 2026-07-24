@@ -156,6 +156,9 @@ function schedule() {
 /** Keeps notes, task state and map layout merged between all signed-in devices. */
 export function useCloudSync() {
   useEffect(() => {
+    // The shared shell also renders the launcher on /unlock. Do not make a
+    // protected request before the user has an authenticated session.
+    if (window.location.pathname === "/unlock") return;
     void reconcile();
     const unsubscribeMap = mindmap.subscribeAll(schedule);
     const unsubscribeKeep = keep.subscribeAll(schedule);
