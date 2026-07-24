@@ -17,6 +17,7 @@ const GRANT_STORAGE_KEY = "mintmap.googleGrant.v1";
 export const GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/drive.appdata",
   "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/tasks",
 ].join(" ");
 
 type GisTokenResponse = { access_token?: string; expires_in?: number; error?: string };

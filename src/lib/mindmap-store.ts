@@ -31,6 +31,9 @@ export type Todo = {
   priority?: Priority;
   blockedBy?: string[]; // todo ids that must be done first
   googleEventId?: string;
+  /** Google Tasks record created by MintMap's dedicated task-list sync. */
+  googleTaskId?: string;
+  googleTaskListId?: string;
   syncedAt?: number;
   /** Files and images attached directly to this task. Bytes live in IndexedDB. */
   attachments?: MindFile[];

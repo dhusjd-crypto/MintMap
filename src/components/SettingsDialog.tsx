@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, Smartphone, Bell, CloudUpload, CloudDownload, Keyboard, Sparkles, CheckCircle2, AlertCircle, CalendarSync, Heart, X } from "lucide-react";
+import { Download, Smartphone, Bell, CloudUpload, CloudDownload, Keyboard, Sparkles, CheckCircle2, AlertCircle, CalendarSync, ListChecks, Heart, X } from "lucide-react";
 import { canInstall, onInstallAvailability, promptInstall, ensureNotificationPermission } from "@/lib/pwa";
 import { mindmap, useNodes } from "@/lib/mindmap-store";
 import { readBackupPayload, shouldAllowCloudSave, describeStoreSnapshot } from "@/lib/backup-format";
@@ -12,6 +12,7 @@ import { createDriveBackup, restoreDriveBackup } from "@/lib/drive-backup";
 import { isGoogleConfigured } from "@/lib/google/gauth";
 import { aiStatus } from "@/lib/ai.functions";
 import { runCalendarSync } from "@/lib/calendar-sync";
+import { runGoogleTasksSync } from "@/lib/google-tasks-sync";
 import { interests, useInterests } from "@/lib/interest-store";
 import { useServerFn } from "@tanstack/react-start";
 
@@ -59,6 +60,9 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   );
   const [calLast, setCalLast] = useState<number | null>(
     () => (typeof window !== "undefined" ? Number(localStorage.getItem("mintmap.calendar.lastSyncAt") || 0) || null : null),
+  );
+  const [tasksLast, setTasksLast] = useState<number | null>(
+    () => (typeof window !== "undefined" ? Number(localStorage.getItem("mintmap.tasks.lastSyncAt") || 0) || null : null),
   );
   const fetchStatus = useServerFn(aiStatus);
   const interestList = useInterests();
@@ -457,6 +461,40 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
         </section>
 
 
+
+        <section className="space-y-2">
+          <h3 className="text-xs font-semibold uppercase text-muted-foreground">
+            <ListChecks className="mr-1 inline h-3 w-3" /> Google Tasks
+          </h3>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            Açık görevler ve son 30 günde tamamlananlar, Google Tasks içindeki ayrı <strong>MintMap</strong> listesine gönderilir. Var olan kişisel listelerine dokunulmaz.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            disabled={busy === "tasks"}
+            onClick={async () => {
+              setBusy("tasks");
+              try {
+                const result = await runGoogleTasksSync();
+                const now = Date.now();
+                localStorage.setItem("mintmap.tasks.lastSyncAt", String(now));
+                setTasksLast(now);
+                toast.success(`Google Tasks: ${result.pushed} görev eşitlendi${result.errors ? `, ${result.errors} hata` : ""}`);
+              } catch (error) {
+                toast.error("Google Tasks eşitlemesi başarısız: " + (error as Error).message);
+              } finally {
+                setBusy(null);
+              }
+            }}
+          >
+            <ListChecks className="mr-2 h-4 w-4" /> Google Tasks'e eşitle
+          </Button>
+          {tasksLast ? (
+            <p className="text-[11px] text-muted-foreground">Son eşitleme: {new Date(tasksLast).toLocaleString()}</p>
+          ) : null}
+        </section>
 
         <section className="space-y-2">
           <h3 className="text-xs font-semibold uppercase text-muted-foreground">
