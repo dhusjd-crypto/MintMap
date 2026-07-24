@@ -7,7 +7,10 @@ type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
 };
 
-type WorkerBindings = { MINTMAP_SYNC?: unknown };
+type WorkerBindings = {
+  MINTMAP_SYNC?: unknown;
+  ASSETS?: { fetch: (request: Request) => Promise<Response> };
+};
 
 declare global {
   // Server functions run behind this Worker entry. Retain the current request's
@@ -50,7 +53,20 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
-      globalThis.__mintmapWorkerBindings = env as WorkerBindings;
+      const bindings = env as WorkerBindings;
+      globalThis.__mintmapWorkerBindings = bindings;
+
+      // The site has an edge cache rule that can retain /sw.js across Worker
+      // deployments. Read it through the versioned Worker asset binding and
+      // mark it uncacheable so installed clients always receive the current
+      // application/sync code on their next update check.
+      if (new URL(request.url).pathname === "/sw.js" && bindings.ASSETS) {
+        const asset = await bindings.ASSETS.fetch(request);
+        const headers = new Headers(asset.headers);
+        headers.set("Cache-Control", "no-store, max-age=0");
+        return new Response(asset.body, { status: asset.status, headers });
+      }
+
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
