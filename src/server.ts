@@ -7,6 +7,16 @@ type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
 };
 
+type WorkerBindings = { MINTMAP_SYNC?: unknown };
+
+declare global {
+  // Server functions run behind this Worker entry. Retain the current request's
+  // bindings so their module graph can use D1 without exposing it to the client.
+  // Cloudflare reuses the same immutable binding object for a deployment.
+  // eslint-disable-next-line no-var
+  var __mintmapWorkerBindings: WorkerBindings | undefined;
+}
+
 let serverEntryPromise: Promise<ServerEntry> | undefined;
 
 async function getServerEntry(): Promise<ServerEntry> {
@@ -40,6 +50,7 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      globalThis.__mintmapWorkerBindings = env as WorkerBindings;
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);

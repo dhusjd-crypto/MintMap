@@ -115,6 +115,16 @@ export default defineConfig(({ command }) => {
               cloudflare: {
                 wrangler: {
                   name: "mintmap",
+                  // Canonical cross-device state. Drive remains a portable
+                  // recovery/media backup; D1 is the small, versioned record
+                  // that phones and desktops reconcile continuously.
+                  d1_databases: [
+                    {
+                      binding: "MINTMAP_SYNC",
+                      database_name: "mintmap-sync",
+                      database_id: "b26c6159-99eb-4e9a-b731-c725841aeecd",
+                    },
+                  ],
                   // Bind the custom domain at deploy time (SSL auto-provisioned).
                   ...(DEPLOY_DOMAIN
                     ? { routes: [{ pattern: DEPLOY_DOMAIN, custom_domain: true }] }

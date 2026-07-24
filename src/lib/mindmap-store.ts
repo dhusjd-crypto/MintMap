@@ -24,6 +24,8 @@ export type Todo = {
   steps?: TodoStep[];
   tags?: string[];
   createdAt?: number;
+  /** Last semantic change; used for conflict-free device reconciliation. */
+  updatedAt?: number;
   completedAt?: number;
   recurrence?: Recurrence;
   estimateMin?: number;
@@ -93,6 +95,8 @@ export type MindNode = {
   reminderAt?: number;
   tags?: string[];
   createdAt: number;
+  /** Last semantic change; coordinates are included after drag commit. */
+  updatedAt?: number;
   links?: string[];
   imageAspect?: ImageAspect;
   imageFit?: ImageFit;
@@ -633,11 +637,11 @@ export const mindmap = {
     return node;
   },
   update(id: string, patch: Partial<MindNode>) {
-    mutate(() => setCurrentNodes((ns) => ns.map((n) => (n.id === id ? { ...n, ...patch } : n))));
+    mutate(() => setCurrentNodes((ns) => ns.map((n) => (n.id === id ? { ...n, ...patch, updatedAt: Date.now() } : n))));
   },
   move(id: string, x: number, y: number) {
     // High-frequency drag — no history, no persist, just notify.
-    setCurrentNodes((ns) => ns.map((n) => (n.id === id ? { ...n, x, y } : n)));
+    setCurrentNodes((ns) => ns.map((n) => (n.id === id ? { ...n, x, y, updatedAt: Date.now() } : n)));
     notifyOnly();
   },
   commitMove() {
@@ -704,6 +708,7 @@ export const mindmap = {
       status: "todo",
       parentId,
       createdAt: Date.now(),
+      updatedAt: Date.now(),
       steps: [],
       ...extra,
     };
@@ -720,7 +725,7 @@ export const mindmap = {
       todos: n.todos.map((t) => {
         if (t.id !== todoId) return t;
         const synced = normStatus(t, patch);
-        return { ...t, ...patch, ...synced };
+        return { ...t, ...patch, ...synced, updatedAt: Date.now() };
       }),
     });
   },
@@ -1125,7 +1130,7 @@ export const mindmap = {
                       todos: n.todos.map((t) => {
                         if (t.id !== todoId) return t;
                         const synced = normStatus(t, patch);
-                        return { ...t, ...patch, ...synced };
+                        return { ...t, ...patch, ...synced, updatedAt: Date.now() };
                       }),
                     },
               ),

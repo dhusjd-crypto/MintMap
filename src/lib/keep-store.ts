@@ -27,6 +27,8 @@ export type KeepCard = {
   pinned?: boolean;
   color?: string;
   createdAt: number;
+  /** Last semantic change; used when cards are merged across devices. */
+  updatedAt?: number;
   aiPending?: boolean; // categorization in flight
 };
 
@@ -101,6 +103,7 @@ export const keep = {
       ...card,
       id: card.id ?? nanoid(10),
       createdAt: card.createdAt ?? Date.now(),
+      updatedAt: card.updatedAt ?? Date.now(),
     };
     cards = [full, ...cards];
     emit();
@@ -108,7 +111,7 @@ export const keep = {
   },
   update(id: string, patch: Partial<KeepCard>) {
     load();
-    cards = cards.map((c) => (c.id === id ? { ...c, ...patch } : c));
+    cards = cards.map((c) => (c.id === id ? { ...c, ...patch, updatedAt: Date.now() } : c));
     emit();
   },
   remove(id: string) {
@@ -121,7 +124,7 @@ export const keep = {
   },
   togglePin(id: string) {
     load();
-    cards = cards.map((c) => (c.id === id ? { ...c, pinned: !c.pinned } : c));
+    cards = cards.map((c) => (c.id === id ? { ...c, pinned: !c.pinned, updatedAt: Date.now() } : c));
     emit();
   },
   /** Distinct categories present, most-used first, excluding empty. */
@@ -154,6 +157,15 @@ export const keep = {
     );
     cards = restored;
     emit();
+  },
+  /** Applies a metadata-only cloud snapshot. Local IndexedDB files stay put. */
+  importCloudSnapshot(next: KeepCard[]) {
+    cards = next;
+    emit();
+  },
+  /** Subscribe without React; used by the background cloud reconciler. */
+  subscribeAll(listener: () => void): () => void {
+    return subscribe(listener);
   },
 };
 

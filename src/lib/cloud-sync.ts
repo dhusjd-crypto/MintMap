@@ -1,0 +1,174 @@
+import { useEffect } from "react";
+import { keep, type KeepCard } from "./keep-store";
+import { mindmap, type MindNode, type StoreShape, type Todo, type Workspace } from "./mindmap-store";
+import { pullCloudSnapshot, pushCloudSnapshot } from "./sync.functions";
+
+type CloudSnapshot = { version: 1; mindmap: StoreShape; keep: KeepCard[] };
+const DEBOUNCE_MS = 2_500;
+
+function changedAt(value: { updatedAt?: number; createdAt?: number }) {
+  return value.updatedAt ?? value.createdAt ?? 0;
+}
+
+function latest<T>(left: T, right: T): T {
+  return changedAt(right as { updatedAt?: number; createdAt?: number }) > changedAt(left as { updatedAt?: number; createdAt?: number }) ? right : left;
+}
+
+function unionById<T extends { id: string; updatedAt?: number; createdAt?: number }>(local: T[], remote: T[]) {
+  const remoteById = new Map(remote.map((item) => [item.id, item]));
+  const result = local.map((item) => {
+    const other = remoteById.get(item.id);
+    remoteById.delete(item.id);
+    return other ? latest(item, other) : item;
+  });
+  return [...result, ...remoteById.values()];
+}
+
+function mergeTodo(local: Todo, remote: Todo): Todo {
+  const winner = latest(local, remote);
+  const other = winner === local ? remote : local;
+  return {
+    ...winner,
+    // Child structures are append-safe. Their completion changes still follow
+    // the most recently edited task record above.
+    activity: unionById(winner.activity ?? [], other.activity ?? []),
+    attachments: unionById(winner.attachments ?? [], other.attachments ?? []),
+    tags: [...new Set([...(winner.tags ?? []), ...(other.tags ?? [])])],
+  };
+}
+
+function mergeNode(local: MindNode, remote: MindNode): MindNode {
+  const winner = latest(local, remote);
+  const other = winner === local ? remote : local;
+  const remoteTodos = new Map(remote.todos.map((todo) => [todo.id, todo]));
+  const todos = local.todos.map((todo) => {
+    const fromRemote = remoteTodos.get(todo.id);
+    remoteTodos.delete(todo.id);
+    return fromRemote ? mergeTodo(todo, fromRemote) : todo;
+  });
+  return {
+    ...winner,
+    todos: [...todos, ...remoteTodos.values()],
+    links: [...new Set([...(winner.links ?? []), ...(other.links ?? [])])],
+    tags: [...new Set([...(winner.tags ?? []), ...(other.tags ?? [])])],
+    files: unionById(winner.files ?? [], other.files ?? []),
+    images: unionById(winner.images ?? [], other.images ?? []),
+  };
+}
+
+function mergeWorkspace(local: Workspace, remote: Workspace): Workspace {
+  const localById = new Map(local.nodes.map((node) => [node.id, node]));
+  const nodes = remote.nodes.map((node) => {
+    const current = localById.get(node.id);
+    localById.delete(node.id);
+    return current ? mergeNode(current, node) : node;
+  });
+  return { ...latest(local, remote), nodes: [...nodes, ...localById.values()] };
+}
+
+export function mergeCloudSnapshots(local: CloudSnapshot, remote: CloudSnapshot): CloudSnapshot {
+  const localById = new Map(local.mindmap.workspaces.map((workspace) => [workspace.id, workspace]));
+  const workspaces = remote.mindmap.workspaces.map((workspace) => {
+    const current = localById.get(workspace.id);
+    localById.delete(workspace.id);
+    return current ? mergeWorkspace(current, workspace) : workspace;
+  });
+  const mergedWorkspaces = [...workspaces, ...localById.values()];
+  return {
+    version: 1,
+    mindmap: {
+      workspaces: mergedWorkspaces,
+      // Which workspace is open is a device preference, not shared state.
+      currentId: local.mindmap.currentId,
+    },
+    keep: unionById(local.keep, remote.keep),
+  };
+}
+
+function cloudSnapshot(): CloudSnapshot {
+  const map = mindmap.getFullSnapshot();
+  // Object URLs and IndexedDB blobs are device-local. Retain their metadata so
+  // a card/node remains discoverable; Drive remains the portable file archive.
+  const mindmapSnapshot: StoreShape = JSON.parse(JSON.stringify(map, (_key, value) =>
+    typeof value === "string" && value.startsWith("blob:") ? "" : value,
+  ));
+  return { version: 1, mindmap: mindmapSnapshot, keep: keep.list() };
+}
+
+function parseSnapshot(raw: string): CloudSnapshot | null {
+  try {
+    const parsed = JSON.parse(raw) as CloudSnapshot;
+    if (parsed?.version !== 1 || !parsed.mindmap?.workspaces || !Array.isArray(parsed.keep)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+let active = false;
+let timer: ReturnType<typeof setTimeout> | undefined;
+let revision = 0;
+let applying = false;
+
+async function reconcile() {
+  if (active || typeof window === "undefined" || !navigator.onLine) return;
+  active = true;
+  try {
+    const pulled = await pullCloudSnapshot();
+    if (!pulled.enabled) return;
+    revision = pulled.revision;
+    const local = cloudSnapshot();
+    const remote = pulled.payload ? parseSnapshot(pulled.payload) : null;
+    const merged = remote ? mergeCloudSnapshots(local, remote) : local;
+    applying = true;
+    mindmap.importFullSnapshot(merged.mindmap);
+    keep.importCloudSnapshot(merged.keep);
+    applying = false;
+    const pushed = await pushCloudSnapshot({ data: { baseRevision: revision, payload: JSON.stringify(merged) } });
+    if (!pushed.enabled) return;
+    revision = pushed.revision;
+    if (!pushed.accepted) {
+      const latestRemote = parseSnapshot(pushed.payload);
+      if (latestRemote) {
+        const retry = mergeCloudSnapshots(cloudSnapshot(), latestRemote);
+        applying = true;
+        mindmap.importFullSnapshot(retry.mindmap);
+        keep.importCloudSnapshot(retry.keep);
+        applying = false;
+        const retried = await pushCloudSnapshot({ data: { baseRevision: pushed.revision, payload: JSON.stringify(retry) } });
+        if (retried.enabled) revision = retried.revision;
+      }
+    }
+  } catch (error) {
+    console.warn("MintMap bulut eşitlemesi sonraki denemede tekrar çalışacak", error);
+  } finally {
+    applying = false;
+    active = false;
+  }
+}
+
+function schedule() {
+  if (applying) return;
+  if (timer) clearTimeout(timer);
+  timer = setTimeout(() => void reconcile(), DEBOUNCE_MS);
+}
+
+/** Keeps notes, task state and map layout merged between all signed-in devices. */
+export function useCloudSync() {
+  useEffect(() => {
+    void reconcile();
+    const unsubscribeMap = mindmap.subscribeAll(schedule);
+    const unsubscribeKeep = keep.subscribeAll(schedule);
+    const onVisible = () => { if (document.visibilityState === "visible") void reconcile(); };
+    const onOnline = () => void reconcile();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onOnline);
+    return () => {
+      unsubscribeMap();
+      unsubscribeKeep();
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", onOnline);
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+}

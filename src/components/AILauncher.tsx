@@ -5,6 +5,7 @@ import { BellRing, MessageSquare, Mic, Settings, Sparkles, X, Zap } from "lucide
 import { useAutoDriveBackup } from "@/lib/drive-auto";
 import { useAutoCalendarSync } from "@/lib/calendar-sync";
 import { useAutoGoogleTasksSync } from "@/lib/google-tasks-sync";
+import { useCloudSync } from "@/lib/cloud-sync";
 import { useFabSlot } from "@/lib/fab-slots";
 
 const AIChat = lazy(() => import("./AIChat").then((m) => ({ default: m.AIChat })));
@@ -23,6 +24,7 @@ export function AILauncher() {
   const [reminders, setReminders] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState<string | undefined>();
   useAutoDriveBackup();
+  useCloudSync();
   useEffect(() => { useAutoCalendarSync(); }, []);
   useEffect(() => useAutoGoogleTasksSync(), []);
 
