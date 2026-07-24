@@ -6,8 +6,13 @@ type D1Database = { prepare: (query: string) => D1Statement };
 type SyncRow = { revision: number; payload: string; updated_at: number };
 
 function db(): D1Database | undefined {
-  return (globalThis as typeof globalThis & { __mintmapWorkerBindings?: { MINTMAP_SYNC?: D1Database } })
-    .__mintmapWorkerBindings?.MINTMAP_SYNC;
+  const runtime = globalThis as typeof globalThis & {
+    __env__?: { MINTMAP_SYNC?: D1Database };
+    __mintmapWorkerBindings?: { MINTMAP_SYNC?: D1Database };
+  };
+  // Nitro's Cloudflare adapter exposes the authoritative request bindings as
+  // __env__. Keep the custom entry fallback for older generated worker builds.
+  return runtime.__env__?.MINTMAP_SYNC ?? runtime.__mintmapWorkerBindings?.MINTMAP_SYNC;
 }
 
 export const pullCloudSnapshot = createServerFn({ method: "GET" })
