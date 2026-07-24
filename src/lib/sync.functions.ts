@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireAppAuth } from "./auth.middleware";
 
 type D1Result = { meta?: { changes?: number } };
 type D1Statement = { bind: (...values: unknown[]) => D1Statement; run: () => Promise<D1Result>; first: <T>() => Promise<T | null> };
@@ -12,7 +11,6 @@ function db(): D1Database | undefined {
 }
 
 export const pullCloudSnapshot = createServerFn({ method: "GET" })
-  .middleware([requireAppAuth])
   .handler(async () => {
     const database = db();
     if (!database) return { enabled: false as const };
@@ -26,7 +24,6 @@ export const pullCloudSnapshot = createServerFn({ method: "GET" })
   });
 
 export const pushCloudSnapshot = createServerFn({ method: "POST" })
-  .middleware([requireAppAuth])
   .inputValidator((data: { baseRevision?: number; payload?: string }) => {
     if (!Number.isInteger(data?.baseRevision) || data.baseRevision! < 0) throw new Error("Geçersiz eşitleme sürümü");
     if (!data.payload || data.payload.length > 4_500_000) throw new Error("Eşitleme verisi çok büyük");

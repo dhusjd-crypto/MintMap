@@ -109,13 +109,30 @@ let active = false;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let revision = 0;
 let applying = false;
+type SyncStatus = { state: "idle" | "syncing" | "success" | "error"; at?: number; message?: string };
+let status: SyncStatus = { state: "idle" };
+
+function report(next: SyncStatus) {
+  status = next;
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent<SyncStatus>("mintmap:cloud-sync", { detail: next }));
+  }
+}
+
+export function getCloudSyncStatus(): SyncStatus {
+  return status;
+}
 
 async function reconcile() {
   if (active || typeof window === "undefined" || !navigator.onLine) return;
   active = true;
+  report({ state: "syncing" });
   try {
     const pulled = await pullCloudSnapshot();
-    if (!pulled.enabled) return;
+    if (!pulled.enabled) {
+      report({ state: "error", at: Date.now(), message: "Bulut veritabanı bağlantısı bulunamadı" });
+      return;
+    }
     revision = pulled.revision;
     const local = cloudSnapshot();
     const remote = pulled.payload ? parseSnapshot(pulled.payload) : null;
@@ -125,7 +142,10 @@ async function reconcile() {
     keep.importCloudSnapshot(merged.keep);
     applying = false;
     const pushed = await pushCloudSnapshot({ data: { baseRevision: revision, payload: JSON.stringify(merged) } });
-    if (!pushed.enabled) return;
+    if (!pushed.enabled) {
+      report({ state: "error", at: Date.now(), message: "Bulut veritabanına yazılamadı" });
+      return;
+    }
     revision = pushed.revision;
     if (!pushed.accepted) {
       const latestRemote = parseSnapshot(pushed.payload);
@@ -139,12 +159,21 @@ async function reconcile() {
         if (retried.enabled) revision = retried.revision;
       }
     }
+    report({ state: "success", at: Date.now() });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Bilinmeyen eşitleme hatası";
+    report({ state: "error", at: Date.now(), message });
     console.warn("MintMap bulut eşitlemesi sonraki denemede tekrar çalışacak", error);
   } finally {
     applying = false;
     active = false;
   }
+}
+
+/** Explicit retry for Settings; useful when a device has just come online. */
+export async function syncNow() {
+  await reconcile();
+  return status;
 }
 
 function schedule() {

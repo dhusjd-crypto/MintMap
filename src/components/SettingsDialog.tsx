@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, Smartphone, Bell, CloudUpload, CloudDownload, Keyboard, Sparkles, CheckCircle2, AlertCircle, CalendarSync, ListChecks, Heart, X } from "lucide-react";
+import { Download, Smartphone, Bell, CloudUpload, CloudDownload, Keyboard, Sparkles, CheckCircle2, AlertCircle, CalendarSync, ListChecks, Heart, X, RefreshCw } from "lucide-react";
 import { canInstall, onInstallAvailability, promptInstall, ensureNotificationPermission } from "@/lib/pwa";
 import { mindmap, useNodes } from "@/lib/mindmap-store";
 import { readBackupPayload, shouldAllowCloudSave, describeStoreSnapshot } from "@/lib/backup-format";
@@ -13,6 +13,7 @@ import { hasGoogleGrant, isGoogleConfigured } from "@/lib/google/gauth";
 import { aiStatus } from "@/lib/ai.functions";
 import { runCalendarSync } from "@/lib/calendar-sync";
 import { runGoogleTasksSync } from "@/lib/google-tasks-sync";
+import { getCloudSyncStatus, syncNow } from "@/lib/cloud-sync";
 import { interests, useInterests } from "@/lib/interest-store";
 import { useServerFn } from "@tanstack/react-start";
 
@@ -61,6 +62,7 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   const [driveAuto, setDriveAuto] = useState<boolean>(
     () => typeof window !== "undefined" && localStorage.getItem("mintmap.drive.auto") !== "off",
   );
+  const [cloudStatus, setCloudStatus] = useState(() => getCloudSyncStatus());
   const [calLast, setCalLast] = useState<number | null>(
     () => (typeof window !== "undefined" ? Number(localStorage.getItem("mintmap.calendar.lastSyncAt") || 0) || null : null),
   );
@@ -86,6 +88,12 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
       .catch(() => {});
     return () => { off(); };
   }, [fetchStatus]);
+
+  useEffect(() => {
+    const onStatus = (event: Event) => setCloudStatus((event as CustomEvent<typeof cloudStatus>).detail);
+    window.addEventListener("mintmap:cloud-sync", onStatus);
+    return () => window.removeEventListener("mintmap:cloud-sync", onStatus);
+  }, []);
 
   const updateProvider = (v: ProviderPref) => {
     setProvider(v);
@@ -360,6 +368,29 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           >
             <Download className="mr-2 h-4 w-4" /> JSON yedek
           </Button>
+        </section>
+
+        <section className="space-y-2">
+          <h3 className="text-xs font-semibold uppercase text-muted-foreground">Cihazlar arası eşitleme</h3>
+          <Button
+            variant="outline"
+            className="w-full justify-start"
+            disabled={busy === "cloud-sync" || cloudStatus.state === "syncing"}
+            onClick={() => handle("cloud-sync", async () => {
+              const result = await syncNow();
+              if (result.state === "success") toast.success("Cihazlar arası eşitleme tamamlandı");
+              else toast.error(result.message || "Bulut eşitlemesi tamamlanamadı");
+            })}
+          >
+            <RefreshCw className="mr-2 h-4 w-4" /> Şimdi eşitle
+          </Button>
+          <p className="text-[11px] text-muted-foreground">
+            {cloudStatus.state === "success" && cloudStatus.at
+              ? `Son eşitleme: ${new Date(cloudStatus.at).toLocaleString()}`
+              : cloudStatus.state === "error"
+                ? `Eşitleme hatası: ${cloudStatus.message}`
+                : "Görevler, notlar ve harita düzeni cihazlar arasında otomatik birleştirilir."}
+          </p>
         </section>
 
         <section className="space-y-2">
