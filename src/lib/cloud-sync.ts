@@ -5,6 +5,7 @@ import { pullCloudSnapshot, pushCloudSnapshot } from "./sync.functions";
 
 type CloudSnapshot = { version: 1; mindmap: StoreShape; keep: KeepCard[] };
 const DEBOUNCE_MS = 2_500;
+const POLL_MS = 30_000;
 
 function changedAt(value: { updatedAt?: number; createdAt?: number }) {
   return value.updatedAt ?? value.createdAt ?? 0;
@@ -105,6 +106,14 @@ function parseSnapshot(raw: string): CloudSnapshot | null {
   }
 }
 
+/** Excludes device-local UI selection so two devices do not endlessly overwrite it. */
+function comparableSnapshot(snapshot: CloudSnapshot): string {
+  return JSON.stringify({
+    ...snapshot,
+    mindmap: { ...snapshot.mindmap, currentId: "" },
+  });
+}
+
 let active = false;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let revision = 0;
@@ -141,6 +150,12 @@ async function reconcile() {
     mindmap.importFullSnapshot(merged.mindmap);
     keep.importCloudSnapshot(merged.keep);
     applying = false;
+    // A poll normally only reads. Write back only when this device contributed
+    // something new, preventing two open devices from bouncing revisions.
+    if (remote && comparableSnapshot(merged) === comparableSnapshot(remote)) {
+      report({ state: "success", at: Date.now() });
+      return;
+    }
     const pushed = await pushCloudSnapshot({ data: { baseRevision: revision, payload: JSON.stringify(merged) } });
     if (!pushed.enabled) {
       report({ state: "error", at: Date.now(), message: "Bulut veritabanına yazılamadı" });
@@ -195,11 +210,13 @@ export function useCloudSync() {
     const onOnline = () => void reconcile();
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("online", onOnline);
+    const poll = window.setInterval(() => void reconcile(), POLL_MS);
     return () => {
       unsubscribeMap();
       unsubscribeKeep();
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("online", onOnline);
+      window.clearInterval(poll);
       if (timer) clearTimeout(timer);
     };
   }, []);

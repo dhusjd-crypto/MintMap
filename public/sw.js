@@ -1,6 +1,6 @@
 // MintMap service worker — minimal offline shell + runtime cache + Web Share Target.
 // Bump CACHE whenever logic here changes so installed PWAs roll forward.
-const CACHE = "mintmap-v11";
+const CACHE = "mintmap-v12";
 const SHELL = ["/", "/keep", "/share-inbox", "/manifest.json", "/manifest.webmanifest"];
 const SHARE_DB = "mintmap-share";
 const SHARE_STORE = "inbox";
