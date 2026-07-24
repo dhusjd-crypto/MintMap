@@ -17,6 +17,11 @@ type WorkerBindings = {
 
 type SyncRow = { payload: string };
 
+function syncDatabase(bindings: WorkerBindings) {
+  const runtime = globalThis as typeof globalThis & { __env__?: WorkerBindings };
+  return bindings.MINTMAP_SYNC ?? runtime.__env__?.MINTMAP_SYNC;
+}
+
 declare global {
   // Server functions run behind this Worker entry. Retain the current request's
   // bindings so their module graph can use D1 without exposing it to the client.
@@ -79,8 +84,9 @@ export default {
       // local snapshot predates cloud sync. It runs before the app bundle and
       // therefore works even if that bundle is stale.
       if (new URL(request.url).pathname === "/sync-recover") {
-        const row = bindings.MINTMAP_SYNC
-          ? await bindings.MINTMAP_SYNC.prepare("SELECT payload FROM sync_documents WHERE id = ?").bind("personal").first<SyncRow>()
+        const database = syncDatabase(bindings);
+        const row = database
+          ? await database.prepare("SELECT payload FROM sync_documents WHERE id = ?").bind("personal").first<SyncRow>()
           : null;
         return new Response(recoveryPage(row?.payload ?? null), {
           headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
