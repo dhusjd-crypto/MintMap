@@ -17,9 +17,9 @@ type WorkerBindings = {
 
 type SyncRow = { payload: string };
 
-function syncDatabase(bindings: WorkerBindings) {
+function syncDatabase(bindings?: WorkerBindings) {
   const runtime = globalThis as typeof globalThis & { __env__?: WorkerBindings };
-  return bindings.MINTMAP_SYNC ?? runtime.__env__?.MINTMAP_SYNC;
+  return bindings?.MINTMAP_SYNC ?? runtime.__env__?.MINTMAP_SYNC;
 }
 
 declare global {
@@ -77,7 +77,7 @@ function recoveryPage(payload: string | null) {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
-      const bindings = env as WorkerBindings;
+      const bindings = env as WorkerBindings | undefined;
       globalThis.__mintmapWorkerBindings = bindings;
 
       // A deterministic, one-time repair path for an installed PWA whose
@@ -85,6 +85,11 @@ export default {
       // therefore works even if that bundle is stale.
       if (new URL(request.url).pathname === "/sync-recover") {
         try {
+          // Nitro installs __env__ while dispatching the first request. The
+          // generated Worker wrapper does not pass its env object directly to
+          // this custom entry, so initialise Nitro before reading D1.
+          const handler = await getServerEntry();
+          await handler.fetch(request, env, ctx);
           const database = syncDatabase(bindings);
           const row = database
             ? await database.prepare("SELECT payload FROM sync_documents WHERE id = ?").bind("personal").first<SyncRow>()
@@ -102,7 +107,7 @@ export default {
       // deployments. Read it through the versioned Worker asset binding and
       // mark it uncacheable so installed clients always receive the current
       // application/sync code on their next update check.
-      if (new URL(request.url).pathname === "/sw.js" && bindings.ASSETS) {
+      if (new URL(request.url).pathname === "/sw.js" && bindings?.ASSETS) {
         const asset = await bindings.ASSETS.fetch(request);
         const headers = new Headers(asset.headers);
         headers.set("Cache-Control", "no-store, max-age=0");
