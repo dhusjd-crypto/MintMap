@@ -64,14 +64,34 @@ function mergeWorkspace(local: Workspace, remote: Workspace): Workspace {
     localById.delete(node.id);
     return current ? mergeNode(current, node) : node;
   });
-  return { ...latest(local, remote), nodes: [...nodes, ...localById.values()] };
+  // The cloud copy is the canonical workspace identity. Older installs made
+  // workspace ids independently on every device, so retaining a local id here
+  // would keep the same named workspace split forever.
+  return { ...latest(local, remote), id: remote.id, nodes: [...nodes, ...localById.values()] };
+}
+
+function workspaceNameKey(workspace: Workspace) {
+  return workspace.name.trim().toLocaleLowerCase("tr-TR");
 }
 
 export function mergeCloudSnapshots(local: CloudSnapshot, remote: CloudSnapshot): CloudSnapshot {
   const localById = new Map(local.mindmap.workspaces.map((workspace) => [workspace.id, workspace]));
   const workspaces = remote.mindmap.workspaces.map((workspace) => {
-    const current = localById.get(workspace.id);
-    localById.delete(workspace.id);
+    let current = localById.get(workspace.id);
+    if (current) {
+      localById.delete(workspace.id);
+    } else {
+      // Before cloud sync existed, each device created its own random id for
+      // the user's "Mint" (or similarly named) workspace. Match that legacy
+      // copy by name once, merge its contents, then adopt the cloud id.
+      const nameKey = workspaceNameKey(workspace);
+      const matchingEntry = [...localById.entries()].find(([, candidate]) => workspaceNameKey(candidate) === nameKey);
+      if (matchingEntry) {
+        const [localId, candidate] = matchingEntry;
+        localById.delete(localId);
+        current = candidate;
+      }
+    }
     return current ? mergeWorkspace(current, workspace) : workspace;
   });
   const mergedWorkspaces = [...workspaces, ...localById.values()];
