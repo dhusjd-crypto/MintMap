@@ -1,6 +1,6 @@
 // MintMap service worker — minimal offline shell + runtime cache + Web Share Target.
 // Bump CACHE whenever logic here changes so installed PWAs roll forward.
-const CACHE = "mintmap-v12";
+const CACHE = "mintmap-v13";
 const SHELL = ["/", "/keep", "/share-inbox", "/manifest.json", "/manifest.webmanifest"];
 const SHARE_DB = "mintmap-share";
 const SHARE_STORE = "inbox";
@@ -274,21 +274,21 @@ self.addEventListener("fetch", (event) => {
     );
     return;
   }
-  // Stale-while-revalidate for assets.
+  // The app bundle carries state and sync behaviour. Serving an old bundle first
+  // can leave a device running obsolete reconciliation code for an entire visit.
+  // Prefer the network while online; retain the cached asset strictly as an
+  // offline fallback.
   if (url.origin === self.location.origin) {
     event.respondWith(
-      caches.match(req).then((cached) => {
-        const network = fetch(req)
-          .then((res) => {
-            if (res.ok) {
-              const copy = res.clone();
-              caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
-            }
-            return res;
-          })
-          .catch(() => cached);
-        return cached || network;
-      }),
+      fetch(req)
+        .then((res) => {
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
+          }
+          return res;
+        })
+        .catch(() => caches.match(req)),
     );
   }
 });
