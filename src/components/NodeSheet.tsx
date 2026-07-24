@@ -470,6 +470,7 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
                 closeQuickAdd(true);
                 setTab(v as typeof tab);
               }}
+              className="flex min-h-0 flex-1 flex-col"
             >
               <TabsList className="grid w-full grid-cols-3 bg-muted">
                 <TabsTrigger value="note">Not</TabsTrigger>
@@ -479,7 +480,7 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
                 <TabsTrigger value="extra">Ekstra</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="note" className="mt-4 space-y-3">
+              <TabsContent value="note" className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1">
                 <div className="flex items-center justify-between">
                   <p className="text-[11px] font-medium text-muted-foreground">
                     Markdown destekli
@@ -549,7 +550,7 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
               </TabsContent>
 
 
-              <TabsContent value="todo" className="mt-4 space-y-2">
+              <TabsContent value="todo" className="mt-4 flex min-h-0 flex-1 flex-col gap-2">
                 <div className="flex gap-2">
                   <Input
                     value={todoText}
@@ -596,7 +597,7 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
                   <Sparkles className="mr-2 h-4 w-4 text-primary" />
                   {aiBusy === "todos" ? "Bölünüyor..." : "AI ile görevlere böl"}
                 </Button>
-                <div className="max-h-[40vh] space-y-1.5 overflow-y-auto">
+                <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain pr-1">
                   {node.todos.length === 0 && (
                     <p className="py-8 text-center text-sm text-muted-foreground">
                       Henüz görev yok
@@ -750,7 +751,7 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
               </TabsContent>
 
 
-              <TabsContent value="extra" className="mt-4 space-y-4">
+              <TabsContent value="extra" className="mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pr-1">
                 <div>
                   <p className="mb-2 text-sm font-semibold">Tür</p>
                   <div className="flex flex-wrap gap-1.5">
