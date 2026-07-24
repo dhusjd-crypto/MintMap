@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { shouldAllowCloudSave } from "./backup-format";
 import { createDriveBackup } from "./drive-backup";
 import { driveSaveSnapshot } from "./google/drive";
+import { hasGoogleGrant, isGoogleConfigured } from "./google/gauth";
 
 const KEY = "mintmap.drive.savedAt";
 const ENABLED_KEY = "mintmap.drive.auto";
@@ -12,7 +13,9 @@ export function useAutoDriveBackup() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const enabled = localStorage.getItem(ENABLED_KEY) !== "off";
-    if (!enabled) return;
+    // Never open a Google popup from a background timer. The user connects once
+    // from Settings; subsequent 5-minute snapshots refresh silently.
+    if (!enabled || !isGoogleConfigured() || !hasGoogleGrant()) return;
     const saved = Number(localStorage.getItem(KEY) || 0);
     last.current = saved;
 
@@ -37,9 +40,17 @@ export function useAutoDriveBackup() {
       }
     };
     const id = window.setInterval(tick, INTERVAL);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void tick();
+    };
+    // Do not wait five minutes after launching the app when the prior backup
+    // is already stale.
+    void tick();
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
       window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
 }

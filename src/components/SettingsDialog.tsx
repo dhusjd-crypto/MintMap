@@ -9,7 +9,7 @@ import { exportICS, exportMarkdown, downloadText } from "@/lib/export";
 import { toast } from "sonner";
 import { driveLoadSnapshot, driveSaveSnapshot } from "@/lib/google/drive";
 import { createDriveBackup, restoreDriveBackup } from "@/lib/drive-backup";
-import { isGoogleConfigured } from "@/lib/google/gauth";
+import { hasGoogleGrant, isGoogleConfigured } from "@/lib/google/gauth";
 import { aiStatus } from "@/lib/ai.functions";
 import { runCalendarSync } from "@/lib/calendar-sync";
 import { runGoogleTasksSync } from "@/lib/google-tasks-sync";
@@ -57,6 +57,9 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   );
   const [calAuto, setCalAuto] = useState<boolean>(
     () => typeof window !== "undefined" && localStorage.getItem("mintmap.calendar.auto") === "on",
+  );
+  const [driveAuto, setDriveAuto] = useState<boolean>(
+    () => typeof window !== "undefined" && localStorage.getItem("mintmap.drive.auto") !== "off",
   );
   const [calLast, setCalLast] = useState<number | null>(
     () => (typeof window !== "undefined" ? Number(localStorage.getItem("mintmap.calendar.lastSyncAt") || 0) || null : null),
@@ -418,6 +421,17 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           >
             <CloudDownload className="mr-2 h-4 w-4" /> Buluttan geri yükle
           </Button>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={driveAuto}
+              onChange={(e) => {
+                setDriveAuto(e.target.checked);
+                localStorage.setItem("mintmap.drive.auto", e.target.checked ? "on" : "off");
+              }}
+            />
+            Otomatik Drive yedeği (5 dk)
+          </label>
           <p className="text-[11px] text-muted-foreground">
             Drive bağlantısı kuruluysa otomatik olarak her 5 dakikada bir yedek alınır.
           </p>

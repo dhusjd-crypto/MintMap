@@ -85,6 +85,11 @@ export function isGoogleConfigured(): boolean {
   return !!CLIENT_ID;
 }
 
+/** True only after this browser has completed the one-time Google consent. */
+export function hasGoogleGrant(): boolean {
+  return everGranted || hasRememberedGrant();
+}
+
 /**
  * Return a valid access token for the app's Google scopes, prompting the
  * consent popup on first use and refreshing silently afterwards.
