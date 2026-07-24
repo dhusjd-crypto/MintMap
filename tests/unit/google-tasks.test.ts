@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { toGoogleTaskBody } from "@/lib/google/tasks";
+import { googleTaskRemoteStatus, toGoogleTaskBody } from "@/lib/google/tasks";
 
 describe("Google Tasks payload", () => {
   it("keeps MintMap task details and sends due dates as RFC3339", () => {
@@ -24,5 +24,11 @@ describe("Google Tasks payload", () => {
       title: "Bitti",
       status: "completed",
     });
+  });
+
+  it("recognises remote completion and deleted tasks", () => {
+    expect(googleTaskRemoteStatus({ status: "completed" })).toBe("completed");
+    expect(googleTaskRemoteStatus({ status: "needsAction" })).toBe("needsAction");
+    expect(googleTaskRemoteStatus({ deleted: true })).toBe("missing");
   });
 });

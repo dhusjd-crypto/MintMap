@@ -5,6 +5,7 @@ export const MINTMAP_TASK_LIST_TITLE = "MintMap";
 
 type GoogleTask = { id?: string };
 type GoogleTaskList = { id?: string; title?: string };
+type GoogleTaskRemote = { id?: string; status?: "needsAction" | "completed"; deleted?: boolean };
 
 export type GoogleTaskInput = {
   key: string;
@@ -23,6 +24,11 @@ export function toGoogleTaskBody(task: GoogleTaskInput) {
     ...(task.dueAt ? { due: new Date(task.dueAt).toISOString() } : {}),
     ...(task.done ? { status: "completed" } : { status: "needsAction" }),
   };
+}
+
+export function googleTaskRemoteStatus(task: GoogleTaskRemote): "needsAction" | "completed" | "missing" {
+  if (task.deleted) return "missing";
+  return task.status === "completed" ? "completed" : "needsAction";
 }
 
 async function tasksFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -82,4 +88,27 @@ export async function googleTasksSyncPush({
     }
   }
   return { listId, results };
+}
+
+/** Reads the state of MintMap-linked Google Tasks without touching other lists. */
+export async function googleTasksSyncPull({
+  data,
+}: {
+  data: { listId: string; taskIds: string[] };
+}): Promise<{
+  updates: Array<{ googleTaskId: string; status: "needsAction" | "completed" | "missing" }>;
+}> {
+  const updates: Array<{ googleTaskId: string; status: "needsAction" | "completed" | "missing" }> = [];
+  for (const taskId of data.taskIds.slice(0, 200)) {
+    try {
+      const task = await tasksFetch<GoogleTaskRemote>(
+        `/lists/${encodeURIComponent(data.listId)}/tasks/${encodeURIComponent(taskId)}`,
+      );
+      updates.push({ googleTaskId: taskId, status: googleTaskRemoteStatus(task) });
+    } catch (error) {
+      const message = (error as Error).message;
+      if (message.includes("(404)")) updates.push({ googleTaskId: taskId, status: "missing" });
+    }
+  }
+  return { updates };
 }

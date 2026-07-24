@@ -64,6 +64,9 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   const [tasksLast, setTasksLast] = useState<number | null>(
     () => (typeof window !== "undefined" ? Number(localStorage.getItem("mintmap.tasks.lastSyncAt") || 0) || null : null),
   );
+  const [tasksAuto, setTasksAuto] = useState<boolean>(
+    () => typeof window !== "undefined" && localStorage.getItem("mintmap.tasks.auto") === "on",
+  );
   const fetchStatus = useServerFn(aiStatus);
   const interestList = useInterests();
   const [interestText, setInterestText] = useState("");
@@ -464,11 +467,22 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
 
         <section className="space-y-2">
           <h3 className="text-xs font-semibold uppercase text-muted-foreground">
-            <ListChecks className="mr-1 inline h-3 w-3" /> Google Tasks
+            <ListChecks className="mr-1 inline h-3 w-3" /> Google Tasks (2 yönlü)
           </h3>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Açık görevler ve son 30 günde tamamlananlar, Google Tasks içindeki ayrı <strong>MintMap</strong> listesine gönderilir. Var olan kişisel listelerine dokunulmaz.
+            Bağlı görevlerin tamamlanma durumu iki yönde eşitlenir. Yalnızca Google Tasks içindeki ayrı <strong>MintMap</strong> listesi kullanılır.
           </p>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={tasksAuto}
+              onChange={(event) => {
+                setTasksAuto(event.target.checked);
+                localStorage.setItem("mintmap.tasks.auto", event.target.checked ? "on" : "off");
+              }}
+            />
+            Uygulama açıkken otomatik eşitle (15 dk)
+          </label>
           <Button
             variant="outline"
             size="sm"
@@ -481,7 +495,7 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                 const now = Date.now();
                 localStorage.setItem("mintmap.tasks.lastSyncAt", String(now));
                 setTasksLast(now);
-                toast.success(`Google Tasks: ${result.pushed} görev eşitlendi${result.errors ? `, ${result.errors} hata` : ""}`);
+                toast.success(`Google Tasks: ${result.pushed} yollandı, ${result.pulled} güncellendi${result.errors ? `, ${result.errors} hata` : ""}`);
               } catch (error) {
                 toast.error("Google Tasks eşitlemesi başarısız: " + (error as Error).message);
               } finally {

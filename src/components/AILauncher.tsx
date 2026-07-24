@@ -4,6 +4,7 @@ import { useOverlayPresence } from "@/lib/use-overlay-presence";
 import { BellRing, MessageSquare, Mic, Settings, Sparkles, X, Zap } from "lucide-react";
 import { useAutoDriveBackup } from "@/lib/drive-auto";
 import { useAutoCalendarSync } from "@/lib/calendar-sync";
+import { useAutoGoogleTasksSync } from "@/lib/google-tasks-sync";
 import { useFabSlot } from "@/lib/fab-slots";
 
 const AIChat = lazy(() => import("./AIChat").then((m) => ({ default: m.AIChat })));
@@ -23,6 +24,7 @@ export function AILauncher() {
   const [pendingPrompt, setPendingPrompt] = useState<string | undefined>();
   useAutoDriveBackup();
   useEffect(() => { useAutoCalendarSync(); }, []);
+  useEffect(() => useAutoGoogleTasksSync(), []);
 
   // Right side, priority 2. When the menu popover is open the slot
   // reports its FULL height (button + popover) so Pomodoro stacks
