@@ -84,13 +84,18 @@ export default {
       // local snapshot predates cloud sync. It runs before the app bundle and
       // therefore works even if that bundle is stale.
       if (new URL(request.url).pathname === "/sync-recover") {
-        const database = syncDatabase(bindings);
-        const row = database
-          ? await database.prepare("SELECT payload FROM sync_documents WHERE id = ?").bind("personal").first<SyncRow>()
-          : null;
-        return new Response(recoveryPage(row?.payload ?? null), {
-          headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
-        });
+        try {
+          const database = syncDatabase(bindings);
+          const row = database
+            ? await database.prepare("SELECT payload FROM sync_documents WHERE id = ?").bind("personal").first<SyncRow>()
+            : null;
+          return new Response(recoveryPage(row?.payload ?? null), {
+            headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "unknown recovery error";
+          return new Response(`MintMap recovery error: ${message}`, { status: 500, headers: { "cache-control": "no-store" } });
+        }
       }
 
       // The site has an edge cache rule that can retain /sw.js across Worker
