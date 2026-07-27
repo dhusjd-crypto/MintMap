@@ -2,10 +2,8 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode
 import { motion } from "framer-motion";
 import { useSavedNodeId } from "@/lib/save-feedback";
 import {
-  ClipboardList,
   Plus,
   Search,
-  Trash2,
   X,
   Undo2,
   Redo2,
@@ -235,19 +233,12 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
   // additional root branches. Those branches are ordinary removable content.
   const canDeleteNode = (node: MindNode | null) => !!node && (node.parentId !== null || rootCount > 1);
 
-  // Register the mindmap context FAB cluster (bottom-right) so global
-  // FABs (AI, Pomodoro) stack ABOVE it instead of overlapping. The
-  // cluster grows as buttons appear: Plus (56) is always rendered,
-  // Görev (44+gap) when a node is selected, Sil (44+gap) when that
-  // node is removable. One workspace root always remains protected.
-  const hasTaskBtn = !!selectedNode && !!onOpenTodoSheet;
-  const hasDeleteBtn = canDeleteNode(selectedNode);
-  const contextHeight =
-    56 + (hasTaskBtn ? 48 + 12 : 0) + (hasDeleteBtn ? 48 + 12 : 0);
+  // The canvas keeps one stable primary action. Selection-specific actions
+  // live in the node sheet instead of making this corner jump around.
   const contextSlot = useFabSlot({
     id: "mindmap-context",
     preferredSide: "right",
-    height: contextHeight,
+    height: 56,
     width: 56,
     priority: 0,
   });
@@ -606,21 +597,6 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
     } catch (e) {
       toast.error("PNG hatası: " + (e as Error).message, { id: t });
     }
-  };
-
-  const handleDeleteSelected = () => {
-    if (!selectedNode) return;
-    if (!canDeleteNode(selectedNode)) {
-      toast.error("Son kök düğüm silinemez");
-      return;
-    }
-    // No confirm() — it's silently blocked in installed PWAs. Deleting is
-    // undoable, so delete immediately and offer the undo in the toast.
-    const title = selectedNode.title;
-    mindmap.remove(selectedNode.id);
-    toast.success(`'${title}' silindi`, {
-      action: { label: "Geri al", onClick: () => mindmap.undo() },
-    });
   };
 
   const saveToDrive = driveSaveSnapshot;
@@ -1208,10 +1184,7 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
         onPngExport={handlePngExport}
       />
 
-      {/* Action FABs bottom-right — `layer-fab-context` keeps them below
-          AI/Pomodoro so the wrench toolbar's `layer-toolbar` still wins
-          on the left, and AI/Pomodoro's `layer-fab` still wins on the
-          right when both occupy the same side. */}
+      {/* A single stable primary action. Node-specific actions are in NodeSheet. */}
       <div
         className={`layer-fab-context fixed flex flex-col items-center gap-3 ${contextSlot.side === "right" ? "right-3" : "left-3"}`}
         style={{ bottom: `calc(${contextSlot.bottom}px + env(safe-area-inset-bottom))` }}
@@ -1220,40 +1193,6 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
 
 
       >
-
-        {canDeleteNode(selectedNode) && (
-          <motion.button
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0, opacity: 0 }}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDeleteSelected();
-            }}
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-soft"
-            aria-label="Seçili düğümü sil"
-          >
-            <Trash2 className="h-5 w-5" />
-          </motion.button>
-        )}
-        {selectedNode && onOpenTodoSheet && (
-          <motion.button
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0, opacity: 0 }}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenTodoSheet(selectedNode.id);
-            }}
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-soft"
-            aria-label="Görev ekle"
-            title="Görev ekle"
-          >
-            <ClipboardList className="h-5 w-5" />
-          </motion.button>
-        )}
         <motion.button
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}

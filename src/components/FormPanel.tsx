@@ -28,6 +28,8 @@ export type FormPanelProps = {
   icon?: ReactNode;
   /** Small badge next to the title, e.g. "AI önerisi" / "Demo modu". */
   badge?: ReactNode;
+  /** Persistent actions placed beside the close button in the panel header. */
+  headerActions?: ReactNode;
   /** Unsaved edits present → confirm before closing. */
   dirty?: boolean;
   /** Save in flight → footer shows a spinner and disables inputs. */
@@ -116,6 +118,7 @@ export function FormPanel({
   description,
   icon,
   badge,
+  headerActions,
   dirty = false,
   saving = false,
   canSave = true,
@@ -313,6 +316,7 @@ export function FormPanel({
                   )}
                 </div>
               </div>
+              {headerActions}
               <button
                 onClick={attemptClose}
                 aria-label="Kapat"

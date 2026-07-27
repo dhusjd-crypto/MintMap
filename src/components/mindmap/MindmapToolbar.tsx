@@ -17,14 +17,7 @@ import {
 import type { Ref } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { TemplateMenu } from "@/components/mindmap/TemplateMenu";
-import { useFabSlot } from "@/lib/fab-slots";
 import type { MindNode } from "@/lib/mindmap-store";
-
-/** Approximate height of one collapsed wrench toggle button. */
-const TOOLBAR_COLLAPSED_HEIGHT = 40;
-/** Height of the fully expanded action column (toggle + ~11 tool buttons + gaps). */
-const TOOLBAR_EXPANDED_HEIGHT = 460;
-
 
 type Props = {
   open: boolean;
@@ -63,11 +56,12 @@ function ToolBtn({
     <button
       onPointerDown={(e) => e.stopPropagation()}
       onClick={onClick}
-      className="flex h-9 w-9 items-center justify-center rounded-full bg-card shadow-soft"
+    className="flex min-h-10 items-center gap-2 rounded-lg px-2 text-left text-xs font-medium hover:bg-muted"
       aria-label={label}
       title={title ?? label}
     >
-      {children}
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/70">{children}</span>
+      <span className="truncate">{label}</span>
     </button>
   );
 }
@@ -94,45 +88,20 @@ export function MindmapToolbar({
   onPngExport,
 }: Props) {
   const menuMounted = useOverlayPresence(open, 220);
-  // Wrench toolbar reserves the LEFT side at priority 1.
-  // When open it reports its expanded height so AI/Pomodoro overlap-
-  // detection automatically pushes them to the right side.
-  const slot = useFabSlot({
-    id: "wrench-toolbar",
-    preferredSide: "left",
-    height: open ? TOOLBAR_EXPANDED_HEIGHT : TOOLBAR_COLLAPSED_HEIGHT,
-    width: 40,
-    priority: 1,
-    expanded: open,
-  });
-
   return (
     <div
-      className={`layer-toolbar fixed flex flex-col items-center gap-1.5 ${slot.side === "right" ? "right-3" : "left-3"}`}
-      style={{ bottom: `calc(${slot.bottom}px + env(safe-area-inset-bottom))` }}
+      className="absolute left-3 top-3 z-30"
       data-export-hide="true"
       data-fab-id="wrench-toolbar"
       data-fab-open={open ? "true" : "false"}
     >
 
-      {lastSavedAt && (
-          <motion.div
-            key={lastSavedAt}
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="mb-1 flex items-center gap-1 rounded-full bg-card px-2 py-1 text-[10px] font-medium text-muted-foreground shadow-soft"
-          >
-            <CloudCheck className="h-3 w-3" />
-            Otomatik kaydedildi
-          </motion.div>
-        )}
       <button
         onPointerDown={(e) => e.stopPropagation()}
         onClick={onToggle}
         data-testid="toolbar-toggle"
-        className={`flex h-10 w-10 items-center justify-center rounded-full shadow-soft transition ${
-          open ? "bg-primary text-primary-foreground rotate-45" : "bg-card"
+        className={`flex h-10 items-center gap-2 rounded-xl px-3 text-xs font-semibold shadow-soft transition ${
+          open ? "bg-primary text-primary-foreground" : "bg-card"
         }`}
         aria-label={open ? "Araçları kapat" : "Araçları aç"}
         aria-expanded={open}
@@ -140,29 +109,36 @@ export function MindmapToolbar({
         aria-controls="mindmap-toolbar-actions"
         title="Araçlar"
       >
-        {open ? <X className="h-5 w-5" /> : <Wrench className="h-5 w-5" />}
+        {open ? <X className="h-4 w-4" /> : <Wrench className="h-4 w-4" />}
+        <span>{open ? "Kapat" : "Araçlar"}</span>
       </button>
       {menuMounted && (
           <motion.div
-            initial={{ opacity: 0, y: 8, scale: 0.9 }}
-            animate={{ opacity: open ? 1 : 0, y: open ? 0 : 8, scale: open ? 1 : 0.9 }}
+            initial={{ opacity: 0, y: -6, scale: 0.98 }}
+            animate={{ opacity: open ? 1 : 0, y: open ? 0 : -6, scale: open ? 1 : 0.98 }}
             transition={{ duration: 0.18 }}
             id="mindmap-toolbar-actions"
             role="menu"
             aria-label="Mindmap araçları"
             data-testid="toolbar-actions"
             style={{ pointerEvents: open ? "auto" : "none" }}
-            className="flex flex-col items-center gap-1.5"
+            className="absolute left-0 top-12 w-60 rounded-xl border border-border/70 bg-card p-2 shadow-leaf"
           >
-            <ToolBtn onClick={onSave} label="Kaydet">
-              <Save className="h-4 w-4" />
-            </ToolBtn>
-            <ToolBtn onClick={onExport} label="Dışa aktar">
-              <Download className="h-4 w-4" />
-            </ToolBtn>
-            <ToolBtn onClick={onImportClick} label="İçe aktar">
-              <Upload className="h-4 w-4" />
-            </ToolBtn>
+            <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Çalışma alanı</p>
+            <div className="grid grid-cols-2 gap-1">
+              <ToolBtn onClick={onSave} label="Kaydet"><Save className="h-4 w-4" /></ToolBtn>
+              <ToolBtn onClick={onResetView} label="Görünümü sıfırla"><RotateCcw className="h-4 w-4" /></ToolBtn>
+              <ToolBtn onClick={onZoomIn} label="Yakınlaştır"><Plus className="h-4 w-4" /></ToolBtn>
+              <ToolBtn onClick={onZoomOut} label="Uzaklaştır"><Minus className="h-4 w-4" /></ToolBtn>
+            </div>
+            <p className="mt-2 px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Yedek ve dışa aktar</p>
+            <div className="grid grid-cols-2 gap-1">
+              <ToolBtn onClick={onDriveSave} label="Drive'a yedekle"><Cloud className="h-4 w-4" /></ToolBtn>
+              <ToolBtn onClick={onDriveLoad} label="Drive'dan al"><CloudDownload className="h-4 w-4" /></ToolBtn>
+              <ToolBtn onClick={onExport} label="JSON dışa aktar"><Download className="h-4 w-4" /></ToolBtn>
+              <ToolBtn onClick={onImportClick} label="JSON içe aktar"><Upload className="h-4 w-4" /></ToolBtn>
+              <ToolBtn onClick={onPngExport} label="PNG indir"><ImageIcon className="h-4 w-4" /></ToolBtn>
+            </div>
             <input
               ref={fileInputRef}
               type="file"
@@ -170,24 +146,8 @@ export function MindmapToolbar({
               onChange={onImportFile}
               className="hidden"
             />
-            <ToolBtn onClick={onZoomIn} label="Yakınlaştır">
-              <Plus className="h-4 w-4" />
-            </ToolBtn>
-            <ToolBtn onClick={onZoomOut} label="Uzaklaştır">
-              <Minus className="h-4 w-4" />
-            </ToolBtn>
-            <ToolBtn onClick={onDriveSave} label="Drive'a kaydet">
-              <Cloud className="h-4 w-4" />
-            </ToolBtn>
-            <ToolBtn onClick={onDriveLoad} label="Drive'dan yükle">
-              <CloudDownload className="h-4 w-4" />
-            </ToolBtn>
-            <ToolBtn onClick={onResetView} label="Sıfırla">
-              <RotateCcw className="h-4 w-4" />
-            </ToolBtn>
-            <ToolBtn onClick={onPngExport} label="PNG olarak indir" title="PNG indir">
-              <ImageIcon className="h-4 w-4" />
-            </ToolBtn>
+            <div className="mt-2 flex items-center justify-between border-t border-border/60 pt-2">
+              <span className="px-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Şablon ve görünüm</span>
             <TemplateMenu
               open={templatesOpen}
               onToggle={onToggleTemplates}
@@ -196,6 +156,8 @@ export function MindmapToolbar({
               onSaveFromNode={onSaveNodeAsTemplate}
             />
             <ThemeToggle />
+            </div>
+            {lastSavedAt && <div className="mt-2 flex items-center gap-1 px-2 text-[10px] text-muted-foreground"><CloudCheck className="h-3 w-3" /> Otomatik kaydedildi</div>}
           </motion.div>
         )}
     </div>

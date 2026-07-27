@@ -32,6 +32,7 @@ import {
   mindmap,
   requestNotificationPermission,
   useNode,
+  useNodes,
 } from "@/lib/mindmap-store";
 import { NODE_TYPES, NODE_TYPE_ORDER, nodeTypeOf } from "@/lib/node-types";
 import { DecisionList } from "@/components/DecisionList";
@@ -125,12 +126,14 @@ async function selectedNodeImageFile(node: MindNode): Promise<File | null> {
 
 export function NodeSheet({ nodeId, onClose, initialTab = "todo" }: Props) {
   const liveNode = useNode(nodeId);
+  const nodes = useNodes();
   // Retain the last node while the panel animates closed so its content stays
   // rendered through the exit window (FormPanel owns the mount lifecycle).
   const lastNodeRef = useRef(liveNode);
   if (liveNode) lastNodeRef.current = liveNode;
   const node = liveNode ?? lastNodeRef.current;
   const open = !!liveNode;
+  const canDeleteNode = !!node && (node.parentId !== null || nodes.filter((item) => item.parentId === null).length > 1);
   const retryFileInputRef = useRef<HTMLInputElement>(null);
   const [tab, setTab] = useState(initialTab);
   const [todoText, setTodoText] = useState("");
@@ -451,6 +454,25 @@ export function NodeSheet({ nodeId, onClose, initialTab = "todo" }: Props) {
               className="border-0 bg-transparent px-0 font-display text-xl font-bold shadow-none focus-visible:ring-0"
             />
           }
+          headerActions={canDeleteNode ? (
+            <button
+              type="button"
+              onClick={() => {
+                if (!node) return;
+                const title = node.title;
+                mindmap.remove(node.id);
+                onClose();
+                toast.success(`'${title}' silindi`, {
+                  action: { label: "Geri al", onClick: () => mindmap.undo() },
+                });
+              }}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-destructive hover:bg-destructive/10 focus-visible:ring-2 focus-visible:ring-destructive/40"
+              aria-label="Bu düğümü sil"
+              title="Düğümü sil"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          ) : undefined}
         >
           <input
             ref={retryFileInputRef}
@@ -857,18 +879,6 @@ export function NodeSheet({ nodeId, onClose, initialTab = "todo" }: Props) {
                 </div>
 
                 <DecisionList nodeId={node.id} />
-                {node.parentId && (
-                  <Button
-                    variant="outline"
-                    className="w-full text-destructive hover:text-destructive"
-                    onClick={() => {
-                      mindmap.remove(node.id);
-                      onClose();
-                    }}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" /> Sil
-                  </Button>
-                )}
               </TabsContent>
             </Tabs>
         </FormPanel>
