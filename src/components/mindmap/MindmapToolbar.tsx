@@ -97,7 +97,7 @@ export function MindmapToolbar({
   // Wrench toolbar reserves the LEFT side at priority 1.
   // When open it reports its expanded height so AI/Pomodoro overlap-
   // detection automatically pushes them to the right side.
-  useFabSlot({
+  const slot = useFabSlot({
     id: "wrench-toolbar",
     preferredSide: "left",
     height: open ? TOOLBAR_EXPANDED_HEIGHT : TOOLBAR_COLLAPSED_HEIGHT,
@@ -108,7 +108,8 @@ export function MindmapToolbar({
 
   return (
     <div
-      className="layer-toolbar absolute bottom-4 left-3 flex flex-col items-center gap-1.5"
+      className={`layer-toolbar fixed flex flex-col items-center gap-1.5 ${slot.side === "right" ? "right-3" : "left-3"}`}
+      style={{ bottom: `calc(${slot.bottom}px + env(safe-area-inset-bottom))` }}
       data-export-hide="true"
       data-fab-id="wrench-toolbar"
       data-fab-open={open ? "true" : "false"}

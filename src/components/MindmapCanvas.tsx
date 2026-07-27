@@ -860,7 +860,7 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
         aria-label="Klavye kısayolları"
         aria-expanded={helpOpen}
         data-export-hide="true"
-        className="pointer-events-auto absolute right-3 top-3 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-card text-xs font-bold shadow-soft hover:bg-muted"
+        className="pointer-events-auto absolute right-3 top-3 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-card text-xs font-bold shadow-soft hover:bg-muted sm:right-[9.5rem]"
       >
         ?
       </button>
@@ -870,7 +870,7 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
           aria-label="Klavye kısayolları"
           data-testid="mindmap-help"
           data-export-hide="true"
-          className="pointer-events-auto absolute right-3 top-12 z-20 w-64 rounded-2xl bg-card p-3 text-xs shadow-leaf"
+          className="pointer-events-auto absolute right-3 top-12 z-20 w-64 rounded-2xl bg-card p-3 text-xs shadow-leaf sm:right-[9.5rem]"
           onPointerDown={(e) => e.stopPropagation()}
         >
           <div className="mb-2 font-semibold">Klavye kısayolları</div>
@@ -1074,13 +1074,16 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
           )}
       </div>
 
+      {/* The right control rail is one vertical flow. Its rows can appear or
+          disappear without relying on fragile hard-coded top offsets. */}
+      <div className="absolute right-3 top-[7.5rem] z-20 flex flex-col items-end gap-3" data-export-hide="true">
       {/* Focus mode toggle */}
       {selectedId && (
         <button
           onPointerDown={(e) => e.stopPropagation()}
           onClick={() => setFocusMode((v) => !v)}
           data-export-hide="true"
-          className={`absolute right-3 top-28 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium shadow-soft transition ${
+          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium shadow-soft transition ${
             focusMode
               ? "bg-primary text-primary-foreground"
               : "bg-card text-muted-foreground"
@@ -1098,7 +1101,7 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
         onPointerDown={(e) => e.stopPropagation()}
         onClick={() => setLinkMode((v) => !v)}
         data-export-hide="true"
-        className={`absolute right-3 top-[10.5rem] flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium shadow-soft transition ${
+        className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium shadow-soft transition ${
           linkMode
             ? "bg-accent text-accent-foreground"
             : "bg-card text-muted-foreground"
@@ -1114,7 +1117,7 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
         onPointerDown={(e) => e.stopPropagation()}
         onClick={() => setReparentMode((v) => !v)}
         data-export-hide="true"
-        className={`absolute right-3 top-[13.25rem] flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium shadow-soft transition ${
+        className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium shadow-soft transition ${
           reparentMode
             ? "bg-amber-500 text-white"
             : "bg-card text-muted-foreground"
@@ -1128,8 +1131,7 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
 
       {/* Undo / Redo */}
       <div
-        className="absolute right-3 top-[16rem] flex gap-1.5"
-        data-export-hide="true"
+        className="flex gap-1.5"
       >
         <button
           onPointerDown={(e) => e.stopPropagation()}
@@ -1161,6 +1163,7 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
         >
           <Redo2 className="h-4 w-4" />
         </button>
+      </div>
       </div>
 
 
