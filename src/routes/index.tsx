@@ -34,7 +34,7 @@ function Index() {
   const nodes = useNodes();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetId, setSheetId] = useState<string | null>(null);
-  const [sheetTab, setSheetTab] = useState<"note" | "todo" | "extra">("note");
+  const [sheetTab, setSheetTab] = useState<"note" | "todo" | "extra">("todo");
   const [taskNode, setTaskNode] = useState<string | null>(null);
   useReminderScheduler();
 
@@ -101,7 +101,7 @@ function Index() {
             onSelect={setSelectedId}
             onOpenSheet={(id) => {
               setSheetId(id);
-              setSheetTab("note");
+              setSheetTab("todo");
             }}
             onOpenTodoSheet={(id) => setTaskNode(id)}
           />

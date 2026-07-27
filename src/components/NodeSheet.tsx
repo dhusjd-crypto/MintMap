@@ -123,7 +123,7 @@ async function selectedNodeImageFile(node: MindNode): Promise<File | null> {
   return imageSrcToShareFile(src, node.title);
 }
 
-export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
+export function NodeSheet({ nodeId, onClose, initialTab = "todo" }: Props) {
   const liveNode = useNode(nodeId);
   // Retain the last node while the panel animates closed so its content stays
   // rendered through the exit window (FormPanel owns the mount lifecycle).
@@ -473,10 +473,10 @@ export function NodeSheet({ nodeId, onClose, initialTab = "note" }: Props) {
               className="flex min-h-0 flex-1 flex-col"
             >
               <TabsList className="grid w-full grid-cols-3 bg-muted">
-                <TabsTrigger value="note">Not</TabsTrigger>
                 <TabsTrigger value="todo">
                   Görevler {node.todos.length > 0 && `(${node.todos.length})`}
                 </TabsTrigger>
+                <TabsTrigger value="note">Not</TabsTrigger>
                 <TabsTrigger value="extra">Ekstra</TabsTrigger>
               </TabsList>
 
