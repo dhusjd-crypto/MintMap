@@ -107,6 +107,8 @@ export type Workspace = {
   name: string;
   emoji?: string;
   nodes: MindNode[];
+  /** Node deletion tombstones make removals survive cross-device reconciliation. */
+  deletedNodeIds?: Record<string, number>;
 };
 
 export type StoreShape = { workspaces: Workspace[]; currentId: string };
@@ -686,16 +688,29 @@ export const mindmap = {
       ws.nodes.filter((n) => n.parentId === i).forEach((c) => visit(c.id));
     };
     visit(id);
-    mutate(() =>
-      setCurrentNodes((ns) =>
-        ns
-          .filter((n) => !toRemove.has(n.id))
-          .map((n) => ({
-            ...n,
-            links: n.links ? n.links.filter((l) => !toRemove.has(l)) : n.links,
-          })),
-      ),
-    );
+    mutate(() => {
+      const deletedAt = Date.now();
+      store = {
+        ...store,
+        workspaces: store.workspaces.map((workspace) =>
+          workspace.id !== store.currentId
+            ? workspace
+            : {
+                ...workspace,
+                deletedNodeIds: {
+                  ...(workspace.deletedNodeIds ?? {}),
+                  ...Object.fromEntries([...toRemove].map((nodeId) => [nodeId, deletedAt])),
+                },
+                nodes: workspace.nodes
+                  .filter((node) => !toRemove.has(node.id))
+                  .map((node) => ({
+                    ...node,
+                    links: node.links ? node.links.filter((link) => !toRemove.has(link)) : node.links,
+                  })),
+              },
+        ),
+      };
+    });
   },
   addTodo(id: string, text: string, parentId: string | null = null, extra: Partial<Todo> = {}) {
     const ws = currentWs();

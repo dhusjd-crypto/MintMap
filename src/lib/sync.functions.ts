@@ -77,10 +77,20 @@ function workspaceKey(workspace: SyncRecord) {
 }
 
 function mergeWorkspace(remote: SyncRecord, incoming: SyncRecord) {
+  const deletedNodeIds: Record<string, number> = {};
+  for (const source of [remote.deletedNodeIds, incoming.deletedNodeIds]) {
+    const values = asRecord(source);
+    if (!values) continue;
+    for (const [id, at] of Object.entries(values)) {
+      if (typeof at === "number") deletedNodeIds[id] = Math.max(at, deletedNodeIds[id] ?? 0);
+    }
+  }
   return {
     ...remote,
     // The existing cloud workspace id is canonical for all devices.
-    nodes: mergeById(asRecords(remote.nodes), asRecords(incoming.nodes), mergeNode),
+    deletedNodeIds,
+    nodes: mergeById(asRecords(remote.nodes), asRecords(incoming.nodes), mergeNode)
+      .filter((node) => typeof node.id !== "string" || !deletedNodeIds[node.id]),
   };
 }
 

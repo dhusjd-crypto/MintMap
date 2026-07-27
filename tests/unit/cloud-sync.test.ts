@@ -39,4 +39,15 @@ describe("cloud workspace reconciliation", () => {
       expect.arrayContaining(["Prym", "Telefon notu"]),
     );
   });
+
+  it("keeps a deleted node deleted when an older device still has it", () => {
+    const cloud = snapshot("mint", "old-node", "Yeni fikir");
+    const phone = snapshot("mint", "phone-node", "Telefon notu");
+    phone.mindmap.workspaces[0].deletedNodeIds = { "old-node": Date.now() };
+
+    const merged = mergeCloudSnapshots(phone, cloud);
+
+    expect(merged.mindmap.workspaces[0].nodes.map((node) => node.id)).not.toContain("old-node");
+    expect(merged.mindmap.workspaces[0].deletedNodeIds?.["old-node"]).toBeDefined();
+  });
 });

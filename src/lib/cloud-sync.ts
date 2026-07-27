@@ -58,6 +58,13 @@ function mergeNode(local: MindNode, remote: MindNode): MindNode {
 }
 
 function mergeWorkspace(local: Workspace, remote: Workspace): Workspace {
+  const deletedNodeIds = { ...(remote.deletedNodeIds ?? {}), ...(local.deletedNodeIds ?? {}) };
+  for (const [id, at] of Object.entries(remote.deletedNodeIds ?? {})) {
+    deletedNodeIds[id] = Math.max(at, deletedNodeIds[id] ?? 0);
+  }
+  for (const [id, at] of Object.entries(local.deletedNodeIds ?? {})) {
+    deletedNodeIds[id] = Math.max(at, deletedNodeIds[id] ?? 0);
+  }
   const localById = new Map(local.nodes.map((node) => [node.id, node]));
   const nodes = remote.nodes.map((node) => {
     const current = localById.get(node.id);
@@ -67,7 +74,12 @@ function mergeWorkspace(local: Workspace, remote: Workspace): Workspace {
   // The cloud copy is the canonical workspace identity. Older installs made
   // workspace ids independently on every device, so retaining a local id here
   // would keep the same named workspace split forever.
-  return { ...latest(local, remote), id: remote.id, nodes: [...nodes, ...localById.values()] };
+  return {
+    ...latest(local, remote),
+    id: remote.id,
+    deletedNodeIds,
+    nodes: [...nodes, ...localById.values()].filter((node) => !deletedNodeIds[node.id]),
+  };
 }
 
 function workspaceNameKey(workspace: Workspace) {
