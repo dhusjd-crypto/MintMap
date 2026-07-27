@@ -230,14 +230,18 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
     return m;
   }, [nodes]);
   const selectedNode = selectedId ? byId.get(selectedId) ?? null : null;
+  const rootCount = useMemo(() => nodes.filter((node) => node.parentId === null).length, [nodes]);
+  // A workspace must retain one root, but sync/import can legitimately leave
+  // additional root branches. Those branches are ordinary removable content.
+  const canDeleteNode = (node: MindNode | null) => !!node && (node.parentId !== null || rootCount > 1);
 
   // Register the mindmap context FAB cluster (bottom-right) so global
   // FABs (AI, Pomodoro) stack ABOVE it instead of overlapping. The
   // cluster grows as buttons appear: Plus (56) is always rendered,
-  // Görev (44+gap) when a node is selected, Sil (44+gap) when a
-  // non-root node is selected.
+  // Görev (44+gap) when a node is selected, Sil (44+gap) when that
+  // node is removable. One workspace root always remains protected.
   const hasTaskBtn = !!selectedNode && !!onOpenTodoSheet;
-  const hasDeleteBtn = !!selectedNode && !!selectedNode.parentId;
+  const hasDeleteBtn = canDeleteNode(selectedNode);
   const contextHeight =
     56 + (hasTaskBtn ? 48 + 12 : 0) + (hasDeleteBtn ? 48 + 12 : 0);
   const contextSlot = useFabSlot({
@@ -606,8 +610,8 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
 
   const handleDeleteSelected = () => {
     if (!selectedNode) return;
-    if (selectedNode.parentId === null) {
-      toast.error("Kök düğüm silinemez");
+    if (!canDeleteNode(selectedNode)) {
+      toast.error("Son kök düğüm silinemez");
       return;
     }
     // No confirm() — it's silently blocked in installed PWAs. Deleting is
@@ -765,14 +769,14 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
     }
     if (e.key === "Delete" || e.key === "Backspace") {
       e.preventDefault();
-      if (!cur.parentId) {
-        setLiveMsg("Kök düğüm silinemez");
+      if (!canDeleteNode(cur)) {
+        setLiveMsg("Son kök düğüm silinemez");
         return;
       }
-      const parentId = cur.parentId;
+      const nextSelection = cur.parentId ?? nodes.find((node) => node.parentId === null && node.id !== cur.id)?.id ?? "";
       // Same PWA-safe pattern as handleDeleteSelected: delete now, undo in toast.
       mindmap.remove(curId);
-      onSelect(parentId);
+      onSelect(nextSelection);
       setLiveMsg("Düğüm silindi");
       toast.success(`'${cur.title}' silindi`, {
         action: { label: "Geri al", onClick: () => mindmap.undo() },
@@ -1217,7 +1221,7 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
 
       >
 
-        {selectedNode && selectedNode.parentId && (
+        {canDeleteNode(selectedNode) && (
           <motion.button
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}

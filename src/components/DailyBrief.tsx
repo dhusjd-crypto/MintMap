@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Star, Clock, Target, Plus, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronDown, Clock, Plus, Star, Target, X } from "lucide-react";
 import { mindmap, useNodes } from "@/lib/mindmap-store";
 import { goals, useGoals, goalProgress } from "@/lib/goal-store";
 import { computeFocus } from "@/lib/focus-engine";
@@ -11,8 +11,18 @@ import { computeFocus } from "@/lib/focus-engine";
 export function DailyBrief() {
   const nodes = useNodes();
   const allGoals = useGoals();
+  const [expanded, setExpanded] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("mintmap.daily-brief-expanded") === "true";
+  });
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("mintmap.daily-brief-expanded", String(expanded));
+    } catch {}
+  }, [expanded]);
 
   const { priority, overdue } = useMemo(() => {
     const now = Date.now();
@@ -35,30 +45,41 @@ export function DailyBrief() {
   };
 
   return (
-    <div className="mx-5 mb-2 rounded-2xl bg-card px-4 py-3 shadow-soft">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-bold">Bugün</span>
+    <section className="mx-3 mb-2 rounded-2xl bg-card px-3 py-2 shadow-soft sm:mx-5 sm:px-4" aria-label="Bugünün özeti">
+      <div className="flex min-w-0 items-center gap-2">
         <button
-          onClick={() => setAdding((v) => !v)}
-          className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground"
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          aria-expanded={expanded}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+        >
+          <span className="text-sm font-bold">Bugün</span>
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground sm:text-[12px]">
+            <span className="flex items-center gap-1">
+              <Star className="h-3.5 w-3.5 text-amber-500" /> {priority} öncelik
+            </span>
+            <span className={`flex items-center gap-1 ${overdue > 0 ? "text-red-500" : ""}`}>
+              <Clock className="h-3.5 w-3.5" /> {overdue} geciken
+            </span>
+            <span className="hidden items-center gap-1 sm:flex">
+              <Target className="h-3.5 w-3.5 text-primary" /> {activeGoals.length} hedef
+            </span>
+          </div>
+          <ChevronDown className={`ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform ${expanded ? "rotate-180" : ""}`} />
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setExpanded(true);
+            setAdding((value) => !value);
+          }}
+          className="flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-1 text-[11px] font-semibold text-muted-foreground"
         >
           <Plus className="h-3 w-3" /> Hedef
         </button>
       </div>
 
-      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[12px]">
-        <span className="flex items-center gap-1">
-          <Star className="h-3.5 w-3.5 text-amber-500" /> {priority} öncelik
-        </span>
-        <span className={`flex items-center gap-1 ${overdue > 0 ? "text-red-500" : ""}`}>
-          <Clock className="h-3.5 w-3.5" /> {overdue} geciken
-        </span>
-        <span className="flex items-center gap-1">
-          <Target className="h-3.5 w-3.5 text-primary" /> {activeGoals.length} hedef
-        </span>
-      </div>
-
-      {focus.length > 0 && (
+      {expanded && focus.length > 0 && (
         <div className="mt-2.5 space-y-1">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Bugünkü odakların
@@ -102,7 +123,7 @@ export function DailyBrief() {
         </div>
       )}
 
-      {activeGoals.length > 0 && (
+      {expanded && activeGoals.length > 0 && (
         <div className="mt-2 space-y-1.5">
           {activeGoals.slice(0, 3).map((g) => {
             const { percent } = goalProgress(g, nodes);
@@ -130,6 +151,6 @@ export function DailyBrief() {
           })}
         </div>
       )}
-    </div>
+    </section>
   );
 }
