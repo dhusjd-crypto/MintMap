@@ -50,8 +50,12 @@ export type FabLayout = {
   bottom: number;
 };
 
-/** Distance from the viewport bottom edge to the highest BottomNav pixel. */
-export const BOTTOM_NAV_OFFSET = 72;
+/**
+ * Bottom navigation is 72px high, but fixed controls need a visible gap above
+ * it. Keeping this reservation here prevents every FAB from being partially
+ * covered when mobile browser chrome or the safe area changes.
+ */
+export const BOTTOM_NAV_OFFSET = 96;
 
 /** Gap between stacked FABs on the same side. */
 const GAP = 12;
