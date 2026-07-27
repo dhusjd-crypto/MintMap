@@ -12,6 +12,7 @@ import { MotionConfig } from "framer-motion";
 
 import appCss from "../styles.css?url";
 import { Toaster } from "../components/ui/sonner";
+import { useAppBackNavigation } from "../lib/app-back-navigation";
 
 // Defer non-critical overlays until after first paint to shrink the
 // initial route bundle and speed up LCP / TTI.
@@ -139,6 +140,8 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
+  useAppBackNavigation(router);
   // Gate non-critical overlays until after first paint so they don't
   // compete with route hydration / LCP. requestIdleCallback when
   // available, otherwise a microtask after mount.
