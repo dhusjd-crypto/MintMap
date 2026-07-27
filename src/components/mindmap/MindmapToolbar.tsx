@@ -4,12 +4,17 @@ import {
   Cloud,
   CloudCheck,
   CloudDownload,
+  CircleHelp,
   Download,
   Image as ImageIcon,
   Minus,
+  Move,
   Plus,
   RotateCcw,
   Save,
+  Search,
+  Undo2,
+  Redo2,
   Upload,
   Wrench,
   X,
@@ -39,26 +44,42 @@ type Props = {
   onDriveLoad: () => void;
   onResetView: () => void;
   onPngExport: () => void;
+  map?: React.ReactNode;
+  focusActive: boolean;
+  linkActive: boolean;
+  moveActive: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
+  onSearch: () => void;
+  onToggleFocus: () => void;
+  onToggleLink: () => void;
+  onToggleMove: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  onToggleHelp: () => void;
 };
 
 function ToolBtn({
   onClick,
   label,
   title,
+  disabled = false,
   children,
 }: {
   onClick: () => void;
   label: string;
   title?: string;
+  disabled?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <button
       onPointerDown={(e) => e.stopPropagation()}
       onClick={onClick}
-    className="flex min-h-10 items-center gap-2 rounded-lg px-2 text-left text-xs font-medium hover:bg-muted"
       aria-label={label}
       title={title ?? label}
+      disabled={disabled}
+      className="flex min-h-10 items-center gap-2 rounded-lg px-2 text-left text-xs font-medium hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
     >
       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/70">{children}</span>
       <span className="truncate">{label}</span>
@@ -86,11 +107,24 @@ export function MindmapToolbar({
   onDriveLoad,
   onResetView,
   onPngExport,
+  map,
+  focusActive,
+  linkActive,
+  moveActive,
+  canUndo,
+  canRedo,
+  onSearch,
+  onToggleFocus,
+  onToggleLink,
+  onToggleMove,
+  onUndo,
+  onRedo,
+  onToggleHelp,
 }: Props) {
   const menuMounted = useOverlayPresence(open, 220);
   return (
     <div
-      className="absolute left-3 top-3 z-30"
+      className="absolute right-3 top-3 z-30"
       data-export-hide="true"
       data-fab-id="wrench-toolbar"
       data-fab-open={open ? "true" : "false"}
@@ -122,8 +156,24 @@ export function MindmapToolbar({
             aria-label="Mindmap araçları"
             data-testid="toolbar-actions"
             style={{ pointerEvents: open ? "auto" : "none" }}
-            className="absolute left-0 top-12 w-60 rounded-xl border border-border/70 bg-card p-2 shadow-leaf"
+            className="absolute right-0 top-12 max-h-[calc(100dvh-7rem)] w-[min(22rem,calc(100vw-1.5rem))] overflow-y-auto rounded-xl border border-border/70 bg-card p-2 shadow-leaf"
           >
+            {map && (
+              <section className="mb-2 border-b border-border/60 px-2 pb-2">
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Harita</p>
+                {map}
+              </section>
+            )}
+            <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Gezinme ve düzenleme</p>
+            <div className="grid grid-cols-2 gap-1">
+              <ToolBtn onClick={onSearch} label="Ara"><Search className="h-4 w-4" /></ToolBtn>
+              <ToolBtn onClick={onToggleHelp} label="Kısayollar"><CircleHelp className="h-4 w-4" /></ToolBtn>
+              {selectedNode && <ToolBtn onClick={onToggleFocus} label={focusActive ? "Odağı kapat" : "Dala odaklan"}><span className="h-3 w-3 rounded-full bg-current" /></ToolBtn>}
+              <ToolBtn onClick={onToggleLink} label={linkActive ? "Bağlamayı bitir" : "Düğüm bağla"}>🔗</ToolBtn>
+              <ToolBtn onClick={onToggleMove} label={moveActive ? "Taşımayı bitir" : "Düğümü taşı"}><Move className="h-4 w-4" /></ToolBtn>
+              <ToolBtn onClick={onUndo} label="Geri al" disabled={!canUndo}><Undo2 className="h-4 w-4" /></ToolBtn>
+              <ToolBtn onClick={onRedo} label="Yinele" disabled={!canRedo}><Redo2 className="h-4 w-4" /></ToolBtn>
+            </div>
             <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Çalışma alanı</p>
             <div className="grid grid-cols-2 gap-1">
               <ToolBtn onClick={onSave} label="Kaydet"><Save className="h-4 w-4" /></ToolBtn>

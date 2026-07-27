@@ -6,9 +6,10 @@ type Props = {
   pan: { x: number; y: number };
   scale: number;
   onRecenter: (x: number, y: number) => void;
+  embedded?: boolean;
 };
 
-export function Minimap({ nodes, viewport, pan, scale, onRecenter }: Props) {
+export function Minimap({ nodes, viewport, pan, scale, onRecenter, embedded = false }: Props) {
   if (nodes.length === 0 || viewport.w === 0) return null;
   const PAD = 80;
   const xs = nodes.map((n) => n.x);
@@ -50,7 +51,7 @@ export function Minimap({ nodes, viewport, pan, scale, onRecenter }: Props) {
   return (
     <div
       data-testid="minimap"
-      className="absolute right-3 top-3 rounded-xl bg-card/85 p-1 shadow-soft backdrop-blur"
+      className={embedded ? "w-fit rounded-lg bg-muted/70 p-1" : "absolute right-3 top-3 rounded-xl bg-card/85 p-1 shadow-soft backdrop-blur"}
       data-export-hide="true"
       onPointerDown={(e) => e.stopPropagation()}
     >

@@ -5,9 +5,6 @@ import {
   Plus,
   Search,
   X,
-  Undo2,
-  Redo2,
-  Move,
 } from "lucide-react";
 import { toast } from "sonner";
 // Lazy-imported on demand inside handlePngExport to keep it out of the
@@ -830,27 +827,13 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
       </div>
       <PerfOverlay />
 
-      {/* Keyboard shortcuts help */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setHelpOpen((v) => !v);
-        }}
-        aria-label="Klavye kısayolları"
-        aria-expanded={helpOpen}
-        data-export-hide="true"
-        className="pointer-events-auto absolute right-3 top-3 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-card text-xs font-bold shadow-soft hover:bg-muted sm:right-[9.5rem]"
-      >
-        ?
-      </button>
       {helpOpen && (
         <div
           role="dialog"
           aria-label="Klavye kısayolları"
           data-testid="mindmap-help"
           data-export-hide="true"
-          className="pointer-events-auto absolute right-3 top-12 z-20 w-64 rounded-2xl bg-card p-3 text-xs shadow-leaf sm:right-[9.5rem]"
+          className="pointer-events-auto absolute left-3 top-14 z-40 w-64 rounded-2xl bg-card p-3 text-xs shadow-leaf"
           onPointerDown={(e) => e.stopPropagation()}
         >
           <div className="mb-2 font-semibold">Klavye kısayolları</div>
@@ -1039,124 +1022,8 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
                 </div>
               )}
             </motion.div>
-          ) : (
-            <motion.button
-              key="closed"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              onClick={() => setSearchOpen(true)}
-              onPointerDown={(e) => e.stopPropagation()}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-card shadow-soft"
-              aria-label="Mindmap'te ara"
-            >
-              <Search className="h-4 w-4" />
-            </motion.button>
-          )}
+          ) : null}
       </div>
-
-      {/* The right control rail is one vertical flow. Its rows can appear or
-          disappear without relying on fragile hard-coded top offsets. */}
-      <div className="absolute right-3 top-[7.5rem] z-20 flex flex-col items-end gap-3" data-export-hide="true">
-      {/* Focus mode toggle */}
-      {selectedId && (
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => setFocusMode((v) => !v)}
-          data-export-hide="true"
-          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium shadow-soft transition ${
-            focusMode
-              ? "bg-primary text-primary-foreground"
-              : "bg-card text-muted-foreground"
-          }`}
-          aria-pressed={focusMode}
-          title="Seçili dalı odakla"
-        >
-          <span className="h-2 w-2 rounded-full bg-current opacity-80" />
-          Odak {focusMode ? "açık" : "kapalı"}
-        </button>
-      )}
-
-      {/* Link mode toggle */}
-      <button
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={() => setLinkMode((v) => !v)}
-        data-export-hide="true"
-        className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium shadow-soft transition ${
-          linkMode
-            ? "bg-accent text-accent-foreground"
-            : "bg-card text-muted-foreground"
-        }`}
-        aria-pressed={linkMode}
-        title="Düğümler arası bağlantı modu"
-      >
-        🔗 {linkMode ? (linkSource ? "Hedef seç" : "Bağlantı modu") : "Bağla"}
-      </button>
-
-      {/* Reparent mode toggle */}
-      <button
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={() => setReparentMode((v) => !v)}
-        data-export-hide="true"
-        className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium shadow-soft transition ${
-          reparentMode
-            ? "bg-amber-500 text-white"
-            : "bg-card text-muted-foreground"
-        }`}
-        aria-pressed={reparentMode}
-        title="Düğümü başka üst altına taşı"
-      >
-        <Move className="h-3 w-3" />
-        {reparentMode ? (reparentSource ? "Yeni üst seç" : "Taşıma modu") : "Taşı"}
-      </button>
-
-      {/* Undo / Redo */}
-      <div
-        className="flex gap-1.5"
-      >
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => {
-            if (mindmap.canUndo()) {
-              mindmap.undo();
-              toast("↶ Geri alındı", { duration: 900 });
-            }
-          }}
-          disabled={!mindmap.canUndo()}
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-card text-muted-foreground shadow-soft transition disabled:opacity-40"
-          title="Geri al (⌘Z)"
-          aria-label="Geri al"
-        >
-          <Undo2 className="h-4 w-4" />
-        </button>
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={() => {
-            if (mindmap.canRedo()) {
-              mindmap.redo();
-              toast("↷ Yinelendi", { duration: 900 });
-            }
-          }}
-          disabled={!mindmap.canRedo()}
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-card text-muted-foreground shadow-soft transition disabled:opacity-40"
-          title="Yinele (⌘⇧Z)"
-          aria-label="Yinele"
-        >
-          <Redo2 className="h-4 w-4" />
-        </button>
-      </div>
-      </div>
-
-
-
-
-
-      <Minimap
-        nodes={nodes}
-        viewport={{ w: size.w, h: size.h }}
-        pan={pan}
-        scale={scale}
-        onRecenter={(x, y) => setPan({ x: -x * scale, y: -y * scale })}
-      />
 
       <MindmapToolbar
         open={toolsOpen}
@@ -1182,6 +1049,39 @@ export function MindmapCanvas({ selectedId, onSelect, onOpenSheet, onOpenTodoShe
         onDriveLoad={handleDriveLoad}
         onResetView={resetView}
         onPngExport={handlePngExport}
+        map={
+          <Minimap
+            embedded
+            nodes={nodes}
+            viewport={{ w: size.w, h: size.h }}
+            pan={pan}
+            scale={scale}
+            onRecenter={(x, y) => setPan({ x: -x * scale, y: -y * scale })}
+          />
+        }
+        focusActive={focusMode}
+        linkActive={linkMode}
+        moveActive={reparentMode}
+        canUndo={mindmap.canUndo()}
+        canRedo={mindmap.canRedo()}
+        onSearch={() => {
+          setToolsOpen(false);
+          setSearchOpen(true);
+        }}
+        onToggleFocus={() => setFocusMode((value) => !value)}
+        onToggleLink={() => setLinkMode((value) => !value)}
+        onToggleMove={() => setReparentMode((value) => !value)}
+        onUndo={() => {
+          if (!mindmap.canUndo()) return;
+          mindmap.undo();
+          toast("↶ Geri alındı", { duration: 900 });
+        }}
+        onRedo={() => {
+          if (!mindmap.canRedo()) return;
+          mindmap.redo();
+          toast("↷ Yinelendi", { duration: 900 });
+        }}
+        onToggleHelp={() => setHelpOpen((value) => !value)}
       />
 
       {/* A single stable primary action. Node-specific actions are in NodeSheet. */}
