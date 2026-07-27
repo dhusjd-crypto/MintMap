@@ -134,7 +134,7 @@ export function MindmapToolbar({
         onPointerDown={(e) => e.stopPropagation()}
         onClick={onToggle}
         data-testid="toolbar-toggle"
-        className={`flex h-10 items-center gap-2 rounded-xl px-3 text-xs font-semibold shadow-soft transition ${
+        className={`flex h-10 w-10 items-center justify-center rounded-full shadow-soft transition ${
           open ? "bg-primary text-primary-foreground" : "bg-card"
         }`}
         aria-label={open ? "Araçları kapat" : "Araçları aç"}
@@ -144,7 +144,6 @@ export function MindmapToolbar({
         title="Araçlar"
       >
         {open ? <X className="h-4 w-4" /> : <Wrench className="h-4 w-4" />}
-        <span>{open ? "Kapat" : "Araçlar"}</span>
       </button>
       {menuMounted && (
           <motion.div
