@@ -16,6 +16,8 @@ export type Todo = {
   note?: string;
   dueAt?: number;
   reminderAt?: number;
+  /** Additional absolute reminder times. `reminderAt` remains for legacy data. */
+  reminderAts?: number[];
   starred?: boolean;
   /** Manually selected for the short, deliberately limited focus list. */
   focus?: boolean;

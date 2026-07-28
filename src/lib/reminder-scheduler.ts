@@ -108,28 +108,30 @@ function sweep() {
 
   for (const entry of list) {
     const { todo } = entry;
-    const ts = todo.reminderAt;
-    if (!ts || todo.done) continue;
-    const key = `${entry.wsId}:${entry.nodeId}:${todo.id}:${ts}`;
+    if (todo.done) continue;
+    const reminderTimes = [...new Set([todo.reminderAt, ...(todo.reminderAts ?? [])].filter((time): time is number => !!time))];
+    for (const ts of reminderTimes) {
+      const key = `${entry.wsId}:${entry.nodeId}:${todo.id}:${ts}`;
 
-    if (ts <= now) {
-      if (!fired[key] && now - ts < 1000 * 60 * 60 * 24) {
-        fireFor({
-          wsId: entry.wsId,
-          nodeId: entry.nodeId,
-          nodeTitle: entry.nodeTitle,
-          todoId: todo.id,
-          title: todo.text,
-          ts,
-          recurrence: todo.recurrence,
-        });
+      if (ts <= now) {
+        if (!fired[key] && now - ts < 1000 * 60 * 60 * 24) {
+          fireFor({
+            wsId: entry.wsId,
+            nodeId: entry.nodeId,
+            nodeTitle: entry.nodeTitle,
+            todoId: todo.id,
+            title: todo.text,
+            ts,
+            recurrence: todo.recurrence,
+          });
+        }
+        continue;
       }
-      continue;
-    }
 
-    if (ts <= horizon) {
-      const delay = ts - now;
-      if (nextDelay === null || delay < nextDelay) nextDelay = delay;
+      if (ts <= horizon) {
+        const delay = ts - now;
+        if (nextDelay === null || delay < nextDelay) nextDelay = delay;
+      }
     }
   }
 

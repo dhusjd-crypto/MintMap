@@ -28,11 +28,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 import { TagEditor } from "@/components/TagEditor";
-import { mindmap, useNode, type MindFile, type Priority, type Recurrence, type Todo } from "@/lib/mindmap-store";
-import { aiBreakdownTask, aiAutoTag } from "@/lib/ai.functions";
+import { mindmap, requestNotificationPermission, useNode, type MindFile, type Priority, type Recurrence, type Todo } from "@/lib/mindmap-store";
+import { aiBreakdownTask, aiAutoTag, aiPlanTaskSchedule } from "@/lib/ai.functions";
 import { PRIORITY_META, hasOpenDescendants, wouldCreateDependencyCycle } from "@/lib/task-utils";
 import { calendarCreateEvent } from "@/lib/google/calendar";
 import { getImageUrl } from "@/lib/image-blobs";
+import { parseQuickAdd } from "@/lib/nl-parser";
 
 type Props = {
   nodeId: string | null;
@@ -71,9 +72,11 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
   const [followUpText, setFollowUpText] = useState("");
   const [calendarBusy, setCalendarBusy] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
+  const [aiScheduleBusy, setAiScheduleBusy] = useState(false);
   const [tagBusy, setTagBusy] = useState(false);
   const breakdown = useServerFn(aiBreakdownTask);
   const autoTag = useServerFn(aiAutoTag);
+  const planSchedule = useServerFn(aiPlanTaskSchedule);
 
   useEffect(() => {
     setStepText("");
@@ -127,8 +130,12 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
       const description = [node.title, todo.note, ...(todo.activity ?? []).slice(-3).map((entry) => entry.text)]
         .filter(Boolean)
         .join("\n\n");
+      const reminderMinutes = [...new Set((todo.reminderAts ?? [todo.reminderAt]).filter((time): time is number => !!time)
+        .map((time) => Math.round((at - time) / 60_000)))]
+        .filter((minutes) => minutes >= 0)
+        .sort((a, b) => b - a);
       const result = await calendarCreateEvent({
-        data: { title: todo.text, description, startISO: new Date(at).toISOString() },
+        data: { title: todo.text, description, startISO: new Date(at).toISOString(), reminderMinutes },
       });
       upd({ dueAt: todo.dueAt ?? at, googleEventId: result.id ?? undefined });
       toast.success("Google Takvim'e eklendi");
@@ -137,6 +144,43 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
       toast.error((error as Error).message || "Takvim kaydı oluşturulamadı");
     } finally {
       setCalendarBusy(false);
+    }
+  };
+
+  const runAIPlan = async () => {
+    setAiScheduleBusy(true);
+    const loading = toast.loading("AI tarih ve hatırlatmaları planlıyor...");
+    try {
+      const fallback = parseQuickAdd(todo.text);
+      const result = await planSchedule({ data: { text: todo.text, note: todo.note, nowISO: new Date().toISOString() } });
+      const at = result.calendarAtISO ? Date.parse(result.calendarAtISO) : fallback.dueAt;
+      if (!at || Number.isNaN(at)) {
+        toast.error("AI görevde net bir tarih ve saat bulamadı", { id: loading });
+        return;
+      }
+      const reminderAts = result.reminderMinutes
+        .map((minutes) => at - minutes * 60_000)
+        .filter((time) => time > Date.now())
+        .sort((a, b) => a - b);
+      const reminders = reminderAts.length ? reminderAts : [at];
+      requestNotificationPermission();
+      upd({ dueAt: at, reminderAt: reminders[0], reminderAts: reminders, myDay: result.myDay || todo.myDay });
+
+      const description = [node.title, todo.note].filter(Boolean).join("\n\n");
+      try {
+        const calendar = await calendarCreateEvent({
+          data: { title: todo.text, description, startISO: new Date(at).toISOString(), reminderMinutes: result.reminderMinutes },
+        });
+        upd({ googleEventId: calendar.id ?? undefined });
+        toast.success(`${reminders.length} hatırlatma ve Google Takvim kaydı oluşturuldu`, { id: loading });
+      } catch (calendarError) {
+        toast.success(`${reminders.length} hatırlatma kaydedildi`, { id: loading });
+        toast.message("Takvim bağlantısı kurulunca kaydı tekrar deneyebilirsin", { description: (calendarError as Error).message.slice(0, 100) });
+      }
+    } catch (error) {
+      toast.error((error as Error).message || "AI planı oluşturulamadı", { id: loading });
+    } finally {
+      setAiScheduleBusy(false);
     }
   };
 
@@ -181,6 +225,7 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
       title="Görevi düzenle"
       description={node.title}
       icon={<ListChecks className="h-4 w-4" />}
+      badge={<span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-semibold text-primary">Anında kaydedilir</span>}
       footerStart={
         <div className="flex flex-1 items-center justify-between gap-2 text-xs text-muted-foreground">
           <span className="truncate">
@@ -316,6 +361,15 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
 
           {/* Quick actions */}
           <div className="space-y-1 border-t border-border pt-2">
+            <button
+              type="button"
+              onClick={() => void runAIPlan()}
+              disabled={aiScheduleBusy}
+              className="flex w-full items-center gap-2 rounded-lg bg-primary/10 px-3 py-2 text-left text-xs font-semibold text-primary hover:bg-primary/15 disabled:opacity-50"
+            >
+              {aiScheduleBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {aiScheduleBusy ? "Takvim ve hatırlatmalar hazırlanıyor..." : "AI ile takvim ve hatırlatmaları planla"}
+            </button>
             <Row
               icon={<Crosshair className="h-5 w-5" />}
               active={!!todo.focus}
@@ -333,10 +387,10 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
 
             <Row
               icon={<Bell className="h-5 w-5" />}
-              active={!!todo.reminderAt}
-              label={todo.reminderAt ? `Anımsat: ${fmt(todo.reminderAt)}` : "Bana anımsat"}
+              active={!!todo.reminderAt || !!todo.reminderAts?.length}
+              label={todo.reminderAts?.length ? `${todo.reminderAts.length} hatırlatma planlandı` : todo.reminderAt ? `Anımsat: ${fmt(todo.reminderAt)}` : "Bana anımsat"}
               onClick={() => setShowRem((v) => !v)}
-              onClear={todo.reminderAt ? () => upd({ reminderAt: undefined }) : undefined}
+              onClear={todo.reminderAt || todo.reminderAts?.length ? () => upd({ reminderAt: undefined, reminderAts: undefined }) : undefined}
             />
             {showRem && (
               <div className="px-3 pb-2">
@@ -345,10 +399,30 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
                   value={toLocalInput(todo.reminderAt)}
                   onChange={(e) => {
                     const v = e.target.value;
-                    upd({ reminderAt: v ? new Date(v).getTime() : undefined });
+                    const at = v ? new Date(v).getTime() : undefined;
+                    upd({ reminderAt: at, reminderAts: at ? [at] : undefined });
                   }}
                   className="h-9"
                 />
+                {todo.dueAt && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {[240, 120, 60].map((minutes) => (
+                      <button
+                        key={minutes}
+                        type="button"
+                        onClick={() => {
+                          const next = [...new Set([...(todo.reminderAts ?? []), todo.dueAt! - minutes * 60_000])]
+                            .filter((time) => time > Date.now())
+                            .sort((a, b) => a - b);
+                          upd({ reminderAt: next[0], reminderAts: next });
+                        }}
+                        className="rounded-md bg-muted px-2 py-1 text-[11px] font-medium hover:bg-muted/70"
+                      >
+                        {minutes / 60} saat önce
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

@@ -316,6 +316,38 @@ function parseJson<T = unknown>(raw: string): T | null {
   }
 }
 
+/** Extract a calendar-ready date and a practical multi-reminder plan from a task. */
+export const aiPlanTaskSchedule = createServerFn({ method: "POST" }).middleware([requireAppAuth])
+  .inputValidator((data: { text: string; note?: string; nowISO: string }) => {
+    if (!data.text) throw new Error("text gerekli");
+    if (Number.isNaN(Date.parse(data.nowISO))) throw new Error("geçersiz zaman");
+    return data;
+  })
+  .handler(async ({ data }) => {
+    const raw = await callAI(
+      [
+        {
+          role: "system",
+          content:
+            "Türkçe görev metnindeki tarih ve saati çöz. Referans zaman Europe/Istanbul'dur. " +
+            "Saat belirtilmişse calendarAtISO üret. Hatırlatma için varsayılan [240,120,60] dakika önceyi kullan; " +
+            "etkinlik 4 saatten kısa ise yalnızca gelecekte kalacak aralıkları kullan. Sadece JSON döndür: " +
+            '{"calendarAtISO":"ISO veya boş","reminderMinutes":[240,120,60],"myDay":true}.',
+        },
+        { role: "user", content: `Şimdi: ${data.nowISO}\nGörev: ${data.text}${data.note ? `\nNot: ${data.note}` : ""}` },
+      ],
+      true,
+    );
+    const parsed = parseJson<{ calendarAtISO?: string; reminderMinutes?: unknown[]; myDay?: boolean }>(raw);
+    const calendarAtISO = parsed?.calendarAtISO && !Number.isNaN(Date.parse(parsed.calendarAtISO))
+      ? new Date(parsed.calendarAtISO).toISOString()
+      : undefined;
+    const reminderMinutes = Array.isArray(parsed?.reminderMinutes)
+      ? parsed!.reminderMinutes.map(Number).filter((minutes) => Number.isFinite(minutes) && minutes >= 0 && minutes <= 10_080).slice(0, 5)
+      : [240, 120, 60];
+    return { calendarAtISO, reminderMinutes: [...new Set(reminderMinutes)].sort((a, b) => b - a), myDay: parsed?.myDay !== false };
+  });
+
 /** Suggest 3–6 short Turkish tags for a piece of text. */
 export const aiAutoTag = createServerFn({ method: "POST" }).middleware([requireAppAuth])
   .inputValidator((data: { text: string; note?: string; existing?: string[] }) => {

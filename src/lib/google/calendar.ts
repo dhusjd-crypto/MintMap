@@ -24,7 +24,7 @@ async function gapi<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await res.json()) as T;
 }
 
-function eventBody(t: { title: string; description?: string; startISO: string; endISO?: string }) {
+function eventBody(t: { title: string; description?: string; startISO: string; endISO?: string; reminderMinutes?: number[] }) {
   const start = new Date(t.startISO);
   const end = t.endISO ? new Date(t.endISO) : new Date(start.getTime() + 30 * 60_000);
   return {
@@ -32,14 +32,20 @@ function eventBody(t: { title: string; description?: string; startISO: string; e
     description: t.description ?? "",
     start: { dateTime: start.toISOString(), timeZone: TZ },
     end: { dateTime: end.toISOString(), timeZone: TZ },
-    reminders: { useDefault: false, overrides: [{ method: "popup", minutes: 10 }] },
+    reminders: {
+      useDefault: false,
+      overrides: (t.reminderMinutes?.length ? t.reminderMinutes : [10])
+        .filter((minutes) => Number.isFinite(minutes) && minutes >= 0)
+        .slice(0, 5)
+        .map((minutes) => ({ method: "popup", minutes: Math.round(minutes) })),
+    },
   };
 }
 
 export async function calendarCreateEvent({
   data,
 }: {
-  data: { title: string; description?: string; startISO: string; endISO?: string };
+  data: { title: string; description?: string; startISO: string; endISO?: string; reminderMinutes?: number[] };
 }): Promise<{ id: string | null; htmlLink: string | null }> {
   if (!data.title) throw new Error("title gerekli");
   if (!data.startISO || isNaN(Date.parse(data.startISO))) throw new Error("Geçersiz başlangıç tarihi");
@@ -84,6 +90,7 @@ export type SyncTaskInput = {
   startISO: string;
   endISO?: string;
   googleEventId?: string;
+  reminderMinutes?: number[];
 };
 
 /** Push local tasks to Google Calendar. Creates missing events, PATCHes existing ones. */
