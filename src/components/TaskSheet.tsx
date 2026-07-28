@@ -32,6 +32,7 @@ import { mindmap, requestNotificationPermission, useNode, type MindFile, type Pr
 import { aiBreakdownTask, aiAutoTag, aiPlanTaskSchedule } from "@/lib/ai.functions";
 import { PRIORITY_META, hasOpenDescendants, wouldCreateDependencyCycle } from "@/lib/task-utils";
 import { calendarCreateEvent } from "@/lib/google/calendar";
+import { hasGoogleGrant } from "@/lib/google/gauth";
 import { getImageUrl } from "@/lib/image-blobs";
 import { parseQuickAdd } from "@/lib/nl-parser";
 
@@ -73,6 +74,26 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
   const [calendarBusy, setCalendarBusy] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiScheduleBusy, setAiScheduleBusy] = useState(false);
+  const calendarAutomationEnabled = typeof window !== "undefined"
+    && localStorage.getItem("mintmap.calendar.auto") !== "off"
+    && hasGoogleGrant();
+
+  const applyTypedSchedule = () => {
+    if (!todo?.text || todo.dueAt) return;
+    const parsed = parseQuickAdd(todo.text);
+    if (!parsed.dueAt) return;
+    const reminders = [240, 120, 60]
+      .map((minutes) => parsed.dueAt! - minutes * 60_000)
+      .filter((at) => at > Date.now());
+    const plannedReminders = reminders.length ? reminders : [parsed.dueAt];
+    upd({
+      text: parsed.text,
+      dueAt: parsed.dueAt,
+      reminderAt: plannedReminders[0],
+      reminderAts: plannedReminders,
+    });
+    toast.success("Tarih ve hatırlatmalar kaydedildi. Takvim eşitleniyor.");
+  };
   const [tagBusy, setTagBusy] = useState(false);
   const breakdown = useServerFn(aiBreakdownTask);
   const autoTag = useServerFn(aiAutoTag);
@@ -225,7 +246,7 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
       title="Görevi düzenle"
       description={node.title}
       icon={<ListChecks className="h-4 w-4" />}
-      badge={<span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-semibold text-primary">Anında kaydedilir</span>}
+      badge={<span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-semibold text-primary">✓ Kaydedildi</span>}
       footerStart={
         <div className="flex flex-1 items-center justify-between gap-2 text-xs text-muted-foreground">
           <span className="truncate">
@@ -272,6 +293,7 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
             <Textarea
               value={todo.text}
               onChange={(e) => upd({ text: e.target.value })}
+              onBlur={applyTypedSchedule}
               rows={2}
               className={`min-h-0 resize-none border-0 bg-transparent p-0 text-lg font-semibold leading-snug shadow-none focus-visible:ring-0 ${
                 todo.done ? "text-muted-foreground line-through" : ""
@@ -368,7 +390,7 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
               className="flex w-full items-center gap-2 rounded-lg bg-primary/10 px-3 py-2 text-left text-xs font-semibold text-primary hover:bg-primary/15 disabled:opacity-50"
             >
               {aiScheduleBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {aiScheduleBusy ? "Takvim ve hatırlatmalar hazırlanıyor..." : "AI ile takvim ve hatırlatmaları planla"}
+              {aiScheduleBusy ? "Takvim ve hatırlatmalar hazırlanıyor..." : "Karmaşık ifadeyi AI ile planla"}
             </button>
             <Row
               icon={<Crosshair className="h-5 w-5" />}
@@ -450,7 +472,7 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
             <Row
               icon={<CalendarPlus className="h-5 w-5" />}
               active={!!todo.googleEventId}
-              label={todo.googleEventId ? "Google Takvim'e bağlı" : "Google Takvim'e ekle"}
+              label={todo.googleEventId ? "Google Takvim'e bağlı" : todo.dueAt && calendarAutomationEnabled ? "Google Takvim'e otomatik ekleniyor" : "Google Takvim'e ekle"}
               onClick={() => setShowCalendar((value) => !value)}
             />
             {showCalendar && !todo.googleEventId && (

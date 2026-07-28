@@ -1,4 +1,5 @@
 import { calendarSyncPush, calendarSyncPull, calendarDeleteEvent } from "./google/calendar";
+import { hasGoogleGrant } from "./google/gauth";
 import { mindmap } from "./mindmap-store";
 
 /**
@@ -20,6 +21,13 @@ export async function runCalendarSync(): Promise<{ pushed: number; pulled: numbe
     description: `MintMap · ${x.wsName} · ${x.nodeTitle}`,
     startISO: new Date(x.todo.dueAt!).toISOString(),
     googleEventId: x.todo.googleEventId,
+    reminderMinutes: [...new Set(
+      [x.todo.reminderAt, ...(x.todo.reminderAts ?? [])]
+        .filter((at): at is number => typeof at === "number")
+        .map((at) => Math.round((x.todo.dueAt! - at) / 60_000)),
+    )]
+      .filter((minutes) => minutes >= 0)
+      .sort((a, b) => b - a),
   }));
 
   let pushed = 0;
@@ -90,17 +98,36 @@ const INTERVAL = 15 * 60_000;
 /** Kick off a polling loop when auto-sync is enabled. Safe to call once at app start. */
 export function useAutoCalendarSync() {
   if (typeof window === "undefined") return;
-  const enabled = localStorage.getItem(AUTO_KEY) === "on";
-  if (!enabled) return;
+  // Calendar automation is on unless the user deliberately turns it off.
+  // Never initiate OAuth from a background timer; only sync an already linked account.
+  const enabled = () => localStorage.getItem(AUTO_KEY) !== "off";
+  let timer: number | undefined;
+  let syncing = false;
   const tick = async () => {
+    if (!enabled() || !hasGoogleGrant() || syncing) return;
+    syncing = true;
     try {
       const r = await runCalendarSync();
       localStorage.setItem(LAST_KEY, String(Date.now()));
       if (r.errors) console.warn("[calendar-sync] errors:", r.errors);
     } catch (e) {
       console.warn("[calendar-sync] failed:", (e as Error).message);
+    } finally {
+      syncing = false;
     }
   };
-  window.setTimeout(tick, 10_000);
-  window.setInterval(tick, INTERVAL);
+  const queue = () => {
+    if (!enabled() || !hasGoogleGrant() || syncing) return;
+    if (timer) window.clearTimeout(timer);
+    timer = window.setTimeout(() => void tick(), 1_500);
+  };
+  const initial = window.setTimeout(() => void tick(), 2_000);
+  const interval = window.setInterval(() => void tick(), INTERVAL);
+  const unsubscribe = mindmap.subscribeAll(queue);
+  return () => {
+    window.clearTimeout(initial);
+    window.clearInterval(interval);
+    if (timer) window.clearTimeout(timer);
+    unsubscribe();
+  };
 }

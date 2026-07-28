@@ -278,7 +278,6 @@ function TodosPage() {
     const parsed = parseQuickAdd(raw);
     const extra: Partial<Todo> = {};
     if (parsed.dueAt) extra.dueAt = parsed.dueAt;
-    if (parsed.reminderAt) extra.reminderAt = parsed.reminderAt;
     if (parsed.recurrence) extra.recurrence = parsed.recurrence;
     if (parsed.tags?.length) extra.tags = parsed.tags;
     if (parsed.starred || view.kind === "starred") extra.starred = true;

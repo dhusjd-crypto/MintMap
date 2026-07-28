@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { nanoid } from "nanoid";
 import type { NodeType } from "./node-types";
+import { parseQuickAdd } from "./nl-parser";
 
 export type TodoStep = { id: string; text: string; done: boolean };
 export type TodoActivity = { id: string; text: string; createdAt: number };
@@ -718,9 +719,20 @@ export const mindmap = {
     const ws = currentWs();
     const n = ws?.nodes.find((x) => x.id === id);
     if (!n) return;
+    // Every task entry point comes through here. Interpret natural-language
+    // scheduling once so quick add, voice, AI and node sheets behave alike.
+    const parsed = parseQuickAdd(text);
+    const dueAt = extra.dueAt ?? parsed.dueAt;
+    const hasExplicitReminder = extra.reminderAt !== undefined || extra.reminderAts !== undefined;
+    const reminderAts = dueAt && !hasExplicitReminder
+      ? [240, 120, 60]
+          .map((minutes) => dueAt - minutes * 60_000)
+          .filter((at) => at > Date.now())
+      : extra.reminderAts;
+    const plannedReminders = reminderAts?.length ? reminderAts : dueAt && !hasExplicitReminder ? [dueAt] : undefined;
     const todo: Todo = {
       id: nanoid(6),
-      text,
+      text: parsed.dueAt ? parsed.text : text,
       done: false,
       status: "todo",
       parentId,
@@ -728,6 +740,13 @@ export const mindmap = {
       updatedAt: Date.now(),
       steps: [],
       ...extra,
+      ...(dueAt ? { dueAt } : {}),
+      ...(extra.recurrence === undefined && parsed.recurrence ? { recurrence: parsed.recurrence } : {}),
+      ...(extra.tags === undefined && parsed.tags?.length ? { tags: parsed.tags } : {}),
+      ...(extra.priority === undefined && parsed.priority ? { priority: parsed.priority } : {}),
+      ...(extra.starred === undefined && parsed.starred ? { starred: true } : {}),
+      ...(extra.myDay === undefined && parsed.myDay ? { myDay: true, myDayAt: Date.now() } : {}),
+      ...(plannedReminders ? { reminderAt: plannedReminders[0], reminderAts: plannedReminders } : {}),
     };
     this.update(id, {
       todos: [...n.todos, todo],

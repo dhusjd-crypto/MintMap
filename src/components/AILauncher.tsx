@@ -25,7 +25,7 @@ export function AILauncher() {
   const [pendingPrompt, setPendingPrompt] = useState<string | undefined>();
   useAutoDriveBackup();
   useCloudSync();
-  useEffect(() => { useAutoCalendarSync(); }, []);
+  useEffect(() => useAutoCalendarSync(), []);
   useEffect(() => useAutoGoogleTasksSync(), []);
 
   // Right side, priority 2. When the menu popover is open the slot

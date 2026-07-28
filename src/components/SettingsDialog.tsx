@@ -57,7 +57,7 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
     () => (typeof window !== "undefined" ? localStorage.getItem("mintmap.ai.model") ?? "" : ""),
   );
   const [calAuto, setCalAuto] = useState<boolean>(
-    () => typeof window !== "undefined" && localStorage.getItem("mintmap.calendar.auto") === "on",
+    () => typeof window !== "undefined" && localStorage.getItem("mintmap.calendar.auto") !== "off",
   );
   const [driveAuto, setDriveAuto] = useState<boolean>(
     () => typeof window !== "undefined" && localStorage.getItem("mintmap.drive.auto") !== "off",
@@ -481,7 +481,7 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                 localStorage.setItem("mintmap.calendar.auto", e.target.checked ? "on" : "off");
               }}
             />
-            Otomatik senkron (15 dk)
+            Otomatik senkron (yeni görevde hemen, sonra 15 dk)
           </label>
           <Button
             variant="outline"
