@@ -1,6 +1,6 @@
 import { useCallback, useSyncExternalStore } from "react";
 import { nanoid } from "nanoid";
-import { repairTextTree } from "./text-normalize";
+import { decodeHtmlEntities, repairTextTree } from "./text-normalize";
 import { deleteImage, getImageDataUrl, putImage } from "./image-blobs";
 
 // A Google-Keep-style capture box. The user throws in notes, links
@@ -43,6 +43,23 @@ let cards: KeepCard[] = [];
 let initialized = false;
 const listeners = new Set<() => void>();
 
+function normalizeCard(card: KeepCard): KeepCard {
+  const normalized = repairTextTree(card);
+  return {
+    ...normalized,
+    text: normalized.text ? decodeHtmlEntities(normalized.text) : normalized.text,
+    title: normalized.title ? decodeHtmlEntities(normalized.title) : normalized.title,
+    meta: normalized.meta
+      ? {
+          ...normalized.meta,
+          description: normalized.meta.description
+            ? decodeHtmlEntities(normalized.meta.description)
+            : normalized.meta.description,
+        }
+      : normalized.meta,
+  };
+}
+
 function load() {
   if (initialized) return;
   initialized = true;
@@ -52,7 +69,7 @@ function load() {
     if (raw) {
       const parsed = repairTextTree(JSON.parse(raw)) as KeepCard[];
       if (Array.isArray(parsed)) {
-        cards = parsed;
+        cards = parsed.map(normalizeCard);
         // Persist repaired legacy text so the next sync carries clean UTF-8.
         persist();
       }
@@ -106,19 +123,19 @@ export const keep = {
   },
   add(card: Omit<KeepCard, "id" | "createdAt"> & { id?: string; createdAt?: number }): KeepCard {
     load();
-    const full: KeepCard = {
+    const full = normalizeCard({
       ...card,
       id: card.id ?? nanoid(10),
       createdAt: card.createdAt ?? Date.now(),
       updatedAt: card.updatedAt ?? Date.now(),
-    };
+    } as KeepCard);
     cards = [full, ...cards];
     emit();
     return full;
   },
   update(id: string, patch: Partial<KeepCard>) {
     load();
-    cards = cards.map((c) => (c.id === id ? { ...c, ...patch, updatedAt: Date.now() } : c));
+    cards = cards.map((c) => (c.id === id ? normalizeCard({ ...c, ...patch, updatedAt: Date.now() }) : c));
     emit();
   },
   remove(id: string) {
@@ -162,12 +179,12 @@ export const keep = {
         return (await putImage(imageId, card.image)) ? { ...card, imageId, image: undefined } : card;
       }),
     );
-    cards = restored;
+    cards = restored.map(normalizeCard);
     emit();
   },
   /** Applies a metadata-only cloud snapshot. Local IndexedDB files stay put. */
   importCloudSnapshot(next: KeepCard[]) {
-    cards = next;
+    cards = next.map(normalizeCard);
     emit();
   },
   /** Subscribe without React; used by the background cloud reconciler. */
