@@ -26,10 +26,9 @@ export function geminiProvider(): AIProvider {
     // tooling uses GOOGLE_API_KEY.
     getApiKey: () => process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY,
     // "models/" prefix is required by the OpenAI-compatible endpoint.
-    // gemini-flash-latest auto-tracks the current stable flash model, so it
-    // won't 404 like a pinned version does once Google retires it for new users
-    // (gemini-2.5-flash already returns "no longer available to new users").
-    defaultModel: process.env.GEMINI_MODEL || "models/gemini-flash-latest",
+    // Flash-Lite is sufficient for categorization, short summaries and task
+    // extraction, while keeping the default cost and quota usage low.
+    defaultModel: process.env.GEMINI_MODEL || "models/gemini-2.5-flash-lite",
     // Accept a bare id from Settings ("gemini-2.5-flash") and add the prefix.
     normalizeModel: (m) => (m.startsWith("models/") ? m : `models/${m}`),
     free: true,

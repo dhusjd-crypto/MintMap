@@ -394,7 +394,11 @@ function KeepPage() {
       if (!silent) handleAiError(e);
       return false;
     }
-    return true;
+    // "Kategorisiz" is a valid model fallback value, but it is not a
+    // completed categorization. Returning false lets the bulk action retry it
+    // once without creating an endless background loop.
+    const normalizedCategory = (keep.get(card.id)?.category ?? "").trim().toLocaleLowerCase("tr-TR");
+    return Boolean(normalizedCategory && normalizedCategory !== "kategorisiz");
   }
 
   function addFromText() {
@@ -492,21 +496,46 @@ function KeepPage() {
   }
 
   async function categorizeAll() {
-    const pending = cards.filter((c) => !c.category);
+    const isUncategorized = (card: KeepCard) => {
+      const category = card.category?.trim().toLocaleLowerCase("tr-TR");
+      return !category || category === "kategorisiz";
+    };
+    const pending = cards.filter(isUncategorized);
     if (!pending.length) return;
     if (!aiEnabled) {
       toast.error("AI sağlayıcı yapılandırılmamış — Ayarlar'dan bir anahtar ekle");
       return;
     }
     setBulkBusy(true);
-    for (const c of pending) {
-      await runCategorize(keep.get(c.id) ?? c);
+    let remaining = pending;
+    let completed = 0;
+    // A single manual click may make two attempts per card. This handles
+    // transient model responses while keeping quota usage predictable.
+    for (let attempt = 0; attempt < 2 && remaining.length; attempt++) {
+      const failed: KeepCard[] = [];
+      for (const c of remaining) {
+        const ok = await runCategorize(keep.get(c.id) ?? c);
+        if (ok) completed += 1;
+        else failed.push(keep.get(c.id) ?? c);
+      }
+      remaining = failed;
     }
     setBulkBusy(false);
+    if (remaining.length) {
+      toast.error(`${completed} kart düzenlendi; ${remaining.length} kart için tekrar deneyebilirsin.`);
+    } else {
+      toast.success(`${completed} kart kategorize edildi`);
+    }
   }
 
   const allCategories = useMemo(() => keep.categories(), [cards]);
-  const uncategorizedCount = useMemo(() => cards.filter((c) => !c.category).length, [cards]);
+  const uncategorizedCount = useMemo(
+    () => cards.filter((c) => {
+      const category = c.category?.trim().toLocaleLowerCase("tr-TR");
+      return !category || category === "kategorisiz";
+    }).length,
+    [cards],
+  );
 
   const { pinned, groups } = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -525,7 +554,8 @@ function KeepPage() {
     const rest = filtered.filter((c) => !c.pinned);
     const map = new Map<string, KeepCard[]>();
     rest.forEach((c) => {
-      const k = c.category?.trim() || UNCATEGORIZED;
+      const category = c.category?.trim();
+      const k = !category || category.toLocaleLowerCase("tr-TR") === "kategorisiz" ? UNCATEGORIZED : category;
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(c);
     });
