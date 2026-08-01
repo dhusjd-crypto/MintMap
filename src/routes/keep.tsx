@@ -322,6 +322,11 @@ function KeepPage() {
       await migrateLegacyImages();
       sanitizeLegacyDocumentCards();
       await ingestShares(enabled);
+      if (enabled) {
+        for (const card of keep.list()) {
+          if (!card.summary && (card.text || card.url || card.title)) void runCategorize(card);
+        }
+      }
     })();
     return () => {
       cancelled = true;
@@ -808,8 +813,8 @@ function Card({
             {card.category && <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">Gemini · {card.category}</span>}
           </div>
         )}
-        {card.summary && <p className="max-h-20 overflow-hidden text-xs leading-relaxed text-muted-foreground">{card.summary}</p>}
-        {card.type === "note" && card.text && (
+        {card.summary && <p className="max-h-24 overflow-hidden text-xs leading-relaxed text-muted-foreground">{cleanCardText(card.summary, 300)}</p>}
+        {!card.summary && card.type === "note" && card.text && (
           <p className="max-h-24 overflow-hidden text-sm leading-relaxed text-foreground/90">
             {isRawDocumentText(card.text) ? "PDF belgesi · ham içerik gizlendi" : cleanCardText(card.text)}
           </p>

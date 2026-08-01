@@ -826,7 +826,7 @@ export const aiCategorizeCard = createServerFn({ method: "POST" }).middleware([r
       "Sen bir içerik düzenleyicisin. Verilen öğeyi TEK bir kısa Türkçe kategoriye ata.\n" +
       "Örnek kategoriler: Ekran görüntüleri, Siteler, Filmler & Diziler, Yatırım, Alışveriş, İlham, Okuma listesi, Yemek, Seyahat, Müzik, İş, Kişisel.\n" +
       "Mevcut kategorilerden biri uygunsa MUTLAKA onu kullan. Uygun yoksa yeni, kısa (1-2 kelime) bir kategori üret.\n" +
-      "Ayrıca içeriği tanımlayan 2-4 kısa etiket, kısa bir başlık (max 8 kelime), içerik türü ve 1-2 cümlelik özet üret.\n" +
+      "Ayrıca içeriği tanımlayan 2-4 kısa etiket, kısa bir başlık (max 8 kelime), içerik türü ve en fazla 300 karakterlik tek paragraflık özet üret. Özette HTML kodu, madde işareti veya gereksiz tekrar kullanma.\n" +
       "Tür örnekleri: PDF belgesi, fatura, sözleşme, haber, video, sosyal medya paylaşımı, ilan, tarif, ekran görseli, not.\n" +
       'Sadece JSON döndür: {"category":"...","tags":["..."],"title":"...","contentKind":"...","summary":"..."}.';
 
@@ -876,7 +876,7 @@ export const aiCategorizeCard = createServerFn({ method: "POST" }).middleware([r
         : [],
       title: obj?.title ? String(obj.title).trim().slice(0, 80) : undefined,
       contentKind: obj?.contentKind ? String(obj.contentKind).trim().slice(0, 40) : undefined,
-      summary: obj?.summary ? String(obj.summary).trim().slice(0, 320) : undefined,
+      summary: obj?.summary ? String(obj.summary).replace(/\s+/g, " ").trim().slice(0, 300) : undefined,
       modelFallback: res.modelFallback,
     };
   });
