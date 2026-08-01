@@ -9,6 +9,10 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      # E2E tests target the authenticated app surface; this is never set in
+      # production builds or deployed runtime environments.
+      VITE_E2E_BYPASS_UNLOCK: "1"
     steps:
       - uses: actions/checkout@v4
 

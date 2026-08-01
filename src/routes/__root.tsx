@@ -164,7 +164,9 @@ function RootComponent() {
         localStorage.setItem("mintmap:unlocked", "1");
       }
       const unlocked = localStorage.getItem("mintmap:unlocked") === "1";
-      if (!unlocked && window.location.pathname !== "/unlock") {
+      const e2eBypass =
+        (import.meta.env as Record<string, string | undefined>).VITE_E2E_BYPASS_UNLOCK === "1";
+      if (!e2eBypass && !unlocked && window.location.pathname !== "/unlock") {
         window.location.replace("/unlock");
         return;
       }
