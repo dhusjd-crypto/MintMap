@@ -133,6 +133,9 @@ export function NodeSheet({ nodeId, onClose, initialTab = "todo" }: Props) {
   if (liveNode) lastNodeRef.current = liveNode;
   const node = liveNode ?? lastNodeRef.current;
   const open = !!liveNode;
+  const historyKeyRef = useRef("");
+  const closedFromHistoryRef = useRef(false);
+  const closeRef = useRef(onClose);
   const canDeleteNode = !!node && (node.parentId !== null || nodes.filter((item) => item.parentId === null).length > 1);
   const retryFileInputRef = useRef<HTMLInputElement>(null);
   const [tab, setTab] = useState(initialTab);
@@ -157,6 +160,48 @@ export function NodeSheet({ nodeId, onClose, initialTab = "todo" }: Props) {
   const summarize = useServerFn(aiSummarize);
   const breakdown = useServerFn(aiBreakdownTask);
   const autoTag = useServerFn(aiAutoTag);
+
+  useEffect(() => {
+    closeRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!liveNode || typeof window === "undefined") return;
+    const key = `node-sheet:${liveNode.id}:${Date.now()}`;
+    historyKeyRef.current = key;
+    closedFromHistoryRef.current = false;
+    const currentState = window.history.state ?? {};
+    window.history.pushState({ ...currentState, mintmapNodeSheet: key }, "", window.location.href);
+    (window as unknown as { __mintmapNodeSheetOpen?: string }).__mintmapNodeSheetOpen = key;
+
+    const onPopState = () => {
+      if (historyKeyRef.current !== key) return;
+      closedFromHistoryRef.current = true;
+      (window as unknown as { __mintmapNodeSheetOpen?: string }).__mintmapNodeSheetOpen = undefined;
+      closeRef.current();
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      const appWindow = window as unknown as { __mintmapNodeSheetOpen?: string };
+      if (appWindow.__mintmapNodeSheetOpen === key) appWindow.__mintmapNodeSheetOpen = undefined;
+      if (!closedFromHistoryRef.current && window.history.state?.mintmapNodeSheet === key) {
+        const { mintmapNodeSheet: _ignored, ...state } = window.history.state;
+        window.history.replaceState(state, "", window.location.href);
+      }
+    };
+    // Depend on the stable identity only; liveNode changes on every edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveNode?.id]);
+
+  const closeNodeSheet = () => {
+    const key = historyKeyRef.current;
+    if (key && typeof window !== "undefined" && window.history.state?.mintmapNodeSheet === key) {
+      window.history.back();
+      return;
+    }
+    closeRef.current();
+  };
 
   const closeQuickAdd = useCallback(
     (warn = false) => {
@@ -437,7 +482,7 @@ export function NodeSheet({ nodeId, onClose, initialTab = "todo" }: Props) {
       {node && (
         <FormPanel
           open={open}
-          onClose={onClose}
+          onClose={closeNodeSheet}
           ariaLabel={node.title || "Düğüm"}
           description="Düğümü düzenle - değişiklikler anında kaydedilir"
           icon={
@@ -461,7 +506,7 @@ export function NodeSheet({ nodeId, onClose, initialTab = "todo" }: Props) {
                 if (!node) return;
                 const title = node.title;
                 mindmap.remove(node.id);
-                onClose();
+                closeNodeSheet();
                 toast.success(`'${title}' silindi`, {
                   action: { label: "Geri al", onClick: () => mindmap.undo() },
                 });
