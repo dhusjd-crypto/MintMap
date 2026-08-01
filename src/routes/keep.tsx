@@ -51,6 +51,7 @@ export const Route = createFileRoute("/keep")({
 });
 
 const URL_RE = /^(https?:\/\/\S+|www\.\S+|[a-z0-9-]+\.[a-z]{2,}(?:\/\S*)?)$/i;
+const SUMMARY_BACKFILL_KEY = "mintmap.keep.summary-backfill-at";
 function looksLikeUrl(s: string) {
   return URL_RE.test(s.trim());
 }
@@ -322,11 +323,7 @@ function KeepPage() {
       await migrateLegacyImages();
       sanitizeLegacyDocumentCards();
       await ingestShares(enabled);
-      if (enabled) {
-        for (const card of keep.list()) {
-          if (!card.summary && (card.text || card.url || card.title)) void runCategorize(card);
-        }
-      }
+      if (enabled) void backfillMissingSummaries();
     })();
     return () => {
       cancelled = true;
@@ -334,7 +331,18 @@ function KeepPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function runCategorize(card: KeepCard, analysis: { fileText?: string } = {}) {
+  async function backfillMissingSummaries() {
+    const lastRun = Number(localStorage.getItem(SUMMARY_BACKFILL_KEY) || 0);
+    if (Date.now() - lastRun < 6 * 60 * 60 * 1000) return;
+    localStorage.setItem(SUMMARY_BACKFILL_KEY, String(Date.now()));
+    const pending = keep.list().filter((card) => !card.summary && (card.text || card.url || card.title)).slice(0, 3);
+    for (const card of pending) {
+      const completed = await runCategorize(card, {}, true);
+      if (!completed) break;
+    }
+  }
+
+  async function runCategorize(card: KeepCard, analysis: { fileText?: string } = {}, silent = false): Promise<boolean> {
     keep.update(card.id, { aiPending: true });
     try {
       const { model } = aiPrefs();
@@ -370,7 +378,7 @@ function KeepPage() {
           contentKind: res.contentKind,
           aiPending: false,
         });
-        if (res.summary || res.contentKind) {
+        if (!silent && (res.summary || res.contentKind)) {
           toast.message(`Gemini önerisi: ${res.contentKind || "İçerik"} · ${res.category}`);
         }
       if (res.modelFallback) {
@@ -383,8 +391,10 @@ function KeepPage() {
       }
     } catch (e) {
       keep.update(card.id, { aiPending: false });
-      handleAiError(e);
+      if (!silent) handleAiError(e);
+      return false;
     }
+    return true;
   }
 
   function addFromText() {
@@ -816,7 +826,7 @@ function Card({
         {card.summary && <p className="max-h-24 overflow-hidden text-xs leading-relaxed text-muted-foreground">{cleanCardText(card.summary, 300)}</p>}
         {!card.summary && card.type === "note" && card.text && (
           <p className="max-h-24 overflow-hidden text-sm leading-relaxed text-foreground/90">
-            {isRawDocumentText(card.text) ? "PDF belgesi · ham içerik gizlendi" : cleanCardText(card.text)}
+            {isRawDocumentText(card.text) ? "PDF belgesi · ham içerik gizlendi" : cleanCardText(card.text, 300)}
           </p>
         )}
         {card.type === "file" && card.fileId && (
