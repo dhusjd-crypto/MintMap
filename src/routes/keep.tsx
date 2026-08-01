@@ -29,6 +29,7 @@ import { shareContent } from "@/lib/share";
 import { listShared, clearShared, sharedToFile } from "@/lib/share-inbox";
 import { putImage, getImageUrl, getImageDataUrl } from "@/lib/image-blobs";
 import { extractPdfText } from "@/lib/pdf-thumbs";
+import { decodeHtmlEntities } from "@/lib/text-normalize";
 
 export const Route = createFileRoute("/keep")({
   head: () => ({
@@ -64,6 +65,13 @@ function hostOf(url?: string) {
 function isRawDocumentText(value?: string) {
   if (!value || value.length < 120) return false;
   return /%PDF-|\b(?:endobj|endstream|xref|obj)\b|\/Type\/Page|FlateDecode|<<\s*\/Pages/i.test(value);
+}
+
+function cleanCardText(value?: string, maxLength = 360) {
+  if (!value) return "";
+  const cleaned = decodeHtmlEntities(value).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  if (cleaned.length <= maxLength) return cleaned;
+  return `${cleaned.slice(0, maxLength).replace(/\s+\S*$/, "")}…`;
 }
 function aiPrefs(): { provider?: "gemini" | "openai" | "gateway"; model?: string } {
   if (typeof window === "undefined") return {};
@@ -156,7 +164,7 @@ function KeepPage() {
   // expose that binary/object stream in the feed; keep the card scannable.
   function sanitizeLegacyDocumentCards() {
     for (const card of keep.list()) {
-      if (card.type !== "note" || !isRawDocumentText(card.text)) continue;
+      if (card.type === "note" && isRawDocumentText(card.text)) {
       keep.update(card.id, {
         text: undefined,
         title: card.title || "PDF belgesi",
@@ -166,6 +174,16 @@ function KeepPage() {
           "PDF belgesi. Ham dosya verisi gizlendi; dosyayı yeniden paylaşarak Gemini ile kısa özet oluşturabilirsin.",
         aiPending: false,
       });
+        continue;
+      }
+      const text = cleanCardText(card.text);
+      const description = cleanCardText(card.meta?.description);
+      const patch: Partial<KeepCard> = {};
+      if (card.text && text !== card.text) patch.text = text;
+      if (card.meta?.description && description !== card.meta.description) {
+        patch.meta = { ...card.meta, description };
+      }
+      if (Object.keys(patch).length) keep.update(card.id, patch);
     }
   }
 
@@ -754,8 +772,8 @@ function Card({
         )}
         {card.summary && <p className="max-h-20 overflow-hidden text-xs leading-relaxed text-muted-foreground">{card.summary}</p>}
         {card.type === "note" && card.text && (
-          <p className="max-h-32 overflow-hidden whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
-            {isRawDocumentText(card.text) ? "PDF belgesi · ham içerik gizlendi" : card.text}
+          <p className="max-h-24 overflow-hidden text-sm leading-relaxed text-foreground/90">
+            {isRawDocumentText(card.text) ? "PDF belgesi · ham içerik gizlendi" : cleanCardText(card.text)}
           </p>
         )}
         {card.type === "file" && card.fileId && (

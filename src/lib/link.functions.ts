@@ -1,19 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
+import { decodeHtmlEntities } from "./text-normalize";
 
 // Server-side fetch of a URL's Open Graph / title metadata so link cards can
 // show a title + thumbnail (like a Keep bookmark). Runs on the server to dodge
 // browser CORS. Best-effort: returns whatever it can parse, never throws.
 
 function decodeEntities(s: string): string {
-  return s
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#0?39;/g, "'")
-    .replace(/&#x27;/gi, "'")
-    .replace(/&nbsp;/g, " ")
-    .trim();
+  return decodeHtmlEntities(s).trim();
 }
 
 export const fetchLinkMeta = createServerFn({ method: "POST" })

@@ -25,6 +25,29 @@ export function repairMojibake(value: string): string {
   return current;
 }
 
+/** Converts HTML entities from shared-page descriptions into readable text. */
+export function decodeHtmlEntities(value: string): string {
+  let current = value;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const next = current
+      .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => {
+        try { return String.fromCodePoint(Number.parseInt(hex, 16)); } catch { return ""; }
+      })
+      .replace(/&#(\d+);/g, (_, digits: string) => {
+        try { return String.fromCodePoint(Number.parseInt(digits, 10)); } catch { return ""; }
+      })
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#0?39;|&#x27;/gi, "'")
+      .replace(/&nbsp;/gi, " ");
+    if (next === current) break;
+    current = next;
+  }
+  return current;
+}
+
 /** Repairs text at every level of a persisted JSON-like object. */
 export function repairTextTree<T>(value: T): T {
   if (typeof value === "string") return repairMojibake(value) as T;
