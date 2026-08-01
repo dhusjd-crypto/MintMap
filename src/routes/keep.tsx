@@ -14,6 +14,11 @@ import {
   Search,
   Paperclip,
   FileText,
+  Scale,
+  Utensils,
+  TrendingUp,
+  BriefcaseBusiness,
+  BookOpen,
   Download,
   X,
 } from "lucide-react";
@@ -72,6 +77,38 @@ function cleanCardText(value?: string, maxLength = 360) {
   const cleaned = decodeHtmlEntities(value).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
   if (cleaned.length <= maxLength) return cleaned;
   return `${cleaned.slice(0, maxLength).replace(/\s+\S*$/, "")}…`;
+}
+
+function coverFor(card: KeepCard) {
+  const key = `${card.category ?? ""} ${card.contentKind ?? ""}`.toLocaleLowerCase("tr-TR");
+  if (key.includes("hukuk") || key.includes("sözleş") || key.includes("miras")) {
+    return { label: "Hukuk", Icon: Scale, color: "#52658a", tint: "#e7edf8" };
+  }
+  if (key.includes("yemek") || key.includes("tarif")) {
+    return { label: "Yemek", Icon: Utensils, color: "#a5643f", tint: "#faeee6" };
+  }
+  if (key.includes("yatırım") || key.includes("borsa") || key.includes("finans")) {
+    return { label: "Yatırım", Icon: TrendingUp, color: "#3d8760", tint: "#e4f3e8" };
+  }
+  if (key.includes("iş") || key.includes("proje")) {
+    return { label: "İş", Icon: BriefcaseBusiness, color: "#8c6a35", tint: "#f8f0df" };
+  }
+  return { label: card.contentKind || card.category || "Gemini özeti", Icon: BookOpen, color: "#397f87", tint: "#e2f3f3" };
+}
+
+function GeminiCover({ card }: { card: KeepCard }) {
+  const { label, Icon, color, tint } = coverFor(card);
+  return (
+    <div className="flex h-20 items-center gap-3 px-4" style={{ backgroundColor: tint, color }} aria-label={`${label} kapak görseli`}>
+      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/75 shadow-sm">
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold uppercase tracking-[0.12em] opacity-75">Gemini</p>
+        <p className="truncate text-sm font-semibold">{label}</p>
+      </div>
+    </div>
+  );
 }
 function aiPrefs(): { provider?: "gemini" | "openai" | "gateway"; model?: string } {
   if (typeof window === "undefined") return {};
@@ -762,6 +799,7 @@ function Card({
           />
         </a>
       )}
+      {!thumb && (card.summary || card.contentKind) && <GeminiCover card={card} />}
       <div className="space-y-1.5 p-3">
         {card.title && <p className="text-sm font-semibold leading-snug">{card.title}</p>}
         {(card.contentKind || card.category) && (
