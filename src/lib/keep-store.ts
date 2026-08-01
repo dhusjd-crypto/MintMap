@@ -1,5 +1,6 @@
 import { useCallback, useSyncExternalStore } from "react";
 import { nanoid } from "nanoid";
+import { repairTextTree } from "./text-normalize";
 import { deleteImage, getImageDataUrl, putImage } from "./image-blobs";
 
 // A Google-Keep-style capture box. The user throws in notes, links
@@ -49,8 +50,12 @@ function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw) as KeepCard[];
-      if (Array.isArray(parsed)) cards = parsed;
+      const parsed = repairTextTree(JSON.parse(raw)) as KeepCard[];
+      if (Array.isArray(parsed)) {
+        cards = parsed;
+        // Persist repaired legacy text so the next sync carries clean UTF-8.
+        persist();
+      }
     }
   } catch {
     cards = [];

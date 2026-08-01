@@ -728,7 +728,7 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
                   mindmap.addTodoActivity(node.id, todo.id, activityText);
                   setActivityText("");
                 }}
-                placeholder="GÃ¶rÃ¼ÅŸme yapÄ±ldÄ±, sonraki adÄ±m..."
+                placeholder="Görüşme yapıldı, sonraki adım..."
                 className="h-10 min-w-0 flex-1"
               />
               <button
@@ -781,7 +781,7 @@ function TaskAttachments({ nodeId, todo }: { nodeId: string; todo: Todo }) {
     try {
       for (const file of list) {
         if (file.size > 25 * 1024 * 1024) {
-          toast.error(`'${file.name}' 25 MB sÄ±nÄ±rÄ±nÄ± aÅŸÄ±yor`);
+          toast.error(`'${file.name}' 25 MB sınırını aşıyor`);
           continue;
         }
         const saved = await mindmap.addTodoAttachment(nodeId, todo.id, file);

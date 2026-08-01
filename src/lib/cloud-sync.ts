@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { keep, type KeepCard } from "./keep-store";
 import { mindmap, type MindNode, type StoreShape, type Todo, type Workspace } from "./mindmap-store";
 import { pullCloudSnapshot, pushCloudSnapshot } from "./sync.functions";
+import { repairTextTree } from "./text-normalize";
 
 type CloudSnapshot = { version: 1; mindmap: StoreShape; keep: KeepCard[] };
 const DEBOUNCE_MS = 2_500;
@@ -130,7 +131,7 @@ function cloudSnapshot(): CloudSnapshot {
 
 function parseSnapshot(raw: string): CloudSnapshot | null {
   try {
-    const parsed = JSON.parse(raw) as CloudSnapshot;
+    const parsed = repairTextTree(JSON.parse(raw)) as CloudSnapshot;
     if (parsed?.version !== 1 || !parsed.mindmap?.workspaces || !Array.isArray(parsed.keep)) return null;
     return parsed;
   } catch {

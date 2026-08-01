@@ -2,6 +2,7 @@ import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { nanoid } from "nanoid";
 import type { NodeType } from "./node-types";
 import { parseQuickAdd } from "./nl-parser";
+import { repairTextTree } from "./text-normalize";
 
 export type TodoStep = { id: string; text: string; done: boolean };
 export type TodoActivity = { id: string; text: string; createdAt: number };
@@ -211,16 +212,18 @@ function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_V2);
     if (raw) {
-      const parsed = JSON.parse(raw) as StoreShape;
+      const parsed = repairTextTree(JSON.parse(raw)) as StoreShape;
       if (parsed?.workspaces?.length) {
         store = parsed;
+        // Persist repaired legacy text so other devices receive clean UTF-8.
+        persist();
         void hydrateImageBlobs().then(migrateInlineImages).then(sweepUnusedImageBlobs);
         return;
       }
     }
     const legacy = localStorage.getItem(STORAGE_KEY_V1);
     if (legacy) {
-      const nodes = JSON.parse(legacy) as MindNode[];
+      const nodes = repairTextTree(JSON.parse(legacy)) as MindNode[];
       const ws: Workspace = { id: nanoid(8), name: "Kişisel", emoji: "🌿", nodes };
       store = { workspaces: [ws], currentId: ws.id };
       persist();
