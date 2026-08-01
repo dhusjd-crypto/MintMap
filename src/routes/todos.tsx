@@ -153,6 +153,12 @@ function TodosPage() {
     else if (view.kind === "list") arr = arr.filter((x) => x.node.id === view.nodeId);
     if (tagFilter) arr = arr.filter((x) => x.todo.tags?.includes(tagFilter));
     const q = query.trim().toLowerCase();
+    // The default task view is a map of the work tree: show only root tasks
+    // until the user enters one. Search and focused views still surface child
+    // tasks directly so nothing becomes undiscoverable.
+    if (view.kind === "all" && !q && !tagFilter) {
+      arr = arr.filter((x) => !x.todo.parentId);
+    }
     if (q)
       arr = arr.filter(
         (x) =>
