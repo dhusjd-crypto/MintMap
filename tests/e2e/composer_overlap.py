@@ -37,7 +37,9 @@ async def main():
             await page.wait_for_timeout(800)
 
             fab = page.get_by_role("button", name="AI")
-            ekle = page.get_by_role("button", name="Görev ekle").last
+            # Keep the selector ASCII-only so runner locale/terminal encoding
+            # cannot turn the Turkish accessible name into a different query.
+            ekle = page.get_by_role("button").filter(has_text="Ekle").last
             await fab.wait_for(state="visible")
             await ekle.wait_for(state="visible")
 
