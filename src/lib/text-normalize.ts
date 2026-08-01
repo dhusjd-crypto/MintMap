@@ -33,6 +33,10 @@ export function decodeHtmlEntities(value: string): string {
       .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => {
         try { return String.fromCodePoint(Number.parseInt(hex, 16)); } catch { return ""; }
       })
+      // Older shared-page imports dropped the # in numeric entities.
+      .replace(/&x([0-9a-f]+);/gi, (_, hex: string) => {
+        try { return String.fromCodePoint(Number.parseInt(hex, 16)); } catch { return ""; }
+      })
       .replace(/&#(\d+);/g, (_, digits: string) => {
         try { return String.fromCodePoint(Number.parseInt(digits, 10)); } catch { return ""; }
       })

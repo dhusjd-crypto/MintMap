@@ -34,7 +34,7 @@ import { shareContent } from "@/lib/share";
 import { listShared, clearShared, sharedToFile } from "@/lib/share-inbox";
 import { putImage, getImageUrl, getImageDataUrl } from "@/lib/image-blobs";
 import { extractPdfText } from "@/lib/pdf-thumbs";
-import { decodeHtmlEntities } from "@/lib/text-normalize";
+import { decodeHtmlEntities, repairMojibake } from "@/lib/text-normalize";
 
 export const Route = createFileRoute("/keep")({
   head: () => ({
@@ -75,13 +75,16 @@ function isRawDocumentText(value?: string) {
 
 function cleanCardText(value?: string, maxLength = 360) {
   if (!value) return "";
-  const cleaned = decodeHtmlEntities(value).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const cleaned = repairMojibake(decodeHtmlEntities(value))
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   if (cleaned.length <= maxLength) return cleaned;
   return `${cleaned.slice(0, maxLength).replace(/\s+\S*$/, "")}…`;
 }
 
 function coverFor(card: KeepCard) {
-  const key = `${card.category ?? ""} ${card.contentKind ?? ""}`.toLocaleLowerCase("tr-TR");
+  const key = repairMojibake(`${card.category ?? ""} ${card.contentKind ?? ""}`).toLocaleLowerCase("tr-TR");
   if (key.includes("hukuk") || key.includes("sözleş") || key.includes("miras")) {
     return { label: "Hukuk", Icon: Scale, color: "#52658a", tint: "#e7edf8" };
   }
@@ -854,11 +857,11 @@ function Card({
       )}
       {!thumb && (card.summary || card.contentKind) && <GeminiCover card={card} />}
       <div className="space-y-1.5 p-3">
-        {card.title && <p className="text-sm font-semibold leading-snug">{card.title}</p>}
+        {card.title && <p className="text-sm font-semibold leading-snug">{cleanCardText(card.title, 140)}</p>}
         {(card.contentKind || card.category) && (
           <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold">
-            {card.contentKind && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary">{card.contentKind}</span>}
-            {card.category && <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">Gemini · {card.category}</span>}
+            {card.contentKind && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary">{cleanCardText(card.contentKind, 80)}</span>}
+            {card.category && <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">Gemini · {cleanCardText(card.category, 80)}</span>}
           </div>
         )}
         {card.summary && <p className="max-h-24 overflow-hidden text-xs leading-relaxed text-muted-foreground">{cleanCardText(card.summary, 300)}</p>}
