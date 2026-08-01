@@ -71,7 +71,6 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
   const [showCalendar, setShowCalendar] = useState(false);
   const [calendarAt, setCalendarAt] = useState("");
   const [activityText, setActivityText] = useState("");
-  const [followUpText, setFollowUpText] = useState("");
   const [calendarBusy, setCalendarBusy] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiScheduleBusy, setAiScheduleBusy] = useState(false);
@@ -141,7 +140,6 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
     setShowCalendar(false);
     setCalendarAt("");
     setActivityText("");
-    setFollowUpText("");
   }, [todoId]);
 
   if (!node || !todo) return null;
@@ -180,13 +178,12 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
     upd({ focus: true });
   };
 
-  const addFollowUp = () => {
-    const text = followUpText.trim();
+  const addSubtask = () => {
+    const text = subtaskText.trim();
     if (!text) return;
-    const followUp = mindmap.addTodo(node.id, text, todo.id);
-    setFollowUpText("");
+    mindmap.addTodo(node.id, text, todo.id);
+    setSubtaskText("");
     toast.success("Alt görev eklendi");
-    if (followUp) onSelectTodo?.(followUp.id);
   };
 
   const addToCalendar = async () => {
@@ -414,11 +411,7 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
             <div className="flex items-center gap-3 px-1 py-1">
               <button
                 type="button"
-                onClick={() => {
-                  if (!subtaskText.trim()) return;
-                  mindmap.addTodo(node.id, subtaskText.trim(), todo.id);
-                  setSubtaskText("");
-                }}
+                onClick={addSubtask}
                 disabled={!subtaskText.trim()}
                 aria-label="Alt görev ekle"
                 className="text-primary disabled:opacity-40"
@@ -429,21 +422,14 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
                 value={subtaskText}
                 onChange={(e) => setSubtaskText(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && subtaskText.trim()) {
-                    mindmap.addTodo(node.id, subtaskText.trim(), todo.id);
-                    setSubtaskText("");
-                  }
+                  if (e.key === "Enter") addSubtask();
                 }}
                 placeholder="Alt görev ekle"
                 className="h-7 flex-1 border-0 bg-transparent p-0 text-sm text-primary placeholder:text-primary shadow-none focus-visible:ring-0"
               />
               <button
                 type="button"
-                onClick={() => {
-                  if (!subtaskText.trim()) return;
-                  mindmap.addTodo(node.id, subtaskText.trim(), todo.id);
-                  setSubtaskText("");
-                }}
+                onClick={addSubtask}
                 disabled={!subtaskText.trim()}
                 aria-label="Alt görev ekle"
                 className="rounded-md bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
@@ -678,34 +664,6 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
               placeholder="Not ekle"
               className="min-h-[80px] resize-none border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
             />
-          </div>
-
-          <div className="mt-3 rounded-2xl border border-border bg-card p-3">
-            <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              <CornerDownRight className="h-3.5 w-3.5" />
-              Alt görev ekle
-            </div>
-            <div className="flex gap-2">
-              <Input
-                value={followUpText}
-                onChange={(event) => setFollowUpText(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key !== "Enter") return;
-                  event.preventDefault();
-                  addFollowUp();
-                }}
-                placeholder="Alt görev metni..."
-                className="h-10 min-w-0 flex-1"
-              />
-              <button
-                type="button"
-                onClick={addFollowUp}
-                disabled={!followUpText.trim()}
-                className="h-10 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground disabled:opacity-50"
-              >
-                Ekle
-              </button>
-            </div>
           </div>
 
           <TaskAttachments nodeId={node.id} todo={todo} />
