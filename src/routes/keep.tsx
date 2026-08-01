@@ -60,6 +60,11 @@ function hostOf(url?: string) {
     return url;
   }
 }
+
+function isRawDocumentText(value?: string) {
+  if (!value || value.length < 120) return false;
+  return /%PDF-|\b(?:endobj|endstream|xref|obj)\b|\/Type\/Page|FlateDecode|<<\s*\/Pages/i.test(value);
+}
 function aiPrefs(): { provider?: "gemini" | "openai" | "gateway"; model?: string } {
   if (typeof window === "undefined") return {};
   const provider = localStorage.getItem("mintmap.ai.provider") as "gemini" | "openai" | "gateway" | null;
@@ -144,6 +149,23 @@ function KeepPage() {
       if (!c.image || c.imageId) continue;
       const id = nanoid(12);
       if (await putImage(id, c.image)) keep.update(c.id, { imageId: id, image: undefined });
+    }
+  }
+
+  // Older Android share targets sometimes saved PDF bytes as a note. Never
+  // expose that binary/object stream in the feed; keep the card scannable.
+  function sanitizeLegacyDocumentCards() {
+    for (const card of keep.list()) {
+      if (card.type !== "note" || !isRawDocumentText(card.text)) continue;
+      keep.update(card.id, {
+        text: undefined,
+        title: card.title || "PDF belgesi",
+        contentKind: card.contentKind || "PDF belgesi",
+        summary:
+          card.summary ||
+          "PDF belgesi. Ham dosya verisi gizlendi; dosyayı yeniden paylaşarak Gemini ile kısa özet oluşturabilirsin.",
+        aiPending: false,
+      });
     }
   }
 
@@ -243,6 +265,7 @@ function KeepPage() {
       if (cancelled) return;
       setAiEnabled(enabled);
       await migrateLegacyImages();
+      sanitizeLegacyDocumentCards();
       await ingestShares(enabled);
     })();
     return () => {
@@ -729,9 +752,11 @@ function Card({
             {card.category && <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">Gemini · {card.category}</span>}
           </div>
         )}
-        {card.summary && <p className="text-xs leading-relaxed text-muted-foreground">{card.summary}</p>}
+        {card.summary && <p className="max-h-20 overflow-hidden text-xs leading-relaxed text-muted-foreground">{card.summary}</p>}
         {card.type === "note" && card.text && (
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">{card.text}</p>
+          <p className="max-h-32 overflow-hidden whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+            {isRawDocumentText(card.text) ? "PDF belgesi · ham içerik gizlendi" : card.text}
+          </p>
         )}
         {card.type === "file" && card.fileId && (
           <button
