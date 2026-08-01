@@ -677,7 +677,7 @@ function TodosPage() {
       </div>
 
       {/* Composer */}
-      <div className="shrink-0 border-t border-border bg-card px-4 py-3 pr-[calc(1rem+4.5rem)] sm:pr-4">
+      <div className="shrink-0 border-t border-border bg-card px-4 py-3 pr-[calc(1rem+4.5rem)]">
         <div
           role="status"
           aria-live="polite"
