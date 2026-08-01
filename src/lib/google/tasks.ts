@@ -15,6 +15,8 @@ export type GoogleTaskInput = {
   done?: boolean;
   googleTaskId?: string;
   googleTaskListId?: string;
+  /** MintMap task key used to place a child below its parent in Google Tasks. */
+  parentKey?: string;
 };
 
 export function toGoogleTaskBody(task: GoogleTaskInput) {
@@ -71,17 +73,20 @@ export async function googleTasksSyncPush({
 }> {
   const listId = await getMintMapListId();
   const results: Array<{ key: string; googleTaskId: string; error?: string }> = [];
+  const idsByKey = new Map<string, string>();
   for (const task of data.items) {
     try {
       const id = task.googleTaskListId === listId ? task.googleTaskId : undefined;
+      const parentId = task.parentKey ? idsByKey.get(task.parentKey) : undefined;
       const path = id
         ? `/lists/${encodeURIComponent(listId)}/tasks/${encodeURIComponent(id)}`
-        : `/lists/${encodeURIComponent(listId)}/tasks`;
+        : `/lists/${encodeURIComponent(listId)}/tasks${parentId ? `?parent=${encodeURIComponent(parentId)}` : ""}`;
       const json = await tasksFetch<GoogleTask>(path, {
         method: id ? "PATCH" : "POST",
         body: JSON.stringify(toGoogleTaskBody(task)),
       });
       if (!json.id) throw new Error("Google Tasks görev kimliği dönmedi");
+      idsByKey.set(task.key, json.id);
       results.push({ key: task.key, googleTaskId: json.id });
     } catch (error) {
       results.push({ key: task.key, googleTaskId: task.googleTaskId ?? "", error: (error as Error).message });

@@ -134,21 +134,25 @@ export function AIChat({
         mindmap.addTodo(nodeId, text, null, extra);
         // The store generates the id internally; find it back as the last task.
         const newTask = mindmap.workspace.current()?.nodes.find((n) => n.id === nodeId)?.todos.at(-1);
-        const steps = Array.isArray(args.steps) ? (args.steps as unknown[]).map(String).filter(Boolean) : [];
-        if (newTask && steps.length) steps.forEach((s) => mindmap.addStep(nodeId, newTask.id, s));
+        const subtasks = Array.isArray(args.subtasks)
+          ? (args.subtasks as unknown[]).map(String).filter(Boolean)
+          : Array.isArray(args.steps) ? (args.steps as unknown[]).map(String).filter(Boolean) : [];
+        if (newTask && subtasks.length) subtasks.forEach((text) => mindmap.addTodo(nodeId, text, newTask.id));
         return {
           ok: true,
-          summary: `Görev: "${text}" → ${node.title}${steps.length ? ` (+${steps.length} adım)` : ""}`,
+          summary: `Görev: "${text}" → ${node.title}${subtasks.length ? ` (+${subtasks.length} alt görev)` : ""}`,
           result: { id: newTask?.id, nodeId },
         };
       }
       if (name === "add_subtasks") {
         const nodeId = String(args.nodeId ?? "");
         const taskId = String(args.taskId ?? "");
-        const steps = Array.isArray(args.steps) ? (args.steps as unknown[]).map(String).filter(Boolean) : [];
-        if (!steps.length) throw new Error("steps boş");
-        steps.forEach((s) => mindmap.addStep(nodeId, taskId, s));
-        return { ok: true, summary: `${steps.length} alt adım eklendi`, result: { count: steps.length } };
+        const subtasks = Array.isArray(args.subtasks)
+          ? (args.subtasks as unknown[]).map(String).filter(Boolean)
+          : Array.isArray(args.steps) ? (args.steps as unknown[]).map(String).filter(Boolean) : [];
+        if (!subtasks.length) throw new Error("alt görev listesi boş");
+        subtasks.forEach((text) => mindmap.addTodo(nodeId, text, taskId));
+        return { ok: true, summary: `${subtasks.length} alt görev eklendi`, result: { count: subtasks.length } };
       }
       if (name === "update_task") {
         const nodeId = String(args.nodeId ?? "");

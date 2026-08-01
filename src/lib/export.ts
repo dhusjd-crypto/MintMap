@@ -12,10 +12,11 @@ export function exportMarkdown(nodes: MindNode[]): string {
     if (n.note?.trim()) lines.push("", n.note.trim(), "");
     if (n.tags?.length) lines.push(`*Etiketler:* ${n.tags.map((t) => `\`${t}\``).join(" ")}`, "");
     if (n.todos?.length) {
-      for (const t of n.todos) {
-        lines.push(`- [${t.done ? "x" : " "}] ${t.text}`);
-        for (const s of t.steps ?? []) lines.push(`  - [${s.done ? "x" : " "}] ${s.text}`);
-      }
+      const writeTodo = (t: (typeof n.todos)[number], todoDepth: number) => {
+        lines.push(`${"  ".repeat(todoDepth)}- [${t.done ? "x" : " "}] ${t.text}`);
+        n.todos.filter((child) => child.parentId === t.id).forEach((child) => writeTodo(child, todoDepth + 1));
+      };
+      n.todos.filter((todo) => !todo.parentId).forEach((todo) => writeTodo(todo, 0));
       lines.push("");
     }
     nodes.filter((c) => c.parentId === id).forEach((c) => visit(c.id, depth + 1));
@@ -72,7 +73,7 @@ export function exportICS(nodes: MindNode[]): string {
         `DTSTART:${icsDate(start)}`,
         `DTEND:${icsDate(end)}`,
         `SUMMARY:${escIcs(t.text)}`,
-        `DESCRIPTION:${escIcs(n.title)}${t.steps?.length ? "\\n" + escIcs(t.steps.map((s) => "• " + s.text).join("\n")) : ""}`,
+        `DESCRIPTION:${escIcs(n.title)}${n.todos.some((child) => child.parentId === t.id) ? "\\n" + escIcs(n.todos.filter((child) => child.parentId === t.id).map((child) => "• " + child.text).join("\n")) : ""}`,
         `STATUS:${t.done ? "COMPLETED" : "CONFIRMED"}`,
       );
       if (t.reminderAt && t.reminderAt < start) {

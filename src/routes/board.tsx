@@ -128,8 +128,8 @@ function BoardPage() {
                     </div>
                   ) : (
                     items.map((c) => {
-                      const stepsDone = (c.todo.steps ?? []).filter((s) => s.done).length;
-                      const stepsTotal = (c.todo.steps ?? []).length;
+                      const childTasks = nodes.find((node) => node.id === c.nodeId)?.todos.filter((todo) => todo.parentId === c.todo.id) ?? [];
+                      const subtasksDone = childTasks.filter((task) => task.done).length;
                       const overdue =
                         c.todo.dueAt && c.todo.dueAt < Date.now() && statusOf(c.todo) !== "done";
                       return (
@@ -176,10 +176,10 @@ function BoardPage() {
                             )}
                             {c.todo.reminderAt && <Bell className="h-2.5 w-2.5 text-muted-foreground" />}
                             {c.todo.recurrence && <Repeat className="h-2.5 w-2.5 text-muted-foreground" />}
-                            {stepsTotal > 0 && (
+                            {childTasks.length > 0 && (
                               <span className="inline-flex items-center gap-0.5 text-muted-foreground">
                                 <ListChecks className="h-2.5 w-2.5" />
-                                {stepsDone}/{stepsTotal}
+                                {subtasksDone}/{childTasks.length}
                               </span>
                             )}
                           </div>

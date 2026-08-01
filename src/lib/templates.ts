@@ -79,7 +79,7 @@ export const TEMPLATES: MindTemplate[] = [
       { title: "Gündem", color: "oklch(0.86 0.06 230)" },
       { title: "Kararlar", color: "oklch(0.86 0.07 150)" },
       { title: "Aksiyon maddeleri", color: "oklch(0.86 0.08 60)", todos: ["Sorumlu ata", "Tarih belirle"] },
-      { title: "Sonraki adım", color: "oklch(0.86 0.07 280)" },
+      { title: "Alt görevler", color: "oklch(0.86 0.07 280)" },
     ],
   },
   {

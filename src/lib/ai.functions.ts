@@ -266,11 +266,11 @@ export const aiBreakdownTask = createServerFn({ method: "POST" }).middleware([re
         {
           role: "system",
           content:
-            "Sen bir verimlilik koçusun. Bir görevi 3-6 net, sıralı, küçük adıma böl. Türkçe yanıt ver. Sadece JSON: {\"items\":[\"...\"]}.",
+            "Sen bir verimlilik koçusun. Bir görevi 3-6 net, sıralı, uygulanabilir alt göreve böl. Türkçe yanıt ver. Sadece JSON: {\"items\":[\"...\"]}.",
         },
         {
           role: "user",
-          content: `${data.context ? `Bağlam: ${data.context}\n` : ""}Görev: ${data.text}\n3-6 adım üret. Her adım 2-7 kelime, fiil ile başlasın.`,
+          content: `${data.context ? `Bağlam: ${data.context}\n` : ""}Görev: ${data.text}\n3-6 alt görev üret. Her alt görev 2-7 kelime, fiil ile başlasın.`,
         },
       ],
       true,
@@ -523,7 +523,7 @@ const CHAT_TOOLS = [
           starred: { type: "boolean" },
           myDay: { type: "boolean", description: "Günüm görünümüne eklensin mi." },
           tags: { type: "array", items: { type: "string" } },
-          steps: { type: "array", items: { type: "string" }, description: "Alt adımlar." },
+          subtasks: { type: "array", items: { type: "string" }, description: "Ana görevin alt görevleri." },
         },
         required: ["nodeId", "text"],
       },
@@ -533,15 +533,15 @@ const CHAT_TOOLS = [
     type: "function",
     function: {
       name: "add_subtasks",
-      description: "Var olan bir göreve alt adımlar ekle.",
+      description: "Var olan bir göreve alt görevler ekle.",
       parameters: {
         type: "object",
         properties: {
           nodeId: { type: "string" },
           taskId: { type: "string" },
-          steps: { type: "array", items: { type: "string" } },
+          subtasks: { type: "array", items: { type: "string" } },
         },
-        required: ["nodeId", "taskId", "steps"],
+        required: ["nodeId", "taskId", "subtasks"],
       },
     },
   },
@@ -592,7 +592,7 @@ export const aiChatStep = createServerFn({ method: "POST" }).middleware([require
         "- Düğüm ve görev ID'lerini AŞAĞIDAKİ workspace bağlamından al; UYDURMA.\n" +
         "- Uygun bir üst düğüm yoksa önce create_node ile oluştur, sonra dönen id ile create_task çağır.\n" +
         "- Tarihler ISO 8601 (örn. 2026-06-25T09:00). Kullanıcı saat belirtmezse 09:00 kabul et.\n" +
-        "- Birden çok araç çağrısını TEK BİR adımda paralel yap.\n" +
+            "- Birden çok araç çağrısını TEK BİR yanıtta paralel yap.\n" +
         "- Araç sonuçları geldikten sonra kullanıcıya kısa Türkçe özet ver." +
         (data.context ? `\n\n[Workspace bağlamı]\n${data.context.slice(0, 6000)}` : ""),
     };
@@ -631,7 +631,7 @@ export const aiExtractVoiceTask = createServerFn({ method: "POST" }).middleware(
             "Türkçe sesli notu yapılandırılmış bir göreve dönüştür. Tarih/saat ifadelerini (yarın, bu akşam, 9'da, 30 dakika sonra, salı 14:00) verilen 'şimdi' anına göre çöz. " +
             "Saat verilmemişse hatırlatma için 09:00 kabul et. Kullanıcı 'hatırlat' demese bile zaman bilgisi varsa reminderAtISO doldur. " +
             "Uygun düğümü mevcut düğümlerden seç (id ile); hiçbiri uymuyorsa suggestedNodeTitle ver. " +
-            "Sadece JSON döndür: {\"text\":\"görev metni\",\"dueAtISO\":\"...\",\"reminderAtISO\":\"...\",\"nodeId\":\"...\",\"suggestedNodeTitle\":\"...\",\"tags\":[\"...\"],\"steps\":[\"...\"],\"starred\":false,\"myDay\":true}. " +
+            "Sadece JSON döndür: {\"text\":\"görev metni\",\"dueAtISO\":\"...\",\"reminderAtISO\":\"...\",\"nodeId\":\"...\",\"suggestedNodeTitle\":\"...\",\"tags\":[\"...\"],\"subtasks\":[\"...\"],\"starred\":false,\"myDay\":true}. " +
             "Bilinmeyen alanları boş bırak veya çıkar.",
         },
         {
@@ -656,6 +656,7 @@ export const aiExtractVoiceTask = createServerFn({ method: "POST" }).middleware(
       nodeId?: string;
       suggestedNodeTitle?: string;
       tags?: unknown[];
+      subtasks?: unknown[];
       steps?: unknown[];
       starred?: boolean;
       myDay?: boolean;
@@ -668,7 +669,9 @@ export const aiExtractVoiceTask = createServerFn({ method: "POST" }).middleware(
       nodeId,
       suggestedNodeTitle: obj?.suggestedNodeTitle ? String(obj.suggestedNodeTitle).trim() : undefined,
       tags: Array.isArray(obj?.tags) ? obj!.tags.map((t) => String(t).replace(/^#/, "").toLowerCase().trim()).filter(Boolean).slice(0, 6) : [],
-      steps: Array.isArray(obj?.steps) ? obj!.steps.map((s) => String(s).trim()).filter(Boolean).slice(0, 8) : [],
+      subtasks: Array.isArray(obj?.subtasks)
+        ? obj!.subtasks.map((s) => String(s).trim()).filter(Boolean).slice(0, 8)
+        : Array.isArray(obj?.steps) ? obj!.steps.map((s) => String(s).trim()).filter(Boolean).slice(0, 8) : [],
       starred: !!obj?.starred,
       myDay: obj?.myDay !== false,
     };

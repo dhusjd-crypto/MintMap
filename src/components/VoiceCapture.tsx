@@ -54,7 +54,7 @@ type Draft = {
   nodeId: string;
   newNodeTitle: string;
   tags: string[];
-  steps: string[];
+  subtasks: string[];
   starred: boolean;
   myDay: boolean;
 };
@@ -130,7 +130,7 @@ export function VoiceCapture({
         nodeId: res.nodeId || "",
         newNodeTitle: res.nodeId ? "" : (res.suggestedNodeTitle || ""),
         tags: res.tags,
-        steps: res.steps,
+        subtasks: res.subtasks,
         starred: res.starred,
         myDay: res.myDay,
       });
@@ -145,7 +145,7 @@ export function VoiceCapture({
         nodeId: "",
         newNodeTitle: "",
         tags: [],
-        steps: [],
+        subtasks: [],
         starred: false,
         myDay: true,
       });
@@ -239,8 +239,8 @@ export function VoiceCapture({
       ...(draft.tags.length ? { tags: draft.tags } : {}),
     });
     const newTask = mindmap.workspace.current()?.nodes.find((n) => n.id === nodeId)?.todos.at(-1);
-    if (newTask && draft.steps.length) {
-      draft.steps.forEach((s) => mindmap.addStep(nodeId, newTask.id, s));
+    if (newTask && draft.subtasks.length) {
+      draft.subtasks.forEach((text) => mindmap.addTodo(nodeId, text, newTask.id));
     }
     toast.success(
       reminderAt
@@ -265,7 +265,7 @@ export function VoiceCapture({
     setDraft((d) => (d ? { ...d, [k]: v } : d));
   };
   const removeTag = (t: string) => updateDraft("tags", draft!.tags.filter((x) => x !== t));
-  const removeStep = (i: number) => updateDraft("steps", draft!.steps.filter((_, idx) => idx !== i));
+  const removeSubtask = (i: number) => updateDraft("subtasks", draft!.subtasks.filter((_, idx) => idx !== i));
 
   return (
     <FormPanel
@@ -412,17 +412,17 @@ export function VoiceCapture({
                     </div>
                   )}
 
-                  {draft.steps.length > 0 && (
+                  {draft.subtasks.length > 0 && (
                     <div>
-                      <span className="text-[11px] font-semibold text-muted-foreground">Alt adımlar</span>
+                      <span className="text-[11px] font-semibold text-muted-foreground">Alt görevler</span>
                       <ul className="mt-1 space-y-1">
-                        {draft.steps.map((s, i) => (
+                        {draft.subtasks.map((text, i) => (
                           <li key={i} className="flex items-center gap-2 rounded-lg bg-muted/50 px-2 py-1 text-xs">
-                            <span className="flex-1">{s}</span>
+                            <span className="flex-1">{text}</span>
                             <button
-                              onClick={() => removeStep(i)}
+                              onClick={() => removeSubtask(i)}
                               className="text-muted-foreground hover:text-destructive"
-                              aria-label="Adımı kaldır"
+                              aria-label="Alt görevi kaldır"
                             >
                               <X className="h-3 w-3" />
                             </button>

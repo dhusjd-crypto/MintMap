@@ -160,7 +160,6 @@ function TodosPage() {
           (x.todo.note ?? "").toLowerCase().includes(q) ||
           x.node.title.toLowerCase().includes(q) ||
           (x.todo.tags ?? []).some((t) => t.toLowerCase().includes(q)) ||
-          (x.todo.steps ?? []).some((step) => step.text.toLowerCase().includes(q)) ||
           (x.todo.activity ?? []).some((entry) => entry.text.toLowerCase().includes(q)) ||
           (x.todo.attachments ?? []).some((attachment) => attachment.name.toLowerCase().includes(q)),
       );
@@ -784,8 +783,6 @@ function TaskRow({
   rank?: number;
   onStartDrag?: (event: React.PointerEvent<HTMLButtonElement>) => void;
 }) {
-  const stepCount = todo.steps?.length ?? 0;
-  const stepDone = todo.steps?.filter((s) => s.done).length ?? 0;
   const overdue = todo.dueAt && todo.dueAt < Date.now() && !todo.done;
   const blocked = !todo.done && isBlocked(todo, node.todos);
   const prio = todo.priority ? PRIORITY_META[todo.priority] : null;
@@ -923,11 +920,6 @@ function TaskRow({
                 hour: "2-digit",
                 minute: "2-digit",
               })}
-            </span>
-          )}
-          {stepCount > 0 && (
-            <span>
-              {stepDone}/{stepCount} adım
             </span>
           )}
           {subtaskProgress.total > 0 && (

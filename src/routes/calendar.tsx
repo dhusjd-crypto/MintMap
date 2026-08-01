@@ -222,8 +222,8 @@ function CalendarPage() {
                 : status === "today" ? Flame
                 : status === "done" ? CheckCircle2
                 : Clock;
-              const steps = todo.steps ?? [];
-              const stepsDone = steps.filter((s) => s.done).length;
+              const childTasks = nodes.find((node) => node.id === nodeId)?.todos.filter((item) => item.parentId === todo.id) ?? [];
+              const subtasksDone = childTasks.filter((item) => item.done).length;
               const timeLabel = todo.dueAt
                 ? new Date(todo.dueAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })
                 : null;
@@ -282,10 +282,10 @@ function CalendarPage() {
                             {todo.recurrence === "daily" ? "günlük" : todo.recurrence === "weekly" ? "haftalık" : "aylık"}
                           </span>
                         )}
-                        {steps.length > 0 && (
+                        {childTasks.length > 0 && (
                           <span className="inline-flex items-center gap-0.5">
                             <ListChecks className="h-3 w-3" />
-                            {stepsDone}/{steps.length}
+                            {subtasksDone}/{childTasks.length}
                           </span>
                         )}
                       </div>

@@ -69,7 +69,7 @@ function demoBody(messages: ChatMessage[], opts: ChatOptions): string {
     return JSON.stringify({
       text: shortTitle(user) || "Demo görev",
       tags: ["demo"],
-      steps: [],
+      subtasks: [],
       starred: false,
       myDay: true,
     });

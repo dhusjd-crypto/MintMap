@@ -48,14 +48,14 @@ async def main():
         await page.wait_for_timeout(300)
         print("  ✓ Enter on focused Ekle activated handler")
 
-        # TaskSheet: open first task to verify "Adım ekle" label
+        # TaskSheet: open first task to verify the unified subtask label
         first_task = page.locator("[data-testid='todo-item'], li, [role='listitem']").first
         # fallback: just click any task tile by text
         try:
             await page.get_by_text("test klavye görevi").first.click(timeout=2000)
             await page.wait_for_timeout(500)
             print("TaskSheet:")
-            await assert_named(page, "Adım ekle", min_count=1)
+            await assert_named(page, "Alt görev ekle", min_count=1)
         except Exception as e:
             print(f"  (TaskSheet open skipped: {e})")
 

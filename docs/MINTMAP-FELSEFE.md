@@ -59,20 +59,15 @@ ayni imkanlara sahip olabilir: tarih, hatirlatma, not, dosya ve takvim.
 Alt gorev, ust gorevin icinde gorunur; ana gorev listesini gereksiz yere
 kalabaliklastirmaz.
 
-### 4. Adim
+### 4. Alt gorev agaci
 
-Bir gorevi yapmak icin izlenecek kisa sirali kontrol noktasi. Adimlar genelde
-daha kucuk ve hafiftir; ayri bir planlama gerektirmez.
+Bir gorevin tamamlanmasina katkida bulunan her madde alt gorevdir. Kisa bir
+kontrol maddesi olarak yazilsa bile alt gorev, ana gorevle ayni planlama
+imkanlarina sahiptir: tarih, hatirlatma, not, dosya, etiket, oncelik ve takvim.
 
-Ornek gorev: `Mustafa Dali yarin 10'da ara`
-
-- Ajandaya aramayi ekle
-- Konusulacak konulari hazirla
-- Aramadan once alarm kur
-
-**Karar:** Kullanici gunluk planlama yapiyorsa alt gorev kullanir. Sadece
-kontrol listesi gerekiyorsa adim kullanir. Arayuzde bu fark acikca yazilmali;
-`Alt gorevler` ve `Adimlar` ayni sey gibi sunulmamali.
+Alt gorevler sinirsiz hiyerarsiyle birbirinin altina eklenebilir. Arayuzde
+`Adim` diye ayri bir veri turu yoktur; `AI ile bol` gibi bir islem de dogrudan
+alt gorevler uretir.
 
 ### 5. Not
 
@@ -98,11 +93,6 @@ Pano, ayni gorevlerin durum odakli gorunumudur; yeni bir gorev deposu degildir.
 Zamana bagli islerin gorunumudur. Tarih ve saat gerektiren gorevler burada
 gorunur. Takvim, gorev verisini kopyalamaz; gorevin zaman bilgisini gosterir.
 
-### 9. Pulse
-
-Kullanicinin bugunku ritmini ve yukunu gosteren ozet: gecikenler, oncelikler,
-odak ve tamamlananlar. Pulse yeni gorev ekleme yeri degil, durum okuma yeridir.
-
 ### 10. Mind map
 
 Baglam ve iliski haritasidir. Ne nereye bagli, hangi alan ne kadar yuk tasiyor
@@ -115,8 +105,7 @@ gecmez.
 |---|---|---|
 | Fikir, alan, proje baglami | Mind map | Not, gorev, dosya |
 | Yapilacak is | Gorevler | Pano, takvim, mind map |
-| Gorevin kucuk kontrol listesi | Adimlar | Gorev detay paneli |
-| Bagimsiz ara is | Alt gorev | Gorevler, takvim, pano |
+| Gorevin kucuk veya bagimsiz parcasi | Alt gorev | Gorevler, takvim, pano |
 | Ham link, gorsel, dosya | Kutu | Gorev veya dugume donusturme |
 | Durum akisi | Pano | Gorevler |
 | Tarih ve saat | Takvim | Gorevler |
@@ -125,8 +114,8 @@ gecmez.
 ## Karar Verilmis Sinirlar
 
 - Yeni bir sekme, mevcut bir gorunumun aynisini yapmayacak.
-- Alt gorevler ana gorevlerle ayni planlama imkanlarina sahip olacak; adimlar
-  hafif kontrol listesi olarak kalacak.
+- Adim ve alt gorev tek veri turudur. Her alt gorev ana gorevle ayni planlama
+  imkanlarina sahiptir.
 - Kutu, gorev listesine donusmeden once ham yakalama alani olarak kalacak.
 - AI, Kutu'da ozetleme ve kategorizasyon; gorevlerde parcalama ve zamanlama
   onerisi; takvimde ise kullanicinin onayladigi senkronizasyon icin kullanilacak.
@@ -143,7 +132,7 @@ gecmez.
 
 ### Asama 1: Gorevler ve ilerleme
 
-- Gorev, alt gorev ve adim ayrimini netlestir.
+- Tek alt gorev agacini kullan; eski adim kayitlarini kayipsiz donustur.
 - Mobilde ust gorev, alt gorev ve tamamlanma oranini tek bakista goster.
 - Surukle-birak siralamayi ve istege bagli numaralandirmayi sabitle.
 - Kayit, senkronizasyon ve hata geri bildirimlerini standartlastir.

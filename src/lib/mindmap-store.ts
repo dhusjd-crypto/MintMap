@@ -4,7 +4,6 @@ import type { NodeType } from "./node-types";
 import { parseQuickAdd } from "./nl-parser";
 import { repairTextTree } from "./text-normalize";
 
-export type TodoStep = { id: string; text: string; done: boolean };
 export type TodoActivity = { id: string; text: string; createdAt: number };
 export type Recurrence = "daily" | "weekly" | "monthly";
 export type TodoStatus = "todo" | "doing" | "done";
@@ -25,7 +24,6 @@ export type Todo = {
   focus?: boolean;
   myDay?: boolean;
   myDayAt?: number;
-  steps?: TodoStep[];
   tags?: string[];
   createdAt?: number;
   /** Last semantic change; used for conflict-free device reconciliation. */
@@ -194,12 +192,61 @@ function cloneStore(s: StoreShape): StoreShape {
       ...w,
       nodes: w.nodes.map((n) => ({
         ...n,
-        todos: n.todos.map((t) => ({ ...t, steps: t.steps ? t.steps.map((x) => ({ ...x })) : t.steps })),
+        todos: n.todos.map((t) => ({
+          ...t,
+          tags: t.tags ? [...t.tags] : t.tags,
+          reminderAts: t.reminderAts ? [...t.reminderAts] : t.reminderAts,
+          blockedBy: t.blockedBy ? [...t.blockedBy] : t.blockedBy,
+          attachments: t.attachments ? t.attachments.map((file) => ({ ...file })) : t.attachments,
+          activity: t.activity ? t.activity.map((entry) => ({ ...entry })) : t.activity,
+        })),
         tags: n.tags ? [...n.tags] : n.tags,
         links: n.links ? [...n.links] : n.links,
       })),
     })),
   };
+}
+
+type LegacyTodo = Todo & {
+  steps?: Array<{ id?: string; text?: string; done?: boolean }>;
+};
+
+/**
+ * Converts the old lightweight checklist entries into regular child todos.
+ * The migration is idempotent because the legacy `steps` field is removed
+ * from every converted task before the store is persisted again.
+ */
+function migrateLegacySteps(input: StoreShape): { store: StoreShape; changed: boolean } {
+  let changed = false;
+  const workspaces = input.workspaces.map((workspace) => ({
+    ...workspace,
+    nodes: workspace.nodes.map((node) => {
+      const todos = node.todos.flatMap((rawTodo) => {
+        const todo = rawTodo as LegacyTodo;
+        const legacySteps = todo.steps;
+        if (!Object.prototype.hasOwnProperty.call(todo, "steps")) return [todo];
+
+        changed = true;
+        const { steps: _steps, ...cleanTodo } = todo;
+        const createdAt = cleanTodo.createdAt ?? Date.now();
+        const children = (Array.isArray(legacySteps) ? legacySteps : [])
+          .map((step) => step.text?.trim())
+          .filter((text): text is string => !!text)
+          .map((text, index) => ({
+            id: nanoid(6),
+            text,
+            done: !!legacySteps?.[index]?.done,
+            status: legacySteps?.[index]?.done ? "done" as const : "todo" as const,
+            parentId: cleanTodo.id,
+            createdAt,
+            updatedAt: Date.now(),
+          }));
+        return [cleanTodo, ...children];
+      });
+      return { ...node, todos };
+    }),
+  }));
+  return { store: { ...input, workspaces }, changed };
 }
 
 function load() {
@@ -214,7 +261,8 @@ function load() {
     if (raw) {
       const parsed = repairTextTree(JSON.parse(raw)) as StoreShape;
       if (parsed?.workspaces?.length) {
-        store = parsed;
+        const migrated = migrateLegacySteps(parsed);
+        store = migrated.store;
         // Persist repaired legacy text so other devices receive clean UTF-8.
         persist();
         void hydrateImageBlobs().then(migrateInlineImages).then(sweepUnusedImageBlobs);
@@ -741,7 +789,6 @@ export const mindmap = {
       parentId,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      steps: [],
       ...extra,
       ...(dueAt ? { dueAt } : {}),
       ...(extra.recurrence === undefined && parsed.recurrence ? { recurrence: parsed.recurrence } : {}),
@@ -770,34 +817,6 @@ export const mindmap = {
   },
   setTodoStatus(id: string, todoId: string, status: TodoStatus) {
     this.updateTodo(id, todoId, { status, done: status === "done", completedAt: status === "done" ? Date.now() : undefined });
-  },
-  addStep(id: string, todoId: string, text: string) {
-    const ws = currentWs();
-    const n = ws?.nodes.find((x) => x.id === id);
-    const t = n?.todos.find((x) => x.id === todoId);
-    if (!n || !t) return;
-    this.updateTodo(id, todoId, {
-      steps: [...(t.steps ?? []), { id: nanoid(5), text, done: false }],
-    });
-  },
-  toggleStep(id: string, todoId: string, stepId: string) {
-    const ws = currentWs();
-    const n = ws?.nodes.find((x) => x.id === id);
-    const t = n?.todos.find((x) => x.id === todoId);
-    if (!n || !t) return;
-    this.updateTodo(id, todoId, {
-      steps: (t.steps ?? []).map((s) => (s.id === stepId ? { ...s, done: !s.done } : s)),
-    });
-  },
-  removeStep(id: string, todoId: string, stepId: string) {
-    const ws = currentWs();
-    const n = ws?.nodes.find((x) => x.id === id);
-    const t = n?.todos.find((x) => x.id === todoId);
-    if (!n || !t) return;
-    this.updateTodo(id, todoId, { steps: (t.steps ?? []).filter((s) => s.id !== stepId) });
-  },
-  reorderSteps(id: string, todoId: string, steps: TodoStep[]) {
-    this.updateTodo(id, todoId, { steps });
   },
   /** Reorders siblings while preserving the task tree and all task metadata. */
   reorderTodos(id: string, parentId: string | null, orderedIds: string[]) {
@@ -931,7 +950,6 @@ export const mindmap = {
           text,
           done: false,
           status: "todo",
-          steps: [],
           createdAt: Date.now(),
         })),
         createdAt: Date.now(),
@@ -1141,11 +1159,12 @@ export const mindmap = {
   },
   importFullSnapshot(s: StoreShape) {
     if (!s?.workspaces?.length) return;
+    const migrated = migrateLegacySteps(s);
     mutate(() => {
-      const currentId = s.workspaces.some((w) => w.id === s.currentId)
-        ? s.currentId
-        : s.workspaces[0].id;
-      store = { ...s, currentId };
+      const currentId = migrated.store.workspaces.some((w) => w.id === migrated.store.currentId)
+        ? migrated.store.currentId
+        : migrated.store.workspaces[0].id;
+      store = { ...migrated.store, currentId };
     });
     // An imported backup carries inline data URLs; move them straight back into
     // the blob store so they never hit the localStorage quota.

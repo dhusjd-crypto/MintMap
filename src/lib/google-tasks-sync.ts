@@ -60,10 +60,20 @@ export async function runGoogleTasksSync(): Promise<{ pushed: number; pulled: nu
   );
   if (!items.length) return { pushed: 0, pulled, errors };
 
+  const keyOf = (item: (typeof items)[number]) => `${item.wsId}:${item.nodeId}:${item.todo.id}`;
+  const itemById = new Map(items.map((item) => [item.todo.id, item]));
+  const depthOf = (item: (typeof items)[number], seen = new Set<string>()): number => {
+    if (!item.todo.parentId || seen.has(item.todo.id)) return 0;
+    const parent = itemById.get(item.todo.parentId);
+    if (!parent) return 0;
+    seen.add(item.todo.id);
+    return 1 + depthOf(parent, seen);
+  };
+  const orderedItems = [...items].sort((a, b) => depthOf(a) - depthOf(b));
   const result = await googleTasksSyncPush({
     data: {
-      items: items.map((item) => ({
-        key: `${item.wsId}:${item.nodeId}:${item.todo.id}`,
+      items: orderedItems.map((item) => ({
+        key: keyOf(item),
         title: item.todo.text,
         description: [
           `MintMap · ${item.wsName} · ${item.nodeTitle}`,
@@ -76,13 +86,16 @@ export async function runGoogleTasksSync(): Promise<{ pushed: number; pulled: nu
         done: item.todo.done,
         googleTaskId: item.todo.googleTaskId,
         googleTaskListId: item.todo.googleTaskListId,
+        parentKey: item.todo.parentId && itemById.has(item.todo.parentId)
+          ? keyOf(itemById.get(item.todo.parentId)!)
+          : undefined,
       })),
     },
   });
 
   let pushed = 0;
   result.results.forEach((entry) => {
-    const item = items.find((candidate) => `${candidate.wsId}:${candidate.nodeId}:${candidate.todo.id}` === entry.key);
+    const item = items.find((candidate) => keyOf(candidate) === entry.key);
     if (!item) return;
     if (entry.error) {
       errors += 1;

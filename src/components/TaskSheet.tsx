@@ -64,7 +64,7 @@ function toLocalInput(ts?: number) {
 export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
   const node = useNode(nodeId);
   const todo: Todo | undefined = node?.todos.find((t) => t.id === todoId);
-  const [stepText, setStepText] = useState("");
+  const [subtaskText, setSubtaskText] = useState("");
   const [showDue, setShowDue] = useState(false);
   const [showRem, setShowRem] = useState(false);
   const [showRec, setShowRec] = useState(false);
@@ -134,7 +134,7 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
   }, [node?.id, todo?.id]);
 
   useEffect(() => {
-    setStepText("");
+    setSubtaskText("");
     setShowDue(false);
     setShowRem(false);
     setShowRec(false);
@@ -251,11 +251,11 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
 
   const runBreakdown = async () => {
     setAiBusy(true);
-    const t = toast.loading("AI adımlara bölüyor...");
+    const t = toast.loading("AI alt görevlere bölüyor...");
     try {
       const res = await breakdown({ data: { text: todo.text, context: node.title } });
-      res.items.forEach((text) => mindmap.addStep(node.id, todo.id, text));
-      toast.success(`${res.items.length} adım eklendi`, { id: t });
+      res.items.forEach((text) => mindmap.addTodo(node.id, text, todo.id));
+      toast.success(`${res.items.length} alt görev eklendi`, { id: t });
     } catch (e) {
       toast.error((e as Error).message, { id: t });
     } finally {
@@ -354,63 +354,42 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
             </button>
           </div>
 
-          {(parentTask || childTasks.length > 0) && (
+          {parentTask && (
             <section className="mb-3 space-y-2 rounded-xl border border-border bg-muted/30 p-2.5" aria-label="Görev ilişkileri">
-              {parentTask && (
-                <button
-                  type="button"
-                  disabled={!onSelectTodo}
-                  onClick={() => onSelectTodo?.(parentTask.id)}
-                  className="flex min-h-10 w-full items-center gap-2 rounded-lg px-2 text-left text-sm hover:bg-background disabled:cursor-default disabled:hover:bg-transparent"
-                >
-                  <CornerDownRight className="h-4 w-4 shrink-0 text-primary" />
-                  <span className="shrink-0 text-xs font-semibold text-muted-foreground">Üst görev</span>
-                  <span className="min-w-0 flex-1 break-words font-medium">{parentTask.text}</span>
-                  {onSelectTodo && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
-                </button>
-              )}
-              {childTasks.length > 0 && (
-                <div>
-                  <div className="mb-1 flex items-center gap-2 px-2 text-xs font-semibold text-muted-foreground">
-                    <ListChecks className="h-4 w-4 text-primary" />
-                    Alt görevler · {childTasks.filter((item) => item.done).length}/{childTasks.length}
-                  </div>
-                  <div className="space-y-1">
-                    {childTasks.slice(0, 4).map((child) => (
-                      <button
-                        key={child.id}
-                        type="button"
-                        disabled={!onSelectTodo}
-                        onClick={() => onSelectTodo?.(child.id)}
-                        className="flex min-h-10 w-full items-center gap-2 rounded-lg px-2 text-left text-sm hover:bg-background disabled:cursor-default disabled:hover:bg-transparent"
-                      >
-                        <span className={`h-3.5 w-3.5 shrink-0 rounded-full border-2 ${child.done ? "border-primary bg-primary" : "border-muted-foreground/40"}`} />
-                        <span className={`min-w-0 flex-1 break-words ${child.done ? "text-muted-foreground line-through" : ""}`}>{child.text}</span>
-                        {onSelectTodo && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
-                      </button>
-                    ))}
-                    {childTasks.length > 4 && <p className="px-2 pt-1 text-xs text-muted-foreground">+{childTasks.length - 4} alt görev daha</p>}
-                  </div>
-                </div>
-              )}
+              <button
+                type="button"
+                disabled={!onSelectTodo}
+                onClick={() => onSelectTodo?.(parentTask.id)}
+                className="flex min-h-10 w-full items-center gap-2 rounded-lg px-2 text-left text-sm hover:bg-background disabled:cursor-default disabled:hover:bg-transparent"
+              >
+                <CornerDownRight className="h-4 w-4 shrink-0 text-primary" />
+                <span className="shrink-0 text-xs font-semibold text-muted-foreground">Üst görev</span>
+                <span className="min-w-0 flex-1 break-words font-medium">{parentTask.text}</span>
+                {onSelectTodo && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+              </button>
             </section>
           )}
 
-          {/* Steps */}
-          <div className="ml-9 space-y-1.5 pb-3">
-            {(todo.steps?.length ?? 0) > 0 && (
+          {/* Unified child-task tree */}
+          <section className="mb-3 rounded-xl border border-border bg-muted/30 p-2.5" aria-label="Alt görevler">
+            <div className="mb-1 flex items-center gap-2 px-2 text-xs font-semibold text-muted-foreground">
+              <ListChecks className="h-4 w-4 text-primary" />
+              Alt görevler · {childTasks.filter((item) => item.done).length}/{childTasks.length}
+            </div>
+            {childTasks.length > 0 && (
               <Reorder.Group
                 axis="y"
-                values={todo.steps ?? []}
-                onReorder={(next) => mindmap.reorderSteps(node.id, todo.id, next)}
+                values={childTasks}
+                onReorder={(next) => mindmap.reorderTodos(node.id, todo.id, next.map((item) => item.id))}
                 className="space-y-1.5"
               >
-                {(todo.steps ?? []).map((s) => (
-                  <StepItem
-                    key={s.id}
-                    step={s}
-                    onToggle={() => mindmap.toggleStep(node.id, todo.id, s.id)}
-                    onRemove={() => mindmap.removeStep(node.id, todo.id, s.id)}
+                {childTasks.map((child) => (
+                  <SubtaskItem
+                    key={child.id}
+                    todo={child}
+                    onToggle={() => mindmap.toggleTodo(node.id, child.id)}
+                    onOpen={() => onSelectTodo?.(child.id)}
+                    onRemove={() => mindmap.removeTodo(node.id, child.id)}
                   />
                 ))}
               </Reorder.Group>
@@ -419,37 +398,37 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
               <button
                 type="button"
                 onClick={() => {
-                  if (!stepText.trim()) return;
-                  mindmap.addStep(node.id, todo.id, stepText.trim());
-                  setStepText("");
+                  if (!subtaskText.trim()) return;
+                  mindmap.addTodo(node.id, subtaskText.trim(), todo.id);
+                  setSubtaskText("");
                 }}
-                disabled={!stepText.trim()}
-                aria-label="Adım ekle"
+                disabled={!subtaskText.trim()}
+                aria-label="Alt görev ekle"
                 className="text-primary disabled:opacity-40"
               >
                 <Plus className="h-4 w-4" />
               </button>
               <Input
-                value={stepText}
-                onChange={(e) => setStepText(e.target.value)}
+                value={subtaskText}
+                onChange={(e) => setSubtaskText(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && stepText.trim()) {
-                    mindmap.addStep(node.id, todo.id, stepText.trim());
-                    setStepText("");
+                  if (e.key === "Enter" && subtaskText.trim()) {
+                    mindmap.addTodo(node.id, subtaskText.trim(), todo.id);
+                    setSubtaskText("");
                   }
                 }}
-                placeholder="Adım ekle"
+                placeholder="Alt görev ekle"
                 className="h-7 flex-1 border-0 bg-transparent p-0 text-sm text-primary placeholder:text-primary shadow-none focus-visible:ring-0"
               />
               <button
                 type="button"
                 onClick={() => {
-                  if (!stepText.trim()) return;
-                  mindmap.addStep(node.id, todo.id, stepText.trim());
-                  setStepText("");
+                  if (!subtaskText.trim()) return;
+                  mindmap.addTodo(node.id, subtaskText.trim(), todo.id);
+                  setSubtaskText("");
                 }}
-                disabled={!stepText.trim()}
-                aria-label="Adım ekle"
+                disabled={!subtaskText.trim()}
+                aria-label="Alt görev ekle"
                 className="rounded-md bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
               >
                 Ekle
@@ -462,9 +441,9 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
               className="flex items-center gap-2 rounded-lg px-1 py-1 text-xs font-semibold text-primary disabled:opacity-50"
             >
               <Sparkles className="h-3.5 w-3.5" />
-              {aiBusy ? "Bölünüyor..." : "AI ile adımlara böl"}
+              {aiBusy ? "Bölünüyor..." : "AI ile alt görevlere böl"}
             </button>
-          </div>
+          </section>
 
 
           {/* Quick actions */}
@@ -687,7 +666,7 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
           <div className="mt-3 rounded-2xl border border-border bg-card p-3">
             <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               <CornerDownRight className="h-3.5 w-3.5" />
-              Sonraki adım
+              Alt görev ekle
             </div>
             <div className="flex gap-2">
               <Input
@@ -698,7 +677,7 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
                   event.preventDefault();
                   addFollowUp();
                 }}
-                placeholder="Alt görev olarak ekle..."
+                placeholder="Alt görev metni..."
                 className="h-10 min-w-0 flex-1"
               />
               <button
@@ -1015,19 +994,21 @@ function DependencyEditor({
   );
 }
 
-function StepItem({
-  step,
+function SubtaskItem({
+  todo,
   onToggle,
+  onOpen,
   onRemove,
 }: {
-  step: { id: string; text: string; done: boolean };
+  todo: Todo;
   onToggle: () => void;
+  onOpen: () => void;
   onRemove: () => void;
 }) {
   const controls = useDragControls();
   return (
     <Reorder.Item
-      value={step}
+      value={todo}
       dragListener={false}
       dragControls={controls}
       className="flex items-center gap-2 rounded-lg bg-card px-1 py-1"
@@ -1042,19 +1023,21 @@ function StepItem({
       <button
         onClick={onToggle}
         className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
-          step.done
+          todo.done
             ? "border-primary bg-primary text-primary-foreground"
             : "border-muted-foreground/40"
         }`}
       >
-        {step.done && <Check className="h-2.5 w-2.5" />}
+        {todo.done && <Check className="h-2.5 w-2.5" />}
       </button>
-      <span
-        className={`flex-1 text-sm ${step.done ? "text-muted-foreground line-through" : ""}`}
+      <button
+        type="button"
+        onClick={onOpen}
+        className={`min-w-0 flex-1 text-left text-sm ${todo.done ? "text-muted-foreground line-through" : ""}`}
       >
-        {step.text}
-      </span>
-      <button onClick={onRemove} className="text-muted-foreground/60">
+        {todo.text}
+      </button>
+      <button onClick={onRemove} aria-label="Alt görevi sil" className="text-muted-foreground/60 hover:text-destructive">
         <X className="h-4 w-4" />
       </button>
     </Reorder.Item>
