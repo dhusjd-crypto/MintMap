@@ -6,6 +6,7 @@ import {
   CalendarPlus,
   CalendarDays,
   Check,
+  ChevronRight,
   CornerDownRight,
   Crosshair,
   Flag,
@@ -74,6 +75,9 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
   const [calendarBusy, setCalendarBusy] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiScheduleBusy, setAiScheduleBusy] = useState(false);
+  const closeRef = useRef(onClose);
+  const historyKeyRef = useRef("");
+  const closedFromHistoryRef = useRef(false);
   const calendarAutomationEnabled = typeof window !== "undefined"
     && localStorage.getItem("mintmap.calendar.auto") !== "off"
     && hasGoogleGrant();
@@ -100,6 +104,36 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
   const planSchedule = useServerFn(aiPlanTaskSchedule);
 
   useEffect(() => {
+    closeRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!node || !todo || typeof window === "undefined") return;
+    const key = `task-sheet:${node.id}:${todo.id}:${Date.now()}`;
+    historyKeyRef.current = key;
+    const currentState = window.history.state ?? {};
+    window.history.pushState({ ...currentState, mintmapTaskSheet: key }, "", window.location.href);
+    (window as unknown as { __mintmapTaskSheetOpen?: string }).__mintmapTaskSheetOpen = key;
+
+    const onPopState = () => {
+      if (historyKeyRef.current !== key) return;
+      closedFromHistoryRef.current = true;
+      (window as unknown as { __mintmapTaskSheetOpen?: string }).__mintmapTaskSheetOpen = undefined;
+      closeRef.current();
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      const appWindow = window as unknown as { __mintmapTaskSheetOpen?: string };
+      if (appWindow.__mintmapTaskSheetOpen === key) appWindow.__mintmapTaskSheetOpen = undefined;
+      if (!closedFromHistoryRef.current && window.history.state?.mintmapTaskSheet === key) {
+        const { mintmapTaskSheet: _ignored, ...state } = window.history.state;
+        window.history.replaceState(state, "", window.location.href);
+      }
+    };
+  }, [node?.id, todo?.id]);
+
+  useEffect(() => {
     setStepText("");
     setShowDue(false);
     setShowRem(false);
@@ -113,6 +147,16 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
   if (!node || !todo) return null;
 
   const upd = (patch: Partial<Todo>) => mindmap.updateTodo(node.id, todo.id, patch);
+  const parentTask = todo.parentId ? node.todos.find((item) => item.id === todo.parentId) : undefined;
+  const childTasks = node.todos.filter((item) => item.parentId === todo.id);
+  const closeTaskSheet = () => {
+    const key = historyKeyRef.current;
+    if (key && typeof window !== "undefined" && window.history.state?.mintmapTaskSheet === key) {
+      window.history.back();
+      return;
+    }
+    closeRef.current();
+  };
 
   const toggleFocus = () => {
     if (todo.focus) {
@@ -242,7 +286,7 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
   return (
     <FormPanel
       open
-      onClose={onClose}
+      onClose={closeTaskSheet}
       title="Görevi düzenle"
       description={node.title}
       icon={<ListChecks className="h-4 w-4" />}
@@ -260,7 +304,7 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
               // lied: removeTodo goes through history, so it IS undoable.
               const text = todo.text;
               mindmap.removeTodo(node.id, todo.id);
-              onClose();
+              closeTaskSheet();
               toast.success(`'${text}' silindi`, {
                 action: { label: "Geri al", onClick: () => mindmap.undo() },
               });
@@ -309,6 +353,48 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
               />
             </button>
           </div>
+
+          {(parentTask || childTasks.length > 0) && (
+            <section className="mb-3 space-y-2 rounded-xl border border-border bg-muted/30 p-2.5" aria-label="Görev ilişkileri">
+              {parentTask && (
+                <button
+                  type="button"
+                  disabled={!onSelectTodo}
+                  onClick={() => onSelectTodo?.(parentTask.id)}
+                  className="flex min-h-10 w-full items-center gap-2 rounded-lg px-2 text-left text-sm hover:bg-background disabled:cursor-default disabled:hover:bg-transparent"
+                >
+                  <CornerDownRight className="h-4 w-4 shrink-0 text-primary" />
+                  <span className="shrink-0 text-xs font-semibold text-muted-foreground">Üst görev</span>
+                  <span className="min-w-0 flex-1 break-words font-medium">{parentTask.text}</span>
+                  {onSelectTodo && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                </button>
+              )}
+              {childTasks.length > 0 && (
+                <div>
+                  <div className="mb-1 flex items-center gap-2 px-2 text-xs font-semibold text-muted-foreground">
+                    <ListChecks className="h-4 w-4 text-primary" />
+                    Alt görevler · {childTasks.filter((item) => item.done).length}/{childTasks.length}
+                  </div>
+                  <div className="space-y-1">
+                    {childTasks.slice(0, 4).map((child) => (
+                      <button
+                        key={child.id}
+                        type="button"
+                        disabled={!onSelectTodo}
+                        onClick={() => onSelectTodo?.(child.id)}
+                        className="flex min-h-10 w-full items-center gap-2 rounded-lg px-2 text-left text-sm hover:bg-background disabled:cursor-default disabled:hover:bg-transparent"
+                      >
+                        <span className={`h-3.5 w-3.5 shrink-0 rounded-full border-2 ${child.done ? "border-primary bg-primary" : "border-muted-foreground/40"}`} />
+                        <span className={`min-w-0 flex-1 break-words ${child.done ? "text-muted-foreground line-through" : ""}`}>{child.text}</span>
+                        {onSelectTodo && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                      </button>
+                    ))}
+                    {childTasks.length > 4 && <p className="px-2 pt-1 text-xs text-muted-foreground">+{childTasks.length - 4} alt görev daha</p>}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
 
           {/* Steps */}
           <div className="ml-9 space-y-1.5 pb-3">

@@ -26,6 +26,9 @@ export function useAppBackNavigation(router: AnyRouter) {
     }
 
     const onPopState = (event: PopStateEvent) => {
+      // Task panels add their own history entry. Let that panel consume Back
+      // first, keeping the user on the current route (for example /todos).
+      if ((window as unknown as { __mintmapTaskSheetOpen?: string }).__mintmapTaskSheetOpen) return;
       const marker = (event.state as AppHistoryState | null)?.mintmapBack;
       if (marker === GUARD) {
         // Consume the one in-app guard. A deep-linked section returns to the
