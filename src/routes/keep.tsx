@@ -28,6 +28,7 @@ import { compressImages } from "@/lib/image-compress";
 import { shareContent } from "@/lib/share";
 import { listShared, clearShared, sharedToFile } from "@/lib/share-inbox";
 import { putImage, getImageUrl, getImageDataUrl } from "@/lib/image-blobs";
+import { extractPdfText } from "@/lib/pdf-thumbs";
 
 export const Route = createFileRoute("/keep")({
   head: () => ({
@@ -59,9 +60,9 @@ function hostOf(url?: string) {
     return url;
   }
 }
-function aiPrefs(): { provider?: "openai" | "gateway"; model?: string } {
+function aiPrefs(): { provider?: "gemini" | "openai" | "gateway"; model?: string } {
   if (typeof window === "undefined") return {};
-  const provider = localStorage.getItem("mintmap.ai.provider") as "openai" | "gateway" | null;
+  const provider = localStorage.getItem("mintmap.ai.provider") as "gemini" | "openai" | "gateway" | null;
   const model = localStorage.getItem("mintmap.ai.model") || undefined;
   return { provider: provider ?? undefined, model };
 }
@@ -165,8 +166,40 @@ function KeepPage() {
           await addImageCard(dataUrl, enabled);
           continue;
         }
+        const sharedFile = sharedToFile(it);
+        const likelyPdf = it.type === "application/pdf" || /\.pdf$/i.test(it.name);
         const rawUrl = (it.meta?.url || "").trim();
         const body = [it.meta?.title, it.meta?.text].filter(Boolean).join("\n").trim();
+        const signature = await sharedFile.slice(0, 8192).text().catch(() => "");
+        // Some Android share targets label a PDF as text/plain and expose its
+        // binary bytes through File.text(). Keep it as a file instead of
+        // rendering the PDF object stream as a giant note.
+        const pdfContent = likelyPdf || /%PDF-/.test(signature);
+        const binaryLooking = pdfContent || /\bobj\b|\/Type\/Page|\u0000/.test(`${body}\n${signature}`);
+        if (binaryLooking) {
+          const fileId = nanoid(12);
+          if (await putImage(fileId, sharedFile)) {
+            let fileText = "";
+            if (pdfContent) {
+              try {
+                fileText = await extractPdfText(sharedFile);
+              } catch {
+                // A scanned/image-only PDF can still be categorized by name/type.
+              }
+            }
+            const card = keep.add({
+              type: "file",
+              fileId,
+              fileName: it.name || "paylaşılan-dosya",
+              fileType: it.type || "application/octet-stream",
+              fileSize: it.size,
+              title: it.meta?.title || it.name || "Paylaşılan dosya",
+              aiPending: enabled,
+            });
+            if (enabled) void runCategorize(card, { fileText });
+          }
+          continue;
+        }
         if (rawUrl && looksLikeUrl(rawUrl)) {
           addLinkCard(rawUrl, enabled, it.meta?.title || undefined);
         } else if (body) {
@@ -218,10 +251,10 @@ function KeepPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function runCategorize(card: KeepCard) {
+  async function runCategorize(card: KeepCard, analysis: { fileText?: string } = {}) {
     keep.update(card.id, { aiPending: true });
     try {
-      const { provider, model } = aiPrefs();
+      const { model } = aiPrefs();
       // Vision needs the actual bytes — pull them back out of the blob store.
       const imageData =
         card.type === "image"
@@ -236,18 +269,27 @@ function KeepPage() {
           url: card.url,
           title: card.title,
           description: card.meta?.description,
+          fileName: card.fileName,
+          fileType: card.fileType,
+          fileText: analysis.fileText,
           image: imageData,
           existing: keep.categories(),
-          provider,
-          model,
+          // Kutu uses Gemini for the fast content-understanding pass.
+          provider: "gemini",
+          model: model?.startsWith("gemini") || model?.startsWith("models/gemini") ? model : undefined,
         },
       });
       keep.update(card.id, {
         category: res.category,
         tags: res.tags.length ? res.tags : card.tags,
-        title: card.title ?? res.title,
-        aiPending: false,
-      });
+          title: card.title ?? res.title,
+          summary: res.summary,
+          contentKind: res.contentKind,
+          aiPending: false,
+        });
+        if (res.summary || res.contentKind) {
+          toast.message(`Gemini önerisi: ${res.contentKind || "İçerik"} · ${res.category}`);
+        }
       if (res.modelFallback) {
         try {
           localStorage.removeItem("mintmap.ai.model");
@@ -323,7 +365,17 @@ function KeepPage() {
           aiPending: aiEnabled,
         });
         toast.success(`'${f.name}' eklendi`);
-        if (aiEnabled) runCategorize(card);
+        if (aiEnabled) {
+          let fileText = "";
+          if (f.type === "application/pdf" || /\.pdf$/i.test(f.name)) {
+            try {
+              fileText = await extractPdfText(f);
+            } catch {
+              // Image-only PDFs remain searchable by filename and type.
+            }
+          }
+          void runCategorize(card, { fileText });
+        }
       }
     } finally {
       setBusy(false);
@@ -671,6 +723,13 @@ function Card({
       )}
       <div className="space-y-1.5 p-3">
         {card.title && <p className="text-sm font-semibold leading-snug">{card.title}</p>}
+        {(card.contentKind || card.category) && (
+          <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold">
+            {card.contentKind && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary">{card.contentKind}</span>}
+            {card.category && <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">Gemini · {card.category}</span>}
+          </div>
+        )}
+        {card.summary && <p className="text-xs leading-relaxed text-muted-foreground">{card.summary}</p>}
         {card.type === "note" && card.text && (
           <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">{card.text}</p>
         )}

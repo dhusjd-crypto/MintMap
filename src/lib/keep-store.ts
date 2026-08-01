@@ -21,6 +21,8 @@ export type KeepCard = {
   fileType?: string; // MIME
   fileSize?: number;
   title?: string; // display title (link meta or AI-cleaned)
+  summary?: string; // short AI-generated description for scanning
+  contentKind?: string; // e.g. PDF belgesi, video, haber, ilan
   meta?: { description?: string; image?: string; siteName?: string };
   category?: string; // AI-assigned; empty => "Kategorisiz"
   tags?: string[];

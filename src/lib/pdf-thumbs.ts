@@ -23,6 +23,22 @@ export type PdfRenderResult = {
   pages: RenderedPage[]; // up to opts.maxPages
 };
 
+/** Extract readable text from the first pages of a PDF for local AI analysis. */
+export async function extractPdfText(file: File | Blob, maxChars = 12000): Promise<string> {
+  const pdfjs = await loadPdfjs();
+  const buf = await file.arrayBuffer();
+  const doc = await pdfjs.getDocument({ data: buf }).promise;
+  const pages = Math.min(doc.numPages, 12);
+  const chunks: string[] = [];
+  for (let i = 1; i <= pages && chunks.join("\n").length < maxChars; i++) {
+    const page = await doc.getPage(i);
+    const content = await page.getTextContent();
+    chunks.push(content.items.map((item) => ("str" in item ? item.str : "")).join(" "));
+    page.cleanup();
+  }
+  return chunks.join("\n").replace(/\s+/g, " ").trim().slice(0, maxChars);
+}
+
 export async function renderPdf(
   file: File | Blob,
   opts: { maxPages?: number; scale?: number; concurrency?: number } = {},

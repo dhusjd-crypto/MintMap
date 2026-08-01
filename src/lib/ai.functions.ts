@@ -807,6 +807,9 @@ export const aiCategorizeCard = createServerFn({ method: "POST" }).middleware([r
       url?: string;
       title?: string;
       description?: string;
+      fileName?: string;
+      fileType?: string;
+      fileText?: string;
       image?: string; // data URL (image cards only)
       existing?: string[];
       provider?: Provider;
@@ -823,13 +826,17 @@ export const aiCategorizeCard = createServerFn({ method: "POST" }).middleware([r
       "Sen bir içerik düzenleyicisin. Verilen öğeyi TEK bir kısa Türkçe kategoriye ata.\n" +
       "Örnek kategoriler: Ekran görüntüleri, Siteler, Filmler & Diziler, Yatırım, Alışveriş, İlham, Okuma listesi, Yemek, Seyahat, Müzik, İş, Kişisel.\n" +
       "Mevcut kategorilerden biri uygunsa MUTLAKA onu kullan. Uygun yoksa yeni, kısa (1-2 kelime) bir kategori üret.\n" +
-      "Ayrıca içeriği tanımlayan 2-4 kısa etiket ve kısa bir başlık (max 8 kelime) üret.\n" +
-      'Sadece JSON döndür: {"category":"...","tags":["..."],"title":"..."}.';
+      "Ayrıca içeriği tanımlayan 2-4 kısa etiket, kısa bir başlık (max 8 kelime), içerik türü ve 1-2 cümlelik özet üret.\n" +
+      "Tür örnekleri: PDF belgesi, fatura, sözleşme, haber, video, sosyal medya paylaşımı, ilan, tarif, ekran görseli, not.\n" +
+      'Sadece JSON döndür: {"category":"...","tags":["..."],"title":"...","contentKind":"...","summary":"..."}.';
 
     const parts: string[] = [];
     if (data.title) parts.push(`Başlık: ${data.title}`);
     if (data.url) parts.push(`URL: ${data.url}`);
     if (data.description) parts.push(`Açıklama: ${data.description}`);
+    if (data.fileName) parts.push(`Dosya adı: ${data.fileName}`);
+    if (data.fileType) parts.push(`Dosya türü: ${data.fileType}`);
+    if (data.fileText) parts.push(`Dosya metni: ${data.fileText.slice(0, 12000)}`);
     if (data.text) parts.push(`İçerik: ${data.text}`);
     if (data.existing?.length) parts.push(`Mevcut kategoriler: ${data.existing.join(", ")}`);
     const userText = parts.join("\n") || "(görsel içerik)";
@@ -858,7 +865,7 @@ export const aiCategorizeCard = createServerFn({ method: "POST" }).middleware([r
       { provider: data.provider, model: data.model, jsonMode: !isImage },
     );
     const raw = res.content;
-    const obj = parseJson<{ category?: string; tags?: unknown[]; title?: string }>(raw);
+    const obj = parseJson<{ category?: string; tags?: unknown[]; title?: string; contentKind?: string; summary?: string }>(raw);
     return {
       category: (obj?.category ?? "").toString().trim() || "Kategorisiz",
       tags: Array.isArray(obj?.tags)
@@ -868,6 +875,8 @@ export const aiCategorizeCard = createServerFn({ method: "POST" }).middleware([r
             .slice(0, 4)
         : [],
       title: obj?.title ? String(obj.title).trim().slice(0, 80) : undefined,
+      contentKind: obj?.contentKind ? String(obj.contentKind).trim().slice(0, 40) : undefined,
+      summary: obj?.summary ? String(obj.summary).trim().slice(0, 320) : undefined,
       modelFallback: res.modelFallback,
     };
   });
