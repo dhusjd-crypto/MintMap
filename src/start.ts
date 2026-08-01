@@ -1,4 +1,4 @@
-import { createStart, createMiddleware, createCsrfMiddleware } from "@tanstack/react-start";
+import { createStart, createMiddleware } from "@tanstack/react-start";
 
 import { renderErrorPage } from "./lib/error-page";
 
@@ -19,8 +19,19 @@ const errorMiddleware = createMiddleware().server(async ({ next }) => {
 
 // Server functions are same-origin RPC endpoints; without this a third-party
 // site could invoke them from a visitor's browser (their cookie rides along).
-const csrfMiddleware = createCsrfMiddleware({
-  filter: (ctx) => ctx.handlerType === "serverFn",
+// TanStack's current request-middleware API exposes the server-function
+// metadata directly, so keep the check here instead of depending on a removed
+// helper export.
+const csrfMiddleware = createMiddleware().server(async ({ request, serverFnMeta, next }) => {
+  if (serverFnMeta) {
+    const origin = request.headers.get("origin");
+    const requestOrigin = new URL(request.url).origin;
+    if (origin && origin !== requestOrigin) {
+      return new Response("Forbidden", { status: 403 });
+    }
+  }
+
+  return next();
 });
 
 export const startInstance = createStart(() => ({
