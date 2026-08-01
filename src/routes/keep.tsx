@@ -100,13 +100,15 @@ function coverFor(card: KeepCard) {
 function GeminiCover({ card }: { card: KeepCard }) {
   const { label, Icon, color, tint } = coverFor(card);
   return (
-    <div className="flex h-20 items-center gap-3 px-4" style={{ backgroundColor: tint, color }} aria-label={`${label} kapak görseli`}>
-      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/75 shadow-sm">
-        <Icon className="h-5 w-5" />
+    <div className="relative flex h-28 items-center gap-3 overflow-hidden px-4" style={{ backgroundColor: tint, color }} aria-label={`${label} kapak görseli`}>
+      <Icon className="absolute -right-2 -bottom-4 h-32 w-32 opacity-10" strokeWidth={1.2} aria-hidden="true" />
+      <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-white/85 shadow-sm ring-1 ring-black/5">
+        <Icon className="h-7 w-7" />
       </div>
-      <div className="min-w-0">
+      <div className="relative min-w-0">
         <p className="text-[10px] font-bold uppercase tracking-[0.12em] opacity-75">Gemini</p>
-        <p className="truncate text-sm font-semibold">{label}</p>
+        <p className="truncate text-base font-semibold">{label}</p>
+        <p className="mt-1 text-[11px] font-medium opacity-75">Kısa içerik özeti</p>
       </div>
     </div>
   );
@@ -500,7 +502,8 @@ function KeepPage() {
       const category = card.category?.trim().toLocaleLowerCase("tr-TR");
       return !category || category === "kategorisiz";
     };
-    const pending = cards.filter(isUncategorized);
+    const hasContent = (card: KeepCard) => Boolean(card.text || card.url || card.title || card.fileName || card.fileType);
+    const pending = cards.filter((card) => isUncategorized(card) || (!card.summary && hasContent(card)));
     if (!pending.length) return;
     if (!aiEnabled) {
       toast.error("AI sağlayıcı yapılandırılmamış — Ayarlar'dan bir anahtar ekle");
@@ -536,6 +539,11 @@ function KeepPage() {
     }).length,
     [cards],
   );
+  const missingSummaryCount = useMemo(
+    () => cards.filter((c) => !c.summary && (c.text || c.url || c.title || c.fileName || c.fileType)).length,
+    [cards],
+  );
+  const aiNeedsWorkCount = Math.max(uncategorizedCount, missingSummaryCount);
 
   const { pinned, groups } = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -575,18 +583,18 @@ function KeepPage() {
           <h1 className="text-lg font-bold leading-none">Kutu</h1>
           <p className="truncate text-[11px] text-muted-foreground">
             {cards.length
-              ? `${cards.length} kart${uncategorizedCount ? ` · ${uncategorizedCount} kategorisiz` : ""}`
+              ? `${cards.length} kart${uncategorizedCount ? ` · ${uncategorizedCount} kategorisiz` : ""}${missingSummaryCount ? ` · ${missingSummaryCount} özetsiz` : ""}`
               : "Ekran görüntüsü, link, film, fırsat — at, AI düzenlesin"}
           </p>
         </div>
-        {uncategorizedCount > 0 && (
+        {aiNeedsWorkCount > 0 && (
           <button
             onClick={categorizeAll}
             disabled={bulkBusy}
             className="flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft disabled:opacity-50"
           >
             {bulkBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-            Hepsini kategorize et
+            Eksikleri AI ile tamamla
           </button>
         )}
       </header>

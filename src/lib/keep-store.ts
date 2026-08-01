@@ -157,7 +157,7 @@ export const keep = {
     const counts = new Map<string, number>();
     cards.forEach((c) => {
       const cat = c.category?.trim();
-      if (cat) counts.set(cat, (counts.get(cat) ?? 0) + 1);
+      if (cat && cat.toLocaleLowerCase("tr-TR") !== "kategorisiz") counts.set(cat, (counts.get(cat) ?? 0) + 1);
     });
     return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([c]) => c);
   },
