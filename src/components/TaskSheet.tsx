@@ -147,7 +147,16 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
   if (!node || !todo) return null;
 
   const upd = (patch: Partial<Todo>) => mindmap.updateTodo(node.id, todo.id, patch);
-  const parentTask = todo.parentId ? node.todos.find((item) => item.id === todo.parentId) : undefined;
+  const parentChain: Todo[] = [];
+  const seenParents = new Set<string>();
+  let parentId = todo.parentId;
+  while (parentId && !seenParents.has(parentId)) {
+    seenParents.add(parentId);
+    const parent = node.todos.find((item) => item.id === parentId);
+    if (!parent) break;
+    parentChain.unshift(parent);
+    parentId = parent.parentId;
+  }
   const childTasks = node.todos.filter((item) => item.parentId === todo.id);
   const closeTaskSheet = () => {
     const key = historyKeyRef.current;
@@ -354,19 +363,27 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
             </button>
           </div>
 
-          {parentTask && (
-            <section className="mb-3 space-y-2 rounded-xl border border-border bg-muted/30 p-2.5" aria-label="Görev ilişkileri">
-              <button
-                type="button"
-                disabled={!onSelectTodo}
-                onClick={() => onSelectTodo?.(parentTask.id)}
-                className="flex min-h-10 w-full items-center gap-2 rounded-lg px-2 text-left text-sm hover:bg-background disabled:cursor-default disabled:hover:bg-transparent"
-              >
-                <CornerDownRight className="h-4 w-4 shrink-0 text-primary" />
-                <span className="shrink-0 text-xs font-semibold text-muted-foreground">Üst görev</span>
-                <span className="min-w-0 flex-1 break-words font-medium">{parentTask.text}</span>
-                {onSelectTodo && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
-              </button>
+          {parentChain.length > 0 && (
+            <section className="mb-3 rounded-xl border border-border bg-muted/30 p-2.5" aria-label="Görev yolu">
+              <div className="mb-1 flex items-center gap-2 px-2 text-xs font-semibold text-muted-foreground">
+                <CornerDownRight className="h-4 w-4 text-primary" />
+                Görev yolu
+              </div>
+              <div className="flex flex-wrap items-center gap-1 px-1">
+                {parentChain.map((parent, index) => (
+                  <span key={parent.id} className="inline-flex items-center gap-1">
+                    {index > 0 && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60" />}
+                    <button
+                      type="button"
+                      disabled={!onSelectTodo}
+                      onClick={() => onSelectTodo?.(parent.id)}
+                      className="max-w-full rounded-md px-1.5 py-1 text-left text-xs font-medium text-primary hover:bg-background disabled:cursor-default disabled:text-muted-foreground"
+                    >
+                      <span className="block max-w-[16rem] truncate">{parent.text}</span>
+                    </button>
+                  </span>
+                ))}
+              </div>
             </section>
           )}
 
