@@ -3,11 +3,10 @@ import { Reorder, useDragControls } from "framer-motion";
 import { FormPanel } from "@/components/FormPanel";
 import {
   Bell,
+  ArrowLeft,
   CalendarPlus,
   CalendarDays,
   Check,
-  ChevronRight,
-  CornerDownRight,
   Crosshair,
   Flag,
   GripVertical,
@@ -360,29 +359,29 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
             </button>
           </div>
 
-          {parentChain.length > 0 && (
-            <section className="mb-3 rounded-xl border border-border bg-muted/30 p-2.5" aria-label="Görev yolu">
-              <div className="mb-1 flex items-center gap-2 px-2 text-xs font-semibold text-muted-foreground">
-                <CornerDownRight className="h-4 w-4 text-primary" />
-                Görev yolu
-              </div>
-              <div className="flex flex-wrap items-center gap-1 px-1">
-                {parentChain.map((parent, index) => (
-                  <span key={parent.id} className="inline-flex items-center gap-1">
-                    {index > 0 && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60" />}
-                    <button
-                      type="button"
-                      disabled={!onSelectTodo}
-                      onClick={() => onSelectTodo?.(parent.id)}
-                      className="max-w-full rounded-md px-1.5 py-1 text-left text-xs font-medium text-primary hover:bg-background disabled:cursor-default disabled:text-muted-foreground"
-                    >
-                      <span className="block max-w-[16rem] truncate">{parent.text}</span>
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </section>
-          )}
+          <nav className="mb-3 flex min-w-0 items-center gap-1 overflow-x-auto rounded-xl border border-border bg-muted/30 px-2 py-1.5 text-xs" aria-label="Görev gezinme yolu">
+            <button
+              type="button"
+              onClick={closeTaskSheet}
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 font-semibold text-primary hover:bg-background"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" /> Görevler
+            </button>
+            {parentChain.map((parent) => (
+              <span key={parent.id} className="inline-flex min-w-0 items-center gap-1">
+                <span className="text-muted-foreground">/</span>
+                <button
+                  type="button"
+                  disabled={!onSelectTodo}
+                  onClick={() => onSelectTodo?.(parent.id)}
+                  className="max-w-[10rem] truncate rounded-lg px-1.5 py-1 font-medium text-primary hover:bg-background disabled:cursor-default disabled:text-muted-foreground"
+                >
+                  {parent.text}
+                </button>
+              </span>
+            ))}
+            <span className="min-w-0 truncate px-1.5 py-1 font-semibold text-foreground">/ {todo.text}</span>
+          </nav>
 
           {/* Unified child-task tree */}
           <section className="mb-3 rounded-xl border border-border bg-muted/30 p-2.5" aria-label="Alt görevler">

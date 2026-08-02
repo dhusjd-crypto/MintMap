@@ -3,6 +3,8 @@ import { Suspense, useMemo, useState } from "react";
 import { motion, Reorder, useDragControls } from "framer-motion";
 import {
   Check,
+  ChevronDown,
+  ChevronRight,
   FileText,
   Flag,
   Home,
@@ -104,6 +106,7 @@ function TodosPage() {
   const [plan, setPlan] = useState<{ order: string[]; reasons: Record<string, string> } | null>(null);
   const [liveMsg, setLiveMsg] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("priority");
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(() => new Set());
   const planDay = useServerFn(aiPlanDay);
 
 
@@ -156,7 +159,7 @@ function TodosPage() {
     // The default task view is a map of the work tree: show only root tasks
     // until the user enters one. Search and focused views still surface child
     // tasks directly so nothing becomes undiscoverable.
-    if (view.kind === "all" && !q && !tagFilter) {
+    if ((view.kind === "all" || view.kind === "list") && !q && !tagFilter) {
       arr = arr.filter((x) => !x.todo.parentId);
     }
     if (q)
@@ -325,6 +328,7 @@ function TodosPage() {
   };
 
   const ViewIcon = viewMeta.icon;
+  const treeMode = (view.kind === "all" || view.kind === "list") && !query.trim() && !tagFilter;
 
   return (
     <main className="relative flex h-svh w-full flex-col overflow-hidden bg-background">
@@ -629,6 +633,18 @@ function TodosPage() {
                 items={active}
                 onOpen={(nodeId, todoId) => setOpenTodo({ nodeId, todoId })}
               />
+            ) : treeMode ? (
+              <TaskTree
+                items={active}
+                expanded={expandedTasks}
+                onToggle={(todoId) => setExpandedTasks((current) => {
+                  const next = new Set(current);
+                  if (next.has(todoId)) next.delete(todoId);
+                  else next.add(todoId);
+                  return next;
+                })}
+                onOpen={(nodeId, todoId) => setOpenTodo({ nodeId, todoId })}
+              />
             ) : (
               active.map(({ todo, node }, i) => (
                 <TaskRow
@@ -780,6 +796,10 @@ function TaskRow({
   reason,
   rank,
   onStartDrag,
+  depth = 0,
+  hasChildren = false,
+  expanded = false,
+  onToggleExpand,
 }: {
   todo: Todo;
   node: MindNode;
@@ -788,6 +808,10 @@ function TaskRow({
   reason?: string;
   rank?: number;
   onStartDrag?: (event: React.PointerEvent<HTMLButtonElement>) => void;
+  depth?: number;
+  hasChildren?: boolean;
+  expanded?: boolean;
+  onToggleExpand?: () => void;
 }) {
   const overdue = todo.dueAt && todo.dueAt < Date.now() && !todo.done;
   const blocked = !todo.done && isBlocked(todo, node.todos);
@@ -802,10 +826,25 @@ function TaskRow({
   return (
     <motion.div
       layout
+      style={{ marginLeft: depth ? `${depth * 1.25}rem` : undefined }}
       className={`flex items-center gap-3 rounded-2xl bg-card px-3 py-3 shadow-soft ${
         blocked ? "opacity-70" : ""
       }`}
     >
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggleExpand?.();
+        }}
+        disabled={!hasChildren}
+        aria-label={hasChildren ? (expanded ? "Alt görevleri kapat" : "Alt görevleri aç") : undefined}
+        className={`flex h-7 w-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors ${
+          hasChildren ? "hover:bg-muted hover:text-foreground" : "invisible"
+        }`}
+      >
+        {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+      </button>
       {prio && (
         <span
           aria-label={prio.label}
@@ -972,6 +1011,41 @@ function TaskRow({
       </button>
     </motion.div>
   );
+}
+
+function TaskTree({
+  items,
+  expanded,
+  onToggle,
+  onOpen,
+}: {
+  items: FlatTodo[];
+  expanded: Set<string>;
+  onToggle: (todoId: string) => void;
+  onOpen: (nodeId: string, todoId: string) => void;
+}) {
+  const render = (item: FlatTodo, depth: number): React.ReactNode[] => {
+    const children = item.node.todos.filter((todo) => todo.parentId === item.todo.id);
+    const rows: React.ReactNode[] = [
+      <TaskRow
+        key={item.todo.id}
+        todo={item.todo}
+        node={item.node}
+        showList={false}
+        depth={depth}
+        hasChildren={children.length > 0}
+        expanded={expanded.has(item.todo.id)}
+        onToggleExpand={() => onToggle(item.todo.id)}
+        onOpen={() => onOpen(item.node.id, item.todo.id)}
+      />,
+    ];
+    if (expanded.has(item.todo.id)) {
+      children.forEach((child) => rows.push(...render({ todo: child, node: item.node }, depth + 1)));
+    }
+    return rows;
+  };
+
+  return <div className="space-y-2">{items.flatMap((item) => render(item, 0))}</div>;
 }
 
 function ManualTaskOrder({
