@@ -75,9 +75,33 @@ export async function chat(messages: ChatMessage[], opts: ChatOptions = {}, pref
       error instanceof AIError &&
       (error.status === 400 || error.status === 404) &&
       /model/i.test(error.message);
-    if (!opts.model || !modelUnavailable) throw error;
-    const result = await provider.chat(messages, { ...opts, model: undefined });
-    return { ...result, modelFallback: true };
+    if (!modelUnavailable) throw error;
+
+    // First discard a stale browser/environment override and use the provider
+    // default. This keeps old MintMap settings from disabling every AI action.
+    if (opts.model) {
+      try {
+        const result = await provider.chat(messages, { ...opts, model: undefined });
+        return { ...result, modelFallback: true };
+      } catch (fallbackError) {
+        const fallbackUnavailable =
+          fallbackError instanceof AIError &&
+          (fallbackError.status === 400 || fallbackError.status === 404) &&
+          /model/i.test(fallbackError.message);
+        if (!fallbackUnavailable) throw fallbackError;
+        error = fallbackError;
+      }
+    }
+
+    // Gemini model aliases can change between deployments. Keep a current,
+    // documented fallback so categorization and short summaries recover
+    // without requiring a manual model edit in Settings.
+    if (provider.id === "gemini" && provider.defaultModel !== "gemini-3.6-flash") {
+      const result = await provider.chat(messages, { ...opts, model: "gemini-3.6-flash" });
+      return { ...result, modelFallback: true };
+    }
+
+    throw error;
   }
 }
 
