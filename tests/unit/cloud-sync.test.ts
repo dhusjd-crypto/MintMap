@@ -23,6 +23,7 @@ function snapshot(workspaceId: string, nodeId: string, title: string) {
       }],
     },
     keep: [],
+    deletedKeepIds: undefined,
   };
 }
 
@@ -74,5 +75,18 @@ describe("cloud workspace reconciliation", () => {
 
     expect(merged.mindmap.workspaces[0].nodes[0].todos).toEqual([]);
     expect(merged.mindmap.workspaces[0].deletedTodoIds?.["turkiye-finans"]).toBeDefined();
+  });
+
+  it("keeps a deleted Keep card deleted when an older device still has it", () => {
+    const cloud = snapshot("mint", "node", "Hafta planı");
+    cloud.keep = [{ id: "old-card", type: "note", text: "Eski kart", createdAt: 1, updatedAt: 1 }];
+    const phone = snapshot("mint", "node", "Hafta planı");
+    phone.keep = [];
+    phone.deletedKeepIds = { "old-card": Date.now() };
+
+    const merged = mergeCloudSnapshots(phone, cloud);
+
+    expect(merged.keep).toEqual([]);
+    expect(merged.deletedKeepIds?.["old-card"]).toBeDefined();
   });
 });

@@ -4,7 +4,12 @@ import { mindmap, type MindNode, type StoreShape, type Todo, type Workspace } fr
 import { pullCloudSnapshot, pushCloudSnapshot } from "./sync.functions";
 import { repairTextTree } from "./text-normalize";
 
-type CloudSnapshot = { version: 1; mindmap: StoreShape; keep: KeepCard[] };
+type CloudSnapshot = {
+  version: 1;
+  mindmap: StoreShape;
+  keep: KeepCard[];
+  deletedKeepIds?: Record<string, number>;
+};
 const DEBOUNCE_MS = 2_500;
 const POLL_MS = 30_000;
 
@@ -125,6 +130,13 @@ export function mergeCloudSnapshots(local: CloudSnapshot, remote: CloudSnapshot)
     return current ? mergeWorkspace(current, workspace) : workspace;
   });
   const mergedWorkspaces = [...workspaces, ...localById.values()];
+  const deletedKeepIds = { ...(remote.deletedKeepIds ?? {}), ...(local.deletedKeepIds ?? {}) };
+  for (const [id, at] of Object.entries(remote.deletedKeepIds ?? {})) {
+    deletedKeepIds[id] = Math.max(at, deletedKeepIds[id] ?? 0);
+  }
+  for (const [id, at] of Object.entries(local.deletedKeepIds ?? {})) {
+    deletedKeepIds[id] = Math.max(at, deletedKeepIds[id] ?? 0);
+  }
   return {
     version: 1,
     mindmap: {
@@ -132,7 +144,8 @@ export function mergeCloudSnapshots(local: CloudSnapshot, remote: CloudSnapshot)
       // Which workspace is open is a device preference, not shared state.
       currentId: local.mindmap.currentId,
     },
-    keep: unionById(local.keep, remote.keep),
+    keep: unionById(local.keep, remote.keep).filter((card) => !deletedKeepIds[card.id]),
+    deletedKeepIds,
   };
 }
 
@@ -143,7 +156,12 @@ function cloudSnapshot(): CloudSnapshot {
   const mindmapSnapshot: StoreShape = JSON.parse(JSON.stringify(map, (_key, value) =>
     typeof value === "string" && value.startsWith("blob:") ? "" : value,
   ));
-  return { version: 1, mindmap: mindmapSnapshot, keep: keep.list() };
+  return {
+    version: 1,
+    mindmap: mindmapSnapshot,
+    keep: keep.list(),
+    deletedKeepIds: keep.getDeletedIds(),
+  };
 }
 
 function parseSnapshot(raw: string): CloudSnapshot | null {
@@ -198,7 +216,7 @@ async function reconcile() {
     const merged = remote ? mergeCloudSnapshots(local, remote) : local;
     applying = true;
     mindmap.importFullSnapshot(merged.mindmap);
-    keep.importCloudSnapshot(merged.keep);
+    keep.importCloudSnapshot(merged.keep, merged.deletedKeepIds);
     applying = false;
     // A poll normally only reads. Write back only when this device contributed
     // something new, preventing two open devices from bouncing revisions.
@@ -218,7 +236,7 @@ async function reconcile() {
         const retry = mergeCloudSnapshots(cloudSnapshot(), latestRemote);
         applying = true;
         mindmap.importFullSnapshot(retry.mindmap);
-        keep.importCloudSnapshot(retry.keep);
+        keep.importCloudSnapshot(retry.keep, retry.deletedKeepIds);
         applying = false;
         const retried = await pushCloudSnapshot({ data: { baseRevision: pushed.revision, payload: JSON.stringify(retry) } });
         if (retried.enabled) revision = retried.revision;

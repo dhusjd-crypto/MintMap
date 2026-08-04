@@ -38,8 +38,10 @@ export type KeepCard = {
 export const UNCATEGORIZED = "Kategorisiz";
 
 const STORAGE_KEY = "mintmap.keep.v1";
+const DELETED_KEY = "mintmap.keep.deleted.v1";
 
 let cards: KeepCard[] = [];
+let deletedCardIds: Record<string, number> = {};
 let initialized = false;
 const listeners = new Set<() => void>();
 
@@ -66,6 +68,11 @@ function load() {
   if (typeof window === "undefined") return;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
+    const deletedRaw = localStorage.getItem(DELETED_KEY);
+    if (deletedRaw) {
+      const parsedDeleted = JSON.parse(deletedRaw) as unknown;
+      if (parsedDeleted && typeof parsedDeleted === "object") deletedCardIds = parsedDeleted as Record<string, number>;
+    }
     if (raw) {
       const parsed = repairTextTree(JSON.parse(raw)) as KeepCard[];
       if (Array.isArray(parsed)) {
@@ -83,6 +90,7 @@ function persist() {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+    localStorage.setItem(DELETED_KEY, JSON.stringify(deletedCardIds));
   } catch {
     /* quota — ignore for now */
   }
@@ -141,6 +149,7 @@ export const keep = {
   remove(id: string) {
     load();
     const card = cards.find((c) => c.id === id);
+    deletedCardIds = { ...deletedCardIds, [id]: Date.now() };
     cards = cards.filter((c) => c.id !== id);
     emit();
     if (card?.imageId) void deleteImage(card.imageId);
@@ -183,8 +192,13 @@ export const keep = {
     emit();
   },
   /** Applies a metadata-only cloud snapshot. Local IndexedDB files stay put. */
-  importCloudSnapshot(next: KeepCard[]) {
-    cards = next.map(normalizeCard);
+  getDeletedIds(): Record<string, number> {
+    load();
+    return { ...deletedCardIds };
+  },
+  importCloudSnapshot(next: KeepCard[], deletedIds: Record<string, number> = {}) {
+    deletedCardIds = { ...deletedCardIds, ...deletedIds };
+    cards = next.filter((card) => !deletedCardIds[card.id]).map(normalizeCard);
     emit();
   },
   /** Subscribe without React; used by the background cloud reconciler. */
