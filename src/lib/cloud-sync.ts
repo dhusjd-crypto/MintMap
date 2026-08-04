@@ -66,11 +66,22 @@ function mergeWorkspace(local: Workspace, remote: Workspace): Workspace {
   for (const [id, at] of Object.entries(local.deletedNodeIds ?? {})) {
     deletedNodeIds[id] = Math.max(at, deletedNodeIds[id] ?? 0);
   }
+  const deletedTodoIds = { ...(remote.deletedTodoIds ?? {}), ...(local.deletedTodoIds ?? {}) };
+  for (const [id, at] of Object.entries(remote.deletedTodoIds ?? {})) {
+    deletedTodoIds[id] = Math.max(at, deletedTodoIds[id] ?? 0);
+  }
+  for (const [id, at] of Object.entries(local.deletedTodoIds ?? {})) {
+    deletedTodoIds[id] = Math.max(at, deletedTodoIds[id] ?? 0);
+  }
   const localById = new Map(local.nodes.map((node) => [node.id, node]));
   const nodes = remote.nodes.map((node) => {
     const current = localById.get(node.id);
     localById.delete(node.id);
-    return current ? mergeNode(current, node) : node;
+    const merged = current ? mergeNode(current, node) : node;
+    return {
+      ...merged,
+      todos: merged.todos.filter((todo) => !deletedTodoIds[todo.id]),
+    };
   });
   // The cloud copy is the canonical workspace identity. Older installs made
   // workspace ids independently on every device, so retaining a local id here
@@ -79,7 +90,13 @@ function mergeWorkspace(local: Workspace, remote: Workspace): Workspace {
     ...latest(local, remote),
     id: remote.id,
     deletedNodeIds,
-    nodes: [...nodes, ...localById.values()].filter((node) => !deletedNodeIds[node.id]),
+    deletedTodoIds,
+    nodes: [...nodes, ...localById.values()]
+      .filter((node) => !deletedNodeIds[node.id])
+      .map((node) => ({
+        ...node,
+        todos: node.todos.filter((todo) => !deletedTodoIds[todo.id]),
+      })),
   };
 }
 

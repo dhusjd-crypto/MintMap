@@ -111,6 +111,8 @@ export type Workspace = {
   nodes: MindNode[];
   /** Node deletion tombstones make removals survive cross-device reconciliation. */
   deletedNodeIds?: Record<string, number>;
+  /** Todo deletion tombstones prevent stale devices from resurrecting tasks. */
+  deletedTodoIds?: Record<string, number>;
 };
 
 export type StoreShape = { workspaces: Workspace[]; currentId: string };
@@ -190,6 +192,8 @@ function cloneStore(s: StoreShape): StoreShape {
     currentId: s.currentId,
     workspaces: s.workspaces.map((w) => ({
       ...w,
+      deletedNodeIds: w.deletedNodeIds ? { ...w.deletedNodeIds } : w.deletedNodeIds,
+      deletedTodoIds: w.deletedTodoIds ? { ...w.deletedTodoIds } : w.deletedTodoIds,
       nodes: w.nodes.map((n) => ({
         ...n,
         todos: n.todos.map((t) => ({
@@ -968,7 +972,26 @@ export const mindmap = {
       n.todos.filter((t) => t.parentId === tid).forEach((c) => visit(c.id));
     };
     visit(todoId);
-    this.update(id, { todos: n.todos.filter((t) => !toRemove.has(t.id)) });
+    const deletedAt = Date.now();
+    mutate(() => {
+      store = {
+        ...store,
+        workspaces: store.workspaces.map((workspace) =>
+          workspace.id !== store.currentId
+            ? workspace
+            : {
+                ...workspace,
+                deletedTodoIds: {
+                  ...(workspace.deletedTodoIds ?? {}),
+                  ...Object.fromEntries([...toRemove].map((id) => [id, deletedAt])),
+                },
+                nodes: workspace.nodes.map((node) =>
+                  node.id === id ? { ...node, todos: node.todos.filter((todo) => !toRemove.has(todo.id)) } : node,
+                ),
+              },
+        ),
+      };
+    });
   },
   /** Removes several tasks in one history entry, including every descendant. */
   removeTodos(id: string, todoIds: string[]) {
@@ -982,7 +1005,28 @@ export const mindmap = {
       node.todos.filter((todo) => todo.parentId === todoId).forEach((child) => visit(child.id));
     };
     todoIds.forEach(visit);
-    this.update(id, { todos: node.todos.filter((todo) => !toRemove.has(todo.id)) });
+    const deletedAt = Date.now();
+    mutate(() => {
+      store = {
+        ...store,
+        workspaces: store.workspaces.map((workspace) =>
+          workspace.id !== store.currentId
+            ? workspace
+            : {
+                ...workspace,
+                deletedTodoIds: {
+                  ...(workspace.deletedTodoIds ?? {}),
+                  ...Object.fromEntries([...toRemove].map((id) => [id, deletedAt])),
+                },
+                nodes: workspace.nodes.map((currentNode) =>
+                  currentNode.id === id
+                    ? { ...currentNode, todos: currentNode.todos.filter((todo) => !toRemove.has(todo.id)) }
+                    : currentNode,
+                ),
+              },
+        ),
+      };
+    });
   },
   reset() {
     mutate(() => setCurrentNodes(() => seedNodes()));

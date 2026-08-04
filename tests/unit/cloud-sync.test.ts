@@ -26,6 +26,18 @@ function snapshot(workspaceId: string, nodeId: string, title: string) {
   };
 }
 
+function taskSnapshot(todoId: string, text: string) {
+  return {
+    id: todoId,
+    text,
+    done: false,
+    status: "todo" as const,
+    parentId: null,
+    createdAt: 1,
+    updatedAt: 1,
+  };
+}
+
 describe("cloud workspace reconciliation", () => {
   it("folds same-named legacy workspaces into the cloud workspace", () => {
     const cloud = snapshot("desktop-mint", "prym", "Prym");
@@ -49,5 +61,18 @@ describe("cloud workspace reconciliation", () => {
 
     expect(merged.mindmap.workspaces[0].nodes.map((node) => node.id)).not.toContain("old-node");
     expect(merged.mindmap.workspaces[0].deletedNodeIds?.["old-node"]).toBeDefined();
+  });
+
+  it("keeps a deleted todo deleted when an older device still has it", () => {
+    const cloud = snapshot("mint", "node", "Hafta planı");
+    cloud.mindmap.workspaces[0].nodes[0].todos = [taskSnapshot("turkiye-finans", "Türkiye Finans")];
+    const phone = snapshot("mint", "node", "Hafta planı");
+    phone.mindmap.workspaces[0].nodes[0].todos = [];
+    phone.mindmap.workspaces[0].deletedTodoIds = { "turkiye-finans": Date.now() };
+
+    const merged = mergeCloudSnapshots(phone, cloud);
+
+    expect(merged.mindmap.workspaces[0].nodes[0].todos).toEqual([]);
+    expect(merged.mindmap.workspaces[0].deletedTodoIds?.["turkiye-finans"]).toBeDefined();
   });
 });
