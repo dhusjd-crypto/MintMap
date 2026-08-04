@@ -113,6 +113,8 @@ export type Workspace = {
   deletedNodeIds?: Record<string, number>;
   /** Todo deletion tombstones prevent stale devices from resurrecting tasks. */
   deletedTodoIds?: Record<string, number>;
+  /** Attachment/activity/image tombstones prevent stale content resurrection. */
+  deletedEntryIds?: Record<string, number>;
 };
 
 export type StoreShape = { workspaces: Workspace[]; currentId: string };
@@ -194,6 +196,7 @@ function cloneStore(s: StoreShape): StoreShape {
       ...w,
       deletedNodeIds: w.deletedNodeIds ? { ...w.deletedNodeIds } : w.deletedNodeIds,
       deletedTodoIds: w.deletedTodoIds ? { ...w.deletedTodoIds } : w.deletedTodoIds,
+      deletedEntryIds: w.deletedEntryIds ? { ...w.deletedEntryIds } : w.deletedEntryIds,
       nodes: w.nodes.map((n) => ({
         ...n,
         todos: n.todos.map((t) => ({
@@ -1064,13 +1067,19 @@ export const mindmap = {
   /** Detaches a file. The blob itself is left for sweepUnusedImageBlobs — undo
    *  history may still reference it. */
   removeFile(nodeId: string, fileId: string) {
-    mutate(() =>
-      setCurrentNodes((ns) =>
-        ns.map((n) =>
-          n.id === nodeId ? { ...n, files: (n.files ?? []).filter((f) => f.id !== fileId) } : n,
-        ),
-      ),
-    );
+    mutate(() => {
+      const deletedAt = Date.now();
+      store = {
+        ...store,
+        workspaces: store.workspaces.map((workspace) => workspace.id !== store.currentId ? workspace : {
+          ...workspace,
+          deletedEntryIds: { ...(workspace.deletedEntryIds ?? {}), [fileId]: deletedAt },
+          nodes: workspace.nodes.map((node) => node.id === nodeId
+            ? { ...node, files: (node.files ?? []).filter((file) => file.id !== fileId) }
+            : node),
+        }),
+      };
+    });
   },
 
   /** Stores a file or image in IndexedDB and attaches it to one task. */
@@ -1099,8 +1108,23 @@ export const mindmap = {
     const node = ws?.nodes.find((n) => n.id === nodeId);
     const todo = node?.todos.find((t) => t.id === todoId);
     if (!todo) return;
-    this.updateTodo(nodeId, todoId, {
-      attachments: (todo.attachments ?? []).filter((file) => file.id !== attachmentId),
+    mutate(() => {
+      const deletedAt = Date.now();
+      store = {
+        ...store,
+        workspaces: store.workspaces.map((workspace) => workspace.id !== store.currentId ? workspace : {
+          ...workspace,
+          deletedEntryIds: { ...(workspace.deletedEntryIds ?? {}), [attachmentId]: deletedAt },
+          nodes: workspace.nodes.map((currentNode) => currentNode.id !== nodeId ? currentNode : {
+            ...currentNode,
+            todos: currentNode.todos.map((currentTodo) => currentTodo.id !== todoId ? currentTodo : {
+              ...currentTodo,
+              attachments: (currentTodo.attachments ?? []).filter((file) => file.id !== attachmentId),
+              updatedAt: Date.now(),
+            }),
+          }),
+        }),
+      };
     });
   },
 
@@ -1122,8 +1146,23 @@ export const mindmap = {
     const node = ws?.nodes.find((n) => n.id === nodeId);
     const todo = node?.todos.find((t) => t.id === todoId);
     if (!todo) return;
-    this.updateTodo(nodeId, todoId, {
-      activity: (todo.activity ?? []).filter((entry) => entry.id !== activityId),
+    mutate(() => {
+      const deletedAt = Date.now();
+      store = {
+        ...store,
+        workspaces: store.workspaces.map((workspace) => workspace.id !== store.currentId ? workspace : {
+          ...workspace,
+          deletedEntryIds: { ...(workspace.deletedEntryIds ?? {}), [activityId]: deletedAt },
+          nodes: workspace.nodes.map((currentNode) => currentNode.id !== nodeId ? currentNode : {
+            ...currentNode,
+            todos: currentNode.todos.map((currentTodo) => currentTodo.id !== todoId ? currentTodo : {
+              ...currentTodo,
+              activity: (currentTodo.activity ?? []).filter((entry) => entry.id !== activityId),
+              updatedAt: Date.now(),
+            }),
+          }),
+        }),
+      };
     });
   },
 

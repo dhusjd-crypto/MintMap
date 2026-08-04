@@ -31,35 +31,35 @@ function unionById<T extends { id: string; updatedAt?: number; createdAt?: numbe
   return [...result, ...remoteById.values()];
 }
 
-function mergeTodo(local: Todo, remote: Todo): Todo {
+function mergeTodo(local: Todo, remote: Todo, deletedEntryIds: Record<string, number>): Todo {
   const winner = latest(local, remote);
   const other = winner === local ? remote : local;
   return {
     ...winner,
     // Child structures are append-safe. Their completion changes still follow
     // the most recently edited task record above.
-    activity: unionById(winner.activity ?? [], other.activity ?? []),
-    attachments: unionById(winner.attachments ?? [], other.attachments ?? []),
+    activity: unionById(winner.activity ?? [], other.activity ?? []).filter((entry) => !deletedEntryIds[entry.id]),
+    attachments: unionById(winner.attachments ?? [], other.attachments ?? []).filter((file) => !deletedEntryIds[file.id]),
     tags: [...new Set([...(winner.tags ?? []), ...(other.tags ?? [])])],
   };
 }
 
-function mergeNode(local: MindNode, remote: MindNode): MindNode {
+function mergeNode(local: MindNode, remote: MindNode, deletedEntryIds: Record<string, number>): MindNode {
   const winner = latest(local, remote);
   const other = winner === local ? remote : local;
   const remoteTodos = new Map(remote.todos.map((todo) => [todo.id, todo]));
   const todos = local.todos.map((todo) => {
     const fromRemote = remoteTodos.get(todo.id);
     remoteTodos.delete(todo.id);
-    return fromRemote ? mergeTodo(todo, fromRemote) : todo;
+    return fromRemote ? mergeTodo(todo, fromRemote, deletedEntryIds) : todo;
   });
   return {
     ...winner,
     todos: [...todos, ...remoteTodos.values()],
     links: [...new Set([...(winner.links ?? []), ...(other.links ?? [])])],
     tags: [...new Set([...(winner.tags ?? []), ...(other.tags ?? [])])],
-    files: unionById(winner.files ?? [], other.files ?? []),
-    images: unionById(winner.images ?? [], other.images ?? []),
+    files: unionById(winner.files ?? [], other.files ?? []).filter((file) => !deletedEntryIds[file.id]),
+    images: unionById(winner.images ?? [], other.images ?? []).filter((image) => !deletedEntryIds[image.id]),
   };
 }
 
@@ -78,13 +78,22 @@ function mergeWorkspace(local: Workspace, remote: Workspace): Workspace {
   for (const [id, at] of Object.entries(local.deletedTodoIds ?? {})) {
     deletedTodoIds[id] = Math.max(at, deletedTodoIds[id] ?? 0);
   }
+  const deletedEntryIds = { ...(remote.deletedEntryIds ?? {}), ...(local.deletedEntryIds ?? {}) };
+  for (const [id, at] of Object.entries(remote.deletedEntryIds ?? {})) {
+    deletedEntryIds[id] = Math.max(at, deletedEntryIds[id] ?? 0);
+  }
+  for (const [id, at] of Object.entries(local.deletedEntryIds ?? {})) {
+    deletedEntryIds[id] = Math.max(at, deletedEntryIds[id] ?? 0);
+  }
   const localById = new Map(local.nodes.map((node) => [node.id, node]));
   const nodes = remote.nodes.map((node) => {
     const current = localById.get(node.id);
     localById.delete(node.id);
-    const merged = current ? mergeNode(current, node) : node;
+    const merged = current ? mergeNode(current, node, deletedEntryIds) : node;
     return {
       ...merged,
+      files: (merged.files ?? []).filter((file) => !deletedEntryIds[file.id]),
+      images: (merged.images ?? []).filter((image) => !deletedEntryIds[image.id]),
       todos: merged.todos.filter((todo) => !deletedTodoIds[todo.id]),
     };
   });
@@ -96,10 +105,13 @@ function mergeWorkspace(local: Workspace, remote: Workspace): Workspace {
     id: remote.id,
     deletedNodeIds,
     deletedTodoIds,
+    deletedEntryIds,
     nodes: [...nodes, ...localById.values()]
       .filter((node) => !deletedNodeIds[node.id])
       .map((node) => ({
         ...node,
+        files: (node.files ?? []).filter((file) => !deletedEntryIds[file.id]),
+        images: (node.images ?? []).filter((image) => !deletedEntryIds[image.id]),
         todos: node.todos.filter((todo) => !deletedTodoIds[todo.id]),
       })),
   };
