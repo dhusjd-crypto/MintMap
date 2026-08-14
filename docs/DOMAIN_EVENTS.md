@@ -14,6 +14,8 @@ Events are lightweight typed facts, not a global enterprise event bus. Producers
 
 `FinancialObligationCreated`, `FinancialObligationUpdated`, `FinancialObligationDueSoon`, `FinancialObligationPaid`, `FinancialObligationOverdue`, `CreditCardStatementCaptured`, `StatementReconciled`, `ExpectedCashShortfallDetected`, `BudgetThresholdReached`, `RecurringPaymentGenerated`.
 
+Phase 4 defines a separate Finance event contract for `FinanceBookCreated`, `FinancialAccountCreated`, `FinancialTransactionRecorded`, `FinancialTransferRecorded`, `FinancialObligationCreated`, `FinancialObligationUpdated`, `FinancialObligationPaid`, `FinancialObligationCancelled`, `PaymentScheduled`, `PaymentConfirmed`, `PaymentFailed`, `CreditCardStatementCreated`, `CreditCardStatementConfirmed`, and `StatementReconciled`. No trigger, reminder, or execution consumer is attached.
+
 ## Contract shape
 
 Every event has `id`, `name`, `occurredAt`, `aggregateId`, `schemaVersion`, and a typed payload. Consumers must be idempotent. External events are translated at the adapter boundary and never trusted without validation.

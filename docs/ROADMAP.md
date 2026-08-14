@@ -6,7 +6,7 @@ The order is deliberately incremental. A phase must leave the application usable
 1. Constitution, architecture docs, registry, regression fixtures **(this run)**
 2. Shared foundations: canonical IDs, Clock, repository ports, commands/queries/events **(Phase 2 slice complete)**
 3. Execution Domain Core **(Phase 3 complete)**
-4. Finance Domain Core
+4. Finance Domain Core **(Phase 4 complete)**
 5. Persistence and versioned migrations
 6. Deterministic Trigger Engine
 7. Planner and capacity
@@ -30,4 +30,4 @@ The order is deliberately incremental. A phase must leave the application usable
 25. Hardening, backup, recovery, performance
 26. Final architecture audit
 
-Phase 3 establishes the pure Execution Domain without changing the persisted schema. Finance remains the next accepted domain phase; TriggerScore, Planner, Notification delivery, and UI redesign remain later work.
+Phase 3 establishes the pure Execution Domain without changing the persisted schema. Phase 4 establishes the pure Finance Domain Core without persistence, UI, OCR, budgets, cashflow, investments, or trigger integration. The next accepted phase is persistence and versioned canonical schema migration.

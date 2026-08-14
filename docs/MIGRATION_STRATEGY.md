@@ -22,3 +22,9 @@ Future schema changes should expose `CURRENT_SCHEMA_VERSION`, ordered migration 
 ## Local-first database evolution
 
 SQLite is a future option for queryability and transactions, not a Foundation change. First introduce repository ports over current storage, then add a dual-read/dual-write shadow path, compare results, back up, and only then make SQLite authoritative. IndexedDB remains the browser blob store unless a platform-specific adapter replaces it.
+
+# Migration Strategy
+
+Persisted data migrations are versioned, idempotent, backup-aware, and reversible through export/recovery. Phase 2 provides a pure migration runner; production localStorage, IndexedDB, D1, and Drive schemas remain unchanged until a dedicated persistence phase.
+
+Finance Phase 4 models are in-memory domain contracts only. They do not increment a persisted schema version, alter sync payloads, or write financial entities into existing stores. A later migration must preserve unknown fields, stable IDs, tombstones, and an export path before adopting Finance persistence.

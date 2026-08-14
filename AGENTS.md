@@ -33,3 +33,5 @@ The permanent product and architecture records are:
 - `docs/ROADMAP.md`
 
 Every accepted feature must be registered before implementation and must name its owner, dependencies, tests, migration impact, platform scope, and feature flag.
+
+Finance-specific privacy rule: never store full card numbers, PIN, CVV/CVC, online-banking passwords, or raw authentication tokens in Finance domain records. Use masked identifiers and keep integration secrets in secure infrastructure adapters.

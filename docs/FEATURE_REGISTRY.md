@@ -2,7 +2,7 @@
 
 Registry version: `0.1-foundation` | status values: `PLANNED`, `IN_PROGRESS`, `IMPLEMENTED`, `PARTIAL`, `DISABLED`, `DEPRECATED`.
 
-Phase 2/3 architecture support is implemented for `applicationCommandLayer`, `domainEventsV1`, `repositoryCompatibilityLayer`, `Clock`, the pure Execution Domain core, and the synthetic migration runner. User-facing future features remain planned or partial; interfaces alone do not promote them.
+Phase 2/3/4 architecture support is implemented for `applicationCommandLayer`, `domainEventsV1`, `repositoryCompatibilityLayer`, `Clock`, the pure Execution Domain core, the pure Finance Domain core, and the synthetic migration runner. User-facing future features remain planned or partial; interfaces alone do not promote them.
 
 `Current` means the repository already has a usable implementation. `Partial` means the concept exists but does not yet satisfy the accepted long-term contract. Every row names the future owner and the minimum evidence required before promotion.
 
@@ -205,19 +205,20 @@ Scoring must be deterministic, configurable, and return human-readable reasons. 
 | X007 | Future bank import connectors | Integration/Finance | PLANNED | Q008, FIN042 | fixture/consent; `bankConnectors` |
 | X008 | AI adapters: OpenAI, Gemini, local AI | Integration/AI | PARTIAL | current Gemini endpoints | proposal contract; `aiAssistant` |
 
-## FIN — Finance (60)
+## FIN — Finance (61)
 
 | ID | Feature | Owner | Status | Dependencies | Tests / flag |
 |---|---|---|---|---|---|
-| FIN001 | Institutions and stable canonical IDs | Finance | PLANNED | ports | identity fixtures; `financeDomain` |
-| FIN002 | Bank/Cash/Credit Card/Loan/Investment accounts | Finance | PLANNED | FIN001 | entity fixtures; `financeDomain` |
-| FIN003 | Transaction ledger | Finance | PLANNED | FIN002 | ledger invariants; `financeDomain` |
-| FIN004 | Linked transfers without duplicate income/expense | Finance | PLANNED | FIN003 | double-entry fixture; `financeDomain` |
-| FIN005 | Split transaction, category, payee, tag | Finance | PLANNED | FIN003 | round-trip fixtures; `financeDomain` |
-| FIN006 | Financial attachments and source references | Finance | PLANNED | FIN003 | storage fixture; `financeDomain` |
-| FIN007 | FinancialObligation entity | Finance | PLANNED | FIN002 | schema fixture; `financeDomain` |
-| FIN008 | Obligation types and lifecycle states | Finance | PLANNED | FIN007 | state matrix; `financeDomain` |
-| FIN009 | CreditCardStatement entity | Finance | PLANNED | FIN002 | schema fixture; `financeDomain` |
+| FIN000 | Personal/Business FinanceBook isolation | Finance | IMPLEMENTED | ports | book isolation fixtures; no persistence migration; all; `financeDomain` |
+| FIN001 | Institutions and stable canonical IDs | Finance | IMPLEMENTED | ports | identity fixtures; `financeDomain` |
+| FIN002 | Bank/Cash/Credit Card/Loan/Investment accounts | Finance | IMPLEMENTED | FIN001 | entity fixtures; `financeDomain` |
+| FIN003 | Transaction ledger | Finance | IMPLEMENTED | FIN002 | ledger invariants; `financeDomain` |
+| FIN004 | Linked transfers without duplicate income/expense | Finance | IMPLEMENTED | FIN003 | transfer/sign fixtures; `financeDomain` |
+| FIN005 | Split transaction, category, payee, tag | Finance | IMPLEMENTED | FIN003 | split-total fixtures; `financeDomain` |
+| FIN006 | Financial attachments and source references | Finance | PARTIAL | FIN003 | IDs/provenance only; storage adapter later; `financeDomain` |
+| FIN007 | FinancialObligation entity | Finance | IMPLEMENTED | FIN002 | amount/lifecycle fixtures; `financeDomain` |
+| FIN008 | Obligation types and lifecycle states | Finance | IMPLEMENTED | FIN007 | state/payment matrix; `financeDomain` |
+| FIN009 | CreditCardStatement entity | Finance | IMPLEMENTED | FIN002 | review/link fixtures; `financeDomain` |
 | FIN010 | Screenshot/PDF classification and extraction proposal | Finance/Capture | PLANNED | Q007, FIN009 | confirmation required; `financeCapture` |
 | FIN011 | Payment due/overdue workflow linked to Task by ID | Finance/Execution | PLANNED | FIN007, A001 | identity fixture; `financeDomain` |
 | FIN012 | Payment preset PAYMENT_STANDARD | Finance/Notification | PLANNED | FIN011 | policy test; `financeNotifications` |
@@ -233,9 +234,9 @@ Scoring must be deterministic, configurable, and return human-readable reasons. 
 | FIN022 | 90-day cashflow forecast | Finance | PLANNED | FIN019 | horizon test; `cashflowForecast` |
 | FIN023 | ExpectedCashShortfallDetected event | Finance/Events | PLANNED | FIN019 | event contract; `cashflowForecast` |
 | FIN024 | Deterministic finance rules | Finance | PLANNED | FIN003 | explainability test; `financeRules` |
-| FIN025 | Reconciliation states | Finance | PLANNED | FIN003, FIN009 | state matrix; `financeReconciliation` |
-| FIN026 | Duplicate prevention and confidence explanation | Finance | PLANNED | FIN025 | matching fixtures; `financeReconciliation` |
-| FIN027 | Asset and liability | Finance | PLANNED | FIN002 | entity fixture; `investmentAnalytics` |
+| FIN025 | Reconciliation states | Finance | IMPLEMENTED | FIN003, FIN009 | state matrix; `financeDomain` |
+| FIN026 | Duplicate prevention and confidence explanation | Finance | PARTIAL | FIN025 | statement duplicate protection; full matching later; `financeReconciliation` |
+| FIN027 | Asset and liability | Finance | IMPLEMENTED | FIN002 | account role fixture; `financeDomain` |
 | FIN028 | Investment position and portfolio | Finance | PLANNED | FIN027 | valuation fixture; `investmentAnalytics` |
 | FIN029 | Real estate and land assets | Finance | PLANNED | FIN027 | entity fixture; `investmentAnalytics` |
 | FIN030 | Net worth snapshots and performance | Finance/Analytics | PLANNED | FIN027 | metric fixture; `investmentAnalytics` |
@@ -263,11 +264,11 @@ Scoring must be deterministic, configurable, and return human-readable reasons. 
 | FIN052 | Finance import formats CSV/OFX/QFX/QIF/CAMT | Finance/Capture | PLANNED | Q008 | parser fixtures; `financeCapture` |
 | FIN053 | User confirmation for extracted amount/minimum/due date/account/currency | Finance/Capture | PLANNED | FIN010 | rejection/confirm E2E; `financeCapture` |
 | FIN054 | FinancialDocumentExtractor and FinancialCaptureProposal | Finance/Capture | PLANNED | FIN010 | proposal contract; `financeCapture` |
-| FIN055 | Obligation recurrence and payment reference | Finance | PLANNED | FIN007 | round-trip fixture; `financeDomain` |
+| FIN055 | Obligation recurrence and payment reference | Finance | PARTIAL | FIN007 | schedule primitive only; generator later; `financeDomain` |
 | FIN056 | Obligation sourceType/sourceReference and linked execution task | Finance/Execution | PLANNED | FIN011 | identity fixture; `financeDomain` |
-| FIN057 | No full card credentials in domain records | Finance | PLANNED | FIN007 | privacy fixture; `financeDomain` |
+| FIN057 | No full card credentials in domain records | Finance | IMPLEMENTED | FIN007 | masked/privacy validation; `financeDomain` |
 | FIN058 | Finance rule conditions/actions/order/enabled state | Finance | PLANNED | FIN024 | explainability fixture; `financeRules` |
 | FIN059 | Suggested finance rules from repeated corrections | Finance/Analytics | PLANNED | FIN058 | proposal/confirmation test; `financeRules` |
 | FIN060 | Financial capture review state and reconciliation confidence | Finance | PLANNED | FIN025, FIN053 | state/property tests; `financeReconciliation` |
 
-Finance is intentionally not implemented in Foundation. Every finance row is planned and must remain proposal/confirmation-driven when implementation begins.
+Phase 4 Finance Core is implemented only for pure models and tested domain behavior. UI, persistence, imports, OCR/AI, budgets, cashflow, investments, bank connections, and trigger/notification integration remain planned or partial.

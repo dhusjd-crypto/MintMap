@@ -10,6 +10,8 @@
 
 Phase 3 adds an in-memory `ExecutionTask`, `ExecutionProject`, and `ExecutionGoal` domain model. These are canonical business contracts for execution behavior, while legacy `Todo`, `MindNode`, and `Goal` shapes remain the current persisted compatibility representations.
 
+Phase 4 adds in-memory Finance contracts (`FinanceBook`, institutions, accounts, transactions, transfers, obligations, payments, statements, categories, payees, and schedules). They are not persisted by the current application and do not become part of the existing workspace snapshot.
+
 The task tree is now the one hierarchy: legacy `steps` are converted once into todos with `parentId`; no new code should add a second step model.
 
 ## Storage layers
