@@ -18,6 +18,6 @@ Events are lightweight typed facts, not a global enterprise event bus. Producers
 
 Every event has `id`, `name`, `occurredAt`, `aggregateId`, `schemaVersion`, and a typed payload. Consumers must be idempotent. External events are translated at the adapter boundary and never trusted without validation.
 
-## Phase 2 adoption
+## Phase 2/3 adoption
 
-The task command boundary now emits the task lifecycle events needed by the first vertical slice. The dispatcher is local and synchronous; no event is persisted or sent over the network. No downstream consumer is attached yet.
+The task command boundary now emits validated lifecycle facts from the Execution Domain: `TaskCreated`, `TaskUpdated`, `TaskStarted`, `TaskCompleted`, `TaskReopened`, `TaskCancelled`, `TaskSnoozed`, `TaskBecameWaiting`, and `TaskBecameReady` where those operations are used. The dispatcher is local and synchronous; no event is persisted or sent over the network. No Trigger, Finance, Planner, or Notification consumer is attached yet.

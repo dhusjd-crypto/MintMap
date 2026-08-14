@@ -5,7 +5,7 @@ The order is deliberately incremental. A phase must leave the application usable
 0. Repository audit and baseline
 1. Constitution, architecture docs, registry, regression fixtures **(this run)**
 2. Shared foundations: canonical IDs, Clock, repository ports, commands/queries/events **(Phase 2 slice complete)**
-3. Execution Domain Core
+3. Execution Domain Core **(Phase 3 complete)**
 4. Finance Domain Core
 5. Persistence and versioned migrations
 6. Deterministic Trigger Engine
@@ -30,4 +30,4 @@ The order is deliberately incremental. A phase must leave the application usable
 25. Hardening, backup, recovery, performance
 26. Final architecture audit
 
-Foundation stops after Phase 1. The exact next engineering phase is Phase 2: introduce ports, a deterministic Clock, typed commands/queries/events, and repository contract tests around the existing stores without changing the persisted schema.
+Phase 3 establishes the pure Execution Domain without changing the persisted schema. Finance remains the next accepted domain phase; TriggerScore, Planner, Notification delivery, and UI redesign remain later work.

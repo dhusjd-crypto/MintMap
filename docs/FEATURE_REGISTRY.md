@@ -2,7 +2,7 @@
 
 Registry version: `0.1-foundation` | status values: `PLANNED`, `IN_PROGRESS`, `IMPLEMENTED`, `PARTIAL`, `DISABLED`, `DEPRECATED`.
 
-Phase 2 architecture support is implemented for `applicationCommandLayer`, `domainEventsV1`, `repositoryCompatibilityLayer`, `Clock`, and the synthetic migration runner. User-facing future features remain planned or partial; interfaces alone do not promote them.
+Phase 2/3 architecture support is implemented for `applicationCommandLayer`, `domainEventsV1`, `repositoryCompatibilityLayer`, `Clock`, the pure Execution Domain core, and the synthetic migration runner. User-facing future features remain planned or partial; interfaces alone do not promote them.
 
 `Current` means the repository already has a usable implementation. `Partial` means the concept exists but does not yet satisfy the accepted long-term contract. Every row names the future owner and the minimum evidence required before promotion.
 
@@ -10,7 +10,7 @@ Phase 2 architecture support is implemented for `applicationCommandLayer`, `doma
 
 | ID | Feature | Owner | Status | Dependencies | Tests / migration / platforms / flag |
 |---|---|---|---|---|---|
-| A001 | Canonical Task identity | Execution | PARTIAL | current Todo | store/sync fixtures; preserve IDs; Web/PWA; `executionCore` |
+| A001 | Canonical Task identity | Execution | IMPLEMENTED | current Todo | mapping/ID fixtures; preserve IDs; Web/PWA; `executionCore` |
 | A002 | INBOX/READY/PLANNED/NOW/DOING/WAITING/BLOCKED/SOMEDAY/DONE/CANCELLED states | Execution | PARTIAL | A001 | transition matrix; additive field migration; all; `executionCore` |
 | A003 | Distinct created/updated/touched/start/do/soft-end/due/remind/follow-up dates | Execution | PARTIAL | A001 | date semantics and timezone tests; additive; all; `executionDates` |
 | A004 | Estimate, actual, chunk limits, splittable, started/completed, snooze count | Execution | PARTIAL | A001 | round-trip fixtures; additive; all; `executionMetrics` |
@@ -20,7 +20,7 @@ Phase 2 architecture support is implemented for `applicationCommandLayer`, `doma
 | A008 | Task CRUD and completion/reopen/cancel | Execution | IMPLEMENTED | current store | unit/E2E; backwards compatible; Web/PWA; `executionCore` |
 | A009 | One recursive subtasks tree via parentId | Execution | IMPLEMENTED | A001 | migration/idempotency/reorder tests; legacy steps preserved; all; `subtaskTree` |
 | A010 | Project next action and no-next-action warning | Execution | PLANNED | A005, T21 | use-case/E2E; additive; all; `projectHealth` |
-| A011 | Blocking/dependency readiness and critical path | Execution | PARTIAL | A005 | graph/property tests; additive; all; `dependencyGraph` |
+| A011 | Blocking/dependency readiness and critical path | Execution | PARTIAL | A005 | dependency/actionability tests; critical path is not implemented; all; `dependencyGraph` |
 | A012 | Snooze, waiting, follow-up and re-entry-safe task lifecycle | Execution | PARTIAL | A002, A003 | transition fixtures; additive; all; `executionCore` |
 
 ## T — Trigger Engine (25)

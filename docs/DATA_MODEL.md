@@ -8,6 +8,8 @@
 - `KeepCard`: raw capture with text/link/media/file and categorisation metadata.
 - `Goal`, `PulseItem`, `Decision`, and Borsa watch records: separate feature stores with explicit links back to node IDs where applicable.
 
+Phase 3 adds an in-memory `ExecutionTask`, `ExecutionProject`, and `ExecutionGoal` domain model. These are canonical business contracts for execution behavior, while legacy `Todo`, `MindNode`, and `Goal` shapes remain the current persisted compatibility representations.
+
 The task tree is now the one hierarchy: legacy `steps` are converted once into todos with `parentId`; no new code should add a second step model.
 
 ## Storage layers
