@@ -7,6 +7,7 @@ import {
   LayoutGrid,
   Activity,
   TrendingUp,
+  WalletCards,
 } from "lucide-react";
 
 const items = [
@@ -14,6 +15,7 @@ const items = [
   { to: "/todos", label: "Görevler", icon: ListChecks },
   { to: "/pulse", label: "Pulse", icon: Activity },
   { to: "/borsa", label: "Borsa", icon: TrendingUp },
+  { to: "/finance", label: "Finans", icon: WalletCards },
   { to: "/keep", label: "Kutu", icon: LayoutGrid },
   { to: "/board", label: "Pano", icon: Columns3 },
   { to: "/calendar", label: "Takvim", icon: CalendarDays },

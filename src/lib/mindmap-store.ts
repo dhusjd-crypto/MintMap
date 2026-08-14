@@ -25,7 +25,7 @@ export type Todo = {
   myDay?: boolean;
   myDayAt?: number;
   /** Provenance link for tasks created through Capture. */
-  sourceType?: "CAPTURE_ITEM";
+  sourceType?: "CAPTURE_ITEM" | "FINANCIAL_OBLIGATION";
   sourceId?: string;
   tags?: string[];
   createdAt?: number;

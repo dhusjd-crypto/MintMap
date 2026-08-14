@@ -16,6 +16,7 @@ import { Route as ShareInboxRouteImport } from './routes/share-inbox'
 import { Route as ShareAnalyticsRouteImport } from './routes/share-analytics'
 import { Route as PulseRouteImport } from './routes/pulse'
 import { Route as KeepRouteImport } from './routes/keep'
+import { Route as FinanceRouteImport } from './routes/finance'
 import { Route as CommandCenterRouteImport } from './routes/command-center'
 import { Route as CaptureRouteImport } from './routes/capture'
 import { Route as CalendarRouteImport } from './routes/calendar'
@@ -58,6 +59,11 @@ const PulseRoute = PulseRouteImport.update({
 const KeepRoute = KeepRouteImport.update({
   id: '/keep',
   path: '/keep',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FinanceRoute = FinanceRouteImport.update({
+  id: '/finance',
+  path: '/finance',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CommandCenterRoute = CommandCenterRouteImport.update({
@@ -108,6 +114,7 @@ export interface FileRoutesByFullPath {
   '/calendar': typeof CalendarRoute
   '/capture': typeof CaptureRoute
   '/command-center': typeof CommandCenterRoute
+  '/finance': typeof FinanceRoute
   '/keep': typeof KeepRoute
   '/pulse': typeof PulseRoute
   '/share-analytics': typeof ShareAnalyticsRoute
@@ -125,6 +132,7 @@ export interface FileRoutesByTo {
   '/calendar': typeof CalendarRoute
   '/capture': typeof CaptureRoute
   '/command-center': typeof CommandCenterRoute
+  '/finance': typeof FinanceRoute
   '/keep': typeof KeepRoute
   '/pulse': typeof PulseRoute
   '/share-analytics': typeof ShareAnalyticsRoute
@@ -143,6 +151,7 @@ export interface FileRoutesById {
   '/calendar': typeof CalendarRoute
   '/capture': typeof CaptureRoute
   '/command-center': typeof CommandCenterRoute
+  '/finance': typeof FinanceRoute
   '/keep': typeof KeepRoute
   '/pulse': typeof PulseRoute
   '/share-analytics': typeof ShareAnalyticsRoute
@@ -162,6 +171,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/capture'
     | '/command-center'
+    | '/finance'
     | '/keep'
     | '/pulse'
     | '/share-analytics'
@@ -179,6 +189,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/capture'
     | '/command-center'
+    | '/finance'
     | '/keep'
     | '/pulse'
     | '/share-analytics'
@@ -196,6 +207,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/capture'
     | '/command-center'
+    | '/finance'
     | '/keep'
     | '/pulse'
     | '/share-analytics'
@@ -214,6 +226,7 @@ export interface RootRouteChildren {
   CalendarRoute: typeof CalendarRoute
   CaptureRoute: typeof CaptureRoute
   CommandCenterRoute: typeof CommandCenterRoute
+  FinanceRoute: typeof FinanceRoute
   KeepRoute: typeof KeepRoute
   PulseRoute: typeof PulseRoute
   ShareAnalyticsRoute: typeof ShareAnalyticsRoute
@@ -274,6 +287,13 @@ declare module '@tanstack/react-router' {
       path: '/keep'
       fullPath: '/keep'
       preLoaderRoute: typeof KeepRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/finance': {
+      id: '/finance'
+      path: '/finance'
+      fullPath: '/finance'
+      preLoaderRoute: typeof FinanceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/command-center': {
@@ -342,6 +362,7 @@ const rootRouteChildren: RootRouteChildren = {
   CalendarRoute: CalendarRoute,
   CaptureRoute: CaptureRoute,
   CommandCenterRoute: CommandCenterRoute,
+  FinanceRoute: FinanceRoute,
   KeepRoute: KeepRoute,
   PulseRoute: PulseRoute,
   ShareAnalyticsRoute: ShareAnalyticsRoute,
