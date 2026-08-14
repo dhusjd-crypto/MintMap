@@ -22,4 +22,9 @@ Every event has `id`, `name`, `occurredAt`, `aggregateId`, `schemaVersion`, and 
 
 ## Phase 2/3 adoption
 
+Phase 6 defines trigger evaluations as read-only derived signals. It does not add a dispatcher
+consumer or persist events. Future Planner, Calendar, Notification, and Finance adapters may
+translate their verified events into `TriggerContext`; the Trigger Engine remains the scorer and
+never becomes an event delivery system.
+
 The task command boundary now emits validated lifecycle facts from the Execution Domain: `TaskCreated`, `TaskUpdated`, `TaskStarted`, `TaskCompleted`, `TaskReopened`, `TaskCancelled`, `TaskSnoozed`, `TaskBecameWaiting`, and `TaskBecameReady` where those operations are used. The dispatcher is local and synchronous; no event is persisted or sent over the network. No Trigger, Finance, Planner, or Notification consumer is attached yet.

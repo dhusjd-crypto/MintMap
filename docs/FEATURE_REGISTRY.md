@@ -27,31 +27,31 @@ Phase 2/3/4 architecture support and Phase 5 local persistence are implemented f
 
 | ID | Trigger | Owner | Status | Dependencies | Tests / flag |
 |---|---|---|---|---|---|
-| T01 | Morning Top 3 | Trigger | PLANNED | A002, P | deterministic score; `triggerEngine` |
-| T02 | Best NOW task | Trigger | PARTIAL | current focus engine | reason tests; `triggerEngine` |
+| T01 | Morning Top 3 | Trigger | IMPLEMENTED | A002 | deterministic score; `triggerEngine` |
+| T02 | Best NOW task | Trigger | IMPLEMENTED | A002, A003 | reason tests; `triggerEngine` |
 | T03 | Adaptive 2–3 hour execution check | Trigger | PLANNED | P, F | clock fixtures; `smartRescheduling` |
-| T04 | Deadline 7 days away | Trigger | PLANNED | A003 | boundary tests; `triggerEngine` |
-| T05 | Deadline 3 days away | Trigger | PLANNED | A003 | boundary tests; `triggerEngine` |
-| T06 | Deadline tomorrow | Trigger | PLANNED | A003 | timezone tests; `triggerEngine` |
-| T07 | Deadline today | Trigger | PLANNED | A003 | timezone tests; `triggerEngine` |
-| T08 | Deadline hours away | Trigger | PLANNED | A003 | boundary tests; `triggerEngine` |
-| T09 | Task stale several days | Trigger | PLANNED | A003 | clock fixture; `triggerEngine` |
-| T10 | Task severely stale | Trigger | PLANNED | A003 | clock fixture; `triggerEngine` |
-| T11 | Waiting follow-up due | Trigger | PLANNED | A005, A003 | relationship fixture; `triggerEngine` |
+| T04 | Deadline 7 days away | Trigger | IMPLEMENTED | A003 | boundary tests; `triggerEngine` |
+| T05 | Deadline 3 days away | Trigger | IMPLEMENTED | A003 | boundary tests; `triggerEngine` |
+| T06 | Deadline tomorrow | Trigger | IMPLEMENTED | A003 | timezone tests; `triggerEngine` |
+| T07 | Deadline today | Trigger | IMPLEMENTED | A003 | timezone tests; `triggerEngine` |
+| T08 | Deadline hours away | Trigger | IMPLEMENTED | A003 | boundary tests; `triggerEngine` |
+| T09 | Task stale several days | Trigger | IMPLEMENTED | A003 | clock fixture; `triggerEngine` |
+| T10 | Task severely stale | Trigger | IMPLEMENTED | A003 | clock fixture; `triggerEngine` |
+| T11 | Waiting follow-up due | Trigger | IMPLEMENTED | A005, A003 | relationship fixture; `triggerEngine` |
 | T12 | Dependency completion makes task actionable | Trigger | PLANNED | A005 | graph fixture; `dependencyGraph` |
-| T13 | Repeated snooze threshold | Trigger | PLANNED | A004 | transition fixture; `triggerEngine` |
+| T13 | Repeated snooze threshold | Trigger | IMPLEMENTED | A004 | transition fixture; `triggerEngine` |
 | T14 | Excessive snoozing decision prompt | Trigger | PLANNED | T13, N | E2E action test; `persistentReminders` |
-| T15 | Daily workload exceeds capacity | Trigger | PLANNED | P | capacity fixture; `planner` |
+| T15 | Daily workload exceeds capacity | Trigger | PARTIAL | P | capacity fixture; `planner` |
 | T16 | Task likely to miss deadline | Trigger | PLANNED | A003, P | reason assertion; `triggerEngine` |
 | T17 | Free calendar slot available | Trigger | PLANNED | X001, P | fake calendar; `calendarIntegration` |
 | T18 | Meeting cancellation creates time | Trigger | PLANNED | X001, P | adapter contract; `calendarIntegration` |
 | T19 | Schedule change requires replan | Trigger | PLANNED | P, X001 | deterministic diff; `smartRescheduling` |
-| T20 | User returns after inactivity | Trigger | PLANNED | R | re-entry fixture; `reEntryMode` |
-| T21 | Project stale | Trigger | PLANNED | A010 | project fixture; `projectHealth` |
-| T22 | Task blocks important downstream work | Trigger | PLANNED | A005, A006 | graph/reason tests; `dependencyGraph` |
-| T23 | Too many WAITING items | Trigger | PLANNED | A012 | query fixture; `triggerEngine` |
-| T24 | Quick win fits short slot | Trigger | PLANNED | P, F | eligibility tests; `focusModes` |
-| T25 | Evening/tomorrow planning | Trigger/Routines | PLANNED | R, P | clock/E2E; `routines` |
+| T20 | User returns after inactivity | Trigger | IMPLEMENTED | R | re-entry fixture; `reEntryMode` |
+| T21 | Project stale | Trigger | IMPLEMENTED | A010 | project fixture; `projectHealth` |
+| T22 | Task blocks important downstream work | Trigger | IMPLEMENTED | A005, A006 | graph/reason tests; `dependencyGraph` |
+| T23 | Too many WAITING items | Trigger | IMPLEMENTED | A012 | query fixture; `triggerEngine` |
+| T24 | Quick win fits short slot | Trigger | PARTIAL | P, F | eligibility tests; `focusModes` |
+| T25 | Evening/tomorrow planning | Trigger/Routines | IMPLEMENTED | R, P | clock/E2E; `routines` |
 
 Scoring must be deterministic, configurable, and return human-readable reasons. AI cannot calculate the base score.
 
