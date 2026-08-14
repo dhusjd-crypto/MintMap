@@ -3,13 +3,20 @@
  * Keep browser Date access in adapters or existing stores until migrated.
  */
 export type Clock = {
-  now(): number;
+  now(): Date;
+  nowMs(): number;
 };
 
 export const systemClock: Clock = {
-  now: () => Date.now(),
+  now: () => new Date(),
+  nowMs: () => Date.now(),
 };
 
 export function fixedClock(timestamp: number): Clock {
-  return { now: () => timestamp };
+  return {
+    now: () => new Date(timestamp),
+    nowMs: () => timestamp,
+  };
 }
+
+export const testClock = fixedClock;

@@ -5,7 +5,8 @@ import { FEATURE_FLAGS, isFeatureEnabled } from "../../src/lib/architecture/feat
 
 describe("architecture foundation", () => {
   it("provides deterministic time without touching browser globals", () => {
-    expect(fixedClock(123).now()).toBe(123);
+    expect(fixedClock(123).now().getTime()).toBe(123);
+    expect(fixedClock(123).nowMs()).toBe(123);
   });
 
   it("creates versioned, identifiable domain events", () => {

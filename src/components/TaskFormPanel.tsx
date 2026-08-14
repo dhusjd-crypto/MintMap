@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { Star, Sun } from "lucide-react";
 import { FormPanel, Field } from "@/components/FormPanel";
 import { notifySaved, notifySaveFailed } from "@/lib/save-feedback";
-import { mindmap, useNodes, type Priority, type Todo } from "@/lib/mindmap-store";
+import { useNodes, type Priority, type Todo } from "@/lib/mindmap-store";
+import { taskApplication } from "@/application/task-application";
 import { PRIORITY_META } from "@/lib/task-utils";
 
 type Props = {
@@ -89,7 +90,7 @@ export function TaskFormPanel({ open, onClose, nodeId }: Props) {
         extra.myDayAt = Date.now();
       }
       if (tags.length) extra.tags = tags;
-      mindmap.addTodo(targetId, text.trim(), null, extra);
+      taskApplication.commands.createTask({ nodeId: targetId, text: text.trim(), parentId: null, extra });
       const nodeName = nodes.find((n) => n.id === targetId)?.title ?? "düğüm";
       // §12: notify → close → reveal + flash the node that changed.
       notifySaved(`Görev oluşturuldu → ${nodeName}`, targetId);

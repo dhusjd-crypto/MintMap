@@ -26,6 +26,12 @@ The current stores remain the persistence boundary while commands and queries ar
 - UI consumes queries and dispatches commands.
 - Adapters translate external data; they do not bypass canonical repositories.
 
+## Phase 2 boundary currently in use
+
+`src/application/task-application.ts` composes `CreateTask`, `UpdateTask`, `CompleteTask`, `ReopenTask`, and delete commands with `LegacyTaskRepository`, `LegacyProjectRepository`, and `LegacyGoalRepository`. `TaskFormPanel` creation and `TaskSheet` completion use this path. The adapter still calls the existing store, so persisted shape and undo/sync behavior remain unchanged. Queries expose canonical task records and basic project/goal reads.
+
+`LocalDomainEventDispatcher` currently receives `TaskCreated`, `TaskUpdated`, `TaskCompleted`, `TaskReopened`, and `TaskCancelled` from commands. There are no Trigger, Finance, or Notification consumers yet.
+
 ## Known coupling and risks
 
 - `mindmap-store.ts` is a large aggregate, persistence adapter, history manager, and command surface in one module.

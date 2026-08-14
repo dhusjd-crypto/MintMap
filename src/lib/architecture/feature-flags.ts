@@ -1,4 +1,7 @@
 export type FeatureFlagName =
+  | "applicationCommandLayer"
+  | "domainEventsV1"
+  | "repositoryCompatibilityLayer"
   | "smartRescheduling"
   | "persistentReminders"
   | "financeDomain"
@@ -12,6 +15,9 @@ export type FeatureFlagName =
 
 /** Safe Foundation defaults. Risky future capabilities stay off until wired. */
 export const FEATURE_FLAGS: Readonly<Record<FeatureFlagName, boolean>> = {
+  applicationCommandLayer: true,
+  domainEventsV1: true,
+  repositoryCompatibilityLayer: true,
   smartRescheduling: false,
   persistentReminders: false,
   financeDomain: false,

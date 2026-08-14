@@ -17,3 +17,7 @@ Events are lightweight typed facts, not a global enterprise event bus. Producers
 ## Contract shape
 
 Every event has `id`, `name`, `occurredAt`, `aggregateId`, `schemaVersion`, and a typed payload. Consumers must be idempotent. External events are translated at the adapter boundary and never trusted without validation.
+
+## Phase 2 adoption
+
+The task command boundary now emits the task lifecycle events needed by the first vertical slice. The dispatcher is local and synchronous; no event is persisted or sent over the network. No downstream consumer is attached yet.

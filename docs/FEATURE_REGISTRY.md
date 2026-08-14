@@ -2,6 +2,8 @@
 
 Registry version: `0.1-foundation` | status values: `PLANNED`, `IN_PROGRESS`, `IMPLEMENTED`, `PARTIAL`, `DISABLED`, `DEPRECATED`.
 
+Phase 2 architecture support is implemented for `applicationCommandLayer`, `domainEventsV1`, `repositoryCompatibilityLayer`, `Clock`, and the synthetic migration runner. User-facing future features remain planned or partial; interfaces alone do not promote them.
+
 `Current` means the repository already has a usable implementation. `Partial` means the concept exists but does not yet satisfy the accepted long-term contract. Every row names the future owner and the minimum evidence required before promotion.
 
 ## A — Task Domain (12)

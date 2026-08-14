@@ -4,7 +4,7 @@ The order is deliberately incremental. A phase must leave the application usable
 
 0. Repository audit and baseline
 1. Constitution, architecture docs, registry, regression fixtures **(this run)**
-2. Shared foundations: canonical IDs, Clock, repository ports, commands/queries/events
+2. Shared foundations: canonical IDs, Clock, repository ports, commands/queries/events **(Phase 2 slice complete)**
 3. Execution Domain Core
 4. Finance Domain Core
 5. Persistence and versioned migrations

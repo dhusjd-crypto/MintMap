@@ -29,6 +29,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { TagEditor } from "@/components/TagEditor";
 import { mindmap, requestNotificationPermission, useNode, type MindFile, type Priority, type Recurrence, type Todo } from "@/lib/mindmap-store";
+import { taskApplication } from "@/application/task-application";
 import { aiBreakdownTask, aiAutoTag, aiPlanTaskSchedule } from "@/lib/ai.functions";
 import { PRIORITY_META, hasOpenDescendants, wouldCreateDependencyCycle } from "@/lib/task-utils";
 import { calendarCreateEvent } from "@/lib/google/calendar";
@@ -331,7 +332,8 @@ export function TaskSheet({ nodeId, todoId, onClose, onSelectTodo }: Props) {
                   toast.message("Açık alt görevler tamamlanmadan ana görev kapatılamaz.");
                   return;
                 }
-                mindmap.toggleTodo(node.id, todo.id);
+                if (todo.done) taskApplication.commands.reopenTask(todo.id);
+                else taskApplication.commands.completeTask(todo.id);
               }}
               className={`mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
                 todo.done ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/40"

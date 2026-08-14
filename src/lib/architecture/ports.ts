@@ -9,8 +9,16 @@ export type Repository<T> = {
   remove(id: string): void;
 };
 
+export type TaskRepository<TTask> = Repository<TTask>;
+export type ProjectRepository<TProject> = Repository<TProject>;
+export type GoalRepository<TGoal> = Repository<TGoal>;
+
 export type NotificationAdapter = {
-  notify(input: { title: string; body?: string; level: "NORMAL" | "PERSISTENT" | "CRITICAL" }): void;
+  notify(input: {
+    title: string;
+    body?: string;
+    level: "NORMAL" | "PERSISTENT" | "CRITICAL";
+  }): void;
 };
 
 export type SyncAdapter<TSnapshot> = {
@@ -19,7 +27,12 @@ export type SyncAdapter<TSnapshot> = {
 };
 
 export type CalendarAdapter = {
-  createOrUpdate(input: { taskId: string; title: string; startAt?: number; dueAt?: number }): Promise<string>;
+  createOrUpdate(input: {
+    taskId: string;
+    title: string;
+    startAt?: number;
+    dueAt?: number;
+  }): Promise<string>;
 };
 
 export type AIAdapter = {
