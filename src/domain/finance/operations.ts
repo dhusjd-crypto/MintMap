@@ -408,6 +408,7 @@ export function linkStatementToObligation(
       financeBookId: statement.financeBookId,
       type: "CREDIT_CARD",
       title: `Kredi kartı ekstresi ${statement.id}`,
+      accountId: statement.cardAccountId,
       statementId: statement.id,
       statementDate: statement.statementDate,
       dueDate: statement.dueDate,

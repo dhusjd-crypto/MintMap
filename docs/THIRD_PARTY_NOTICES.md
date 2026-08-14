@@ -15,3 +15,10 @@
 The OCR dependency is not used by the Finance domain. OCR output is a
 reviewable Capture/Finance proposal and cannot authoritatively create or change
 financial records.
+
+## Browser validation
+
+- `playwright-core` 1.55.0 — Apache-2.0. Development-only local Chromium
+  automation for the Finance OCR browser validation gate. It uses the already
+  installed Chrome executable and does not download a browser or transmit
+  validation fixtures.

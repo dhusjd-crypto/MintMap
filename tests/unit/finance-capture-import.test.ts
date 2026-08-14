@@ -98,6 +98,16 @@ describe("Finance capture, import and reconciliation", () => {
     expect(proposal.fields.dueDate).toMatchObject({ confidence: "HIGH" });
     expect(imageOcrCapability()).toMatchObject({ localOffline: true, languages: ["tur", "eng"] });
   });
+  it("recognizes explicit English statement labels without inventing Finance truth", () => {
+    const proposal = interpretStatementText(
+      "Statement Date: 01.08.2026\nDue Date: 25.08.2026\nNew Balance: 87450,37 TRY\nMinimum Payment: 17490,07 TRY",
+    );
+    expect(proposal.fields.statementDate).toMatchObject({ confidence: "HIGH" });
+    expect(proposal.fields.dueDate).toMatchObject({ confidence: "HIGH" });
+    expect(proposal.fields.newBalance).toMatchObject({
+      value: { minorUnits: 8745037, currency: "TRY" },
+    });
+  });
   it("normalizes OFX/QFX, QIF and CAMT into import rows without writing finance truth", () => {
     const ofx = parseOfx(
       "OFXHEADER:100\n<STMTTRN><DTPOSTED>20260814<TRNAMT>-1250.50<FITID>fit-1<NAME>Market<MEMO>Gıda",

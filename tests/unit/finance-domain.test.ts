@@ -258,6 +258,7 @@ describe("Obligations, payments and statements", () => {
     expect(() => linkStatementToObligation(statement, [], clock)).toThrow(FinanceDomainError);
     const confirmed = confirmCreditCardStatement(statement, clock);
     const obligation = linkStatementToObligation(confirmed, [], clock);
+    expect(obligation.accountId).toBe("card");
     expect(linkStatementToObligation(confirmed, [obligation], clock).id).toBe(obligation.id);
     expect(markStatementReconciled(confirmed, clock).reviewStatus).toBe("RECONCILED");
   });

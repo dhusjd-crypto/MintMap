@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { CreditCard, Landmark, Plus, ReceiptText, Send, WalletCards } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
@@ -20,6 +20,9 @@ const dateValue = () => new Date().toISOString().slice(0, 10);
 const dateMs = (value: string) => new Date(`${value}T12:00:00`).getTime();
 
 function FinancePage() {
+  const isReviewRoute = useRouterState({
+    select: (state) => state.location.pathname.startsWith("/finance/review/"),
+  });
   const [books, setBooks] = useState<FinanceBook[]>([]);
   const [bookId, setBookId] = useState("");
   const [tab, setTab] = useState<Tab>("OVERVIEW");
@@ -68,6 +71,7 @@ function FinancePage() {
     void refresh();
   }, []);
   const activeBook = books.find((book) => book.id === bookId);
+  if (isReviewRoute) return <Outlet />;
   if (!activeBook) return <Setup onCreated={(id) => void refresh(id)} />;
   return (
     <div className="min-h-dvh bg-background pb-24">
@@ -640,11 +644,12 @@ function Obligations({
     try {
       const obligation = obligations.find((x) => x.id === id);
       if (!obligation) return;
-      if (!accounts[0]) throw new Error("Ödeme için önce bir varlık hesabı oluşturmalısın.");
+      const paymentAccount = accounts.find((account) => account.role === "ASSET");
+      if (!paymentAccount) throw new Error("Ödeme için önce bir varlık hesabı oluşturmalısın.");
       const payment = await financeApplication.commands.schedulePayment({
         obligationId: id,
         amount: obligation.amountDue,
-        fromAccountId: accounts[0].id,
+        fromAccountId: paymentAccount.id,
         scheduledFor: Date.now(),
       });
       await financeApplication.commands.confirmPaymentWithLedger(payment.id, Date.now());

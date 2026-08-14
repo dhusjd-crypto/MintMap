@@ -14,6 +14,7 @@
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
     "test:e2e": "python3 tests/e2e/run_all.py",
+    "test:e2e:finance-capture": "node tests/e2e/finance_capture_browser.mjs",
     "test:update-baselines": "UPDATE_BASELINE=1 python3 tests/e2e/visual_regression.py && UPDATE_BASELINE=1 python3 tests/e2e/fab_visual.py"
   },
   "dependencies": {
@@ -98,6 +99,7 @@
     "globals": "^15.15.0",
     "jsdom": "^29.1.1",
     "nitro": "3.0.260603-beta",
+    "playwright-core": "^1.55.0",
     "prettier": "^3.7.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",

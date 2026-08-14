@@ -15,6 +15,9 @@ import type { CurrencyCode, FinanceBook, FinancialAccount } from "@/domain/finan
 import type { FinancialPayment } from "@/domain/finance";
 import { toast } from "sonner";
 
+const statementFieldNames = ["statementDate", "dueDate", "newBalance", "minimumPayment"];
+const paymentFieldNames = ["paymentDate", "paymentAmount", "reference"];
+
 export const Route = createFileRoute("/finance/review/$captureId")({
   component: FinanceReviewPage,
 });
@@ -79,6 +82,13 @@ function FinanceReviewPage() {
       if (firstBook) setAccounts(await financeApplication.queries.accounts(firstBook));
     })();
   }, [captureId]);
+  useEffect(() => {
+    if (kind !== "PAYMENT_CONFIRMATION" || !bookId) {
+      setPayments([]);
+      return;
+    }
+    void financeApplication.queries.payments(bookId).then(setPayments);
+  }, [bookId, kind]);
   const runExtraction = async () => {
     const refs = await captureApplication.repository.listDocumentRefs(captureId);
     const ref = refs[0];
@@ -107,8 +117,7 @@ function FinanceReviewPage() {
           Object.entries(interpreted.fields).map(([name, value]) => [name, value.confidence]),
         ),
       );
-      if (kind === "PAYMENT_CONFIRMATION" && bookId)
-        setPayments(await financeApplication.queries.payments(bookId));
+      if (bookId) setPayments(await financeApplication.queries.payments(bookId));
       const proposal = await financeCaptureImportApplication.commands.createProposalFromCapture({
         captureItemId: captureId,
         documentType: kind,
@@ -242,19 +251,27 @@ function FinanceReviewPage() {
             </option>
           ))}
         </select>
-        {Object.entries(fields).map(([name, value]) => (
-          <label key={name} className="block text-sm">
-            <span className="mb-1 block text-muted-foreground">
-              {name} {confidence[name] ? `· ${confidence[name]}` : ""}
-            </span>
-            <input
-              type={name.endsWith("Date") ? "date" : "text"}
-              value={value}
-              onChange={(event) => setFields({ ...fields, [name]: event.target.value })}
-              className="w-full rounded-lg border p-2"
-            />
-          </label>
-        ))}
+        {[
+          ...(kind === "CREDIT_CARD_STATEMENT" ? statementFieldNames : paymentFieldNames),
+          ...Object.keys(fields),
+        ]
+          .filter((name, index, all) => all.indexOf(name) === index)
+          .map((name) => {
+            const value = fields[name] ?? "";
+            return (
+              <label key={name} className="block text-sm">
+                <span className="mb-1 block text-muted-foreground">
+                  {name} {confidence[name] ? `· ${confidence[name]}` : ""}
+                </span>
+                <input
+                  type={name.endsWith("Date") ? "date" : "text"}
+                  value={value}
+                  onChange={(event) => setFields({ ...fields, [name]: event.target.value })}
+                  className="w-full rounded-lg border p-2"
+                />
+              </label>
+            );
+          })}
         {warnings.length > 0 && (
           <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
             İnceleme gerekli: {warnings.join(", ")}

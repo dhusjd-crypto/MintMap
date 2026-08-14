@@ -1,4 +1,5 @@
 import { parseMoneyInput } from "./money-input";
+import pdfWorkerUrl from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
 
 export type ExtractedDocumentMethod = "EMBEDDED_PDF_TEXT" | "OCR_IMAGE" | "OCR_PDF" | "MANUAL_TEXT";
 export type ExtractedDocumentText = {
@@ -22,11 +23,33 @@ export type StatementTextInterpretation = {
   warnings: string[];
 };
 
+type PdfJsModule = {
+  GlobalWorkerOptions: { workerSrc: string };
+  getDocument(input: { data: Uint8Array }): {
+    promise: Promise<{
+      numPages: number;
+      getPage(page: number): Promise<{
+        getTextContent?: () => Promise<{ items: { str?: string }[] }>;
+        getViewport?: (input: { scale: number }) => { width: number; height: number };
+        render?: (input: { canvasContext: CanvasRenderingContext2D; viewport: unknown }) => {
+          promise: Promise<void>;
+        };
+      }>;
+    }>;
+  };
+};
+
+async function loadPdfJs() {
+  const pdfjs = (await import("pdfjs-dist/legacy/build/pdf.mjs")) as unknown as PdfJsModule;
+  pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+  return pdfjs;
+}
+
 const MONEY = /(?:(?:TRY|TL|₺)\s*)?([+-]?[\d.]+(?:,[0-9]{1,2})?)(?:\s*(TRY|TL|₺|USD|\$|EUR|€))?/i;
 const DATE = /(\d{2}[./]\d{2}[./]\d{4}|\d{4}-\d{2}-\d{2})/;
 const labels: Record<string, RegExp> = {
-  statementDate: /(?:ekstre|hesap kesim|statement)\s*tarihi[^\n:]*[:-]?\s*/i,
-  dueDate: /(?:son ödeme|due date)\s*tarihi?[^\n:]*[:-]?\s*/i,
+  statementDate: /(?:ekstre tarihi|hesap kesim tarihi|statement date)[^\n:]*[:-]?\s*/i,
+  dueDate: /(?:son ödeme tarihi|due date)[^\n:]*[:-]?\s*/i,
   newBalance: /(?:dönem borcu|toplam borç|new balance|statement balance)[^\n:]*[:-]?\s*/i,
   minimumPayment: /(?:asgari ödeme(?: tutarı)?|minimum payment)[^\n:]*[:-]?\s*/i,
   previousBalance: /(?:önceki bakiye|previous balance)[^\n:]*[:-]?\s*/i,
@@ -192,16 +215,7 @@ export async function extractPdfEmbeddedText(
       extractorVersion: "PDF_TEXT_V1",
       createdAt: Date.now(),
     };
-  const pdfjs = (await import("pdfjs-dist/legacy/build/pdf.mjs")) as {
-    getDocument(input: { data: Uint8Array }): {
-      promise: Promise<{
-        numPages: number;
-        getPage(
-          page: number,
-        ): Promise<{ getTextContent(): Promise<{ items: { str?: string }[] }> }>;
-      }>;
-    };
-  };
+  const pdfjs = await loadPdfJs();
   const pdf = await pdfjs.getDocument({ data: new Uint8Array(bytes) }).promise;
   if (pdf.numPages > limits.maxPages)
     return {
@@ -216,7 +230,8 @@ export async function extractPdfEmbeddedText(
   const pages = await Promise.all(
     Array.from({ length: pdf.numPages }, async (_, index) => {
       const page = await pdf.getPage(index + 1);
-      const content = await page.getTextContent();
+      const content = await page.getTextContent?.();
+      if (!content) throw new Error("PDF_TEXT_EXTRACTION_UNAVAILABLE");
       return content.items.map((item) => item.str ?? "").join(" ");
     }),
   );
@@ -236,31 +251,22 @@ export async function extractPdfTextWithFallback(
   bytes: ArrayBuffer,
   limits = { maxPages: 20, maxBytes: 12 * 1024 * 1024, maxOcrPages: 3, renderScale: 1.5 },
 ): Promise<ExtractedDocumentText> {
-  const embedded = await extractPdfEmbeddedText(documentId, bytes, limits);
+  // pdfjs may transfer its input buffer to its worker. Keep the original bytes intact
+  // because the OCR fallback must be able to load the same scanned document again.
+  const embedded = await extractPdfEmbeddedText(documentId, bytes.slice(0), limits);
   const usable =
     embedded.text.trim().length >= 40 && /(?:ekstre|ödeme|balance|due|borç)/i.test(embedded.text);
   if (usable || embedded.warnings.includes("EXTRACTION_LIMIT_EXCEEDED")) return embedded;
   const capability = imageOcrCapability();
   if (!capability.supported)
     return { ...embedded, warnings: [...embedded.warnings, "OCR_UNAVAILABLE"] };
-  const pdfjs = (await import("pdfjs-dist/legacy/build/pdf.mjs")) as {
-    getDocument(input: { data: Uint8Array }): {
-      promise: Promise<{
-        numPages: number;
-        getPage(number: number): Promise<{
-          getViewport(input: { scale: number }): { width: number; height: number };
-          render(input: { canvasContext: CanvasRenderingContext2D; viewport: unknown }): {
-            promise: Promise<void>;
-          };
-        }>;
-      }>;
-    };
-  };
-  const pdf = await pdfjs.getDocument({ data: new Uint8Array(bytes) }).promise;
+  const pdfjs = await loadPdfJs();
+  const pdf = await pdfjs.getDocument({ data: new Uint8Array(bytes.slice(0)) }).promise;
   const pages: string[] = [];
   for (let number = 1; number <= Math.min(pdf.numPages, limits.maxOcrPages); number++) {
     const page = await pdf.getPage(number);
-    const viewport = page.getViewport({ scale: limits.renderScale });
+    const viewport = page.getViewport?.({ scale: limits.renderScale });
+    if (!viewport || !page.render) throw new Error("PDF_RENDER_UNAVAILABLE");
     const canvas = document.createElement("canvas");
     canvas.width = Math.ceil(viewport.width);
     canvas.height = Math.ceil(viewport.height);
