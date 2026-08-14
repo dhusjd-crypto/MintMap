@@ -9,7 +9,7 @@ The order is deliberately incremental. A phase must leave the application usable
 4. Finance Domain Core **(Phase 4 complete)**
 5. Persistence and versioned migrations
 6. Deterministic Trigger Engine **(Phase 6 complete; Planner/Calendar signals remain partial)**
-7. Planner and capacity
+7. Planner and capacity **(Phase 7 complete; Calendar adapter remains partial)**
 8. Notification Engine
 9. Focus / NOW / execution modes
 10. Reset and routines

@@ -152,7 +152,21 @@ export function signalsForTask(
     );
   else
     output.push(signal("T15", "CAPACITY", "NOT_EVALUATED", "INFO", "Kapasite bağlamı verilmedi."));
-  if (
+  const planningRisk = context.planningRisks?.find((risk) => risk.taskId === task.id);
+  if (planningRisk)
+    output.push(
+      signal(
+        "T16",
+        "DEADLINE",
+        "TRIGGERED",
+        "HIGH",
+        `Son tarihe kadar ${planningRisk.deficitMinutes} dakika açık var.`,
+        task.id,
+        [],
+        { deficitMinutes: planningRisk.deficitMinutes },
+      ),
+    );
+  else if (
     context.availableMinutesToday !== undefined &&
     context.plannedMinutesToday !== undefined &&
     task.dueAt !== undefined
@@ -218,6 +232,20 @@ export function systemSignals(
   config: TriggerConfig,
 ): TriggerSignal[] {
   const output = tasks.flatMap((task) => signalsForTask(task, context, config));
+  if (context.availableMinutesToday !== undefined && context.plannedMinutesToday !== undefined)
+    output.push(
+      signal(
+        "T15",
+        "CAPACITY",
+        context.plannedMinutesToday > context.availableMinutesToday ? "TRIGGERED" : "NOT_TRIGGERED",
+        context.plannedMinutesToday > context.availableMinutesToday ? "HIGH" : "INFO",
+        context.plannedMinutesToday > context.availableMinutesToday
+          ? "Bugünkü plan kapasiteyi aşıyor."
+          : "Bugünkü plan kapasite içinde.",
+      ),
+    );
+  else
+    output.push(signal("T15", "CAPACITY", "NOT_EVALUATED", "INFO", "Kapasite bağlamı verilmedi."));
   const staleProjects = Object.entries(context.projectSignals ?? {})
     .filter(([, value]) => value.stale)
     .map(([id]) => id);

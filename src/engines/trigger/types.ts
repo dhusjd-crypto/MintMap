@@ -125,6 +125,12 @@ export type TriggerContext = {
   calendar?: CalendarAvailabilitySignal;
   meetingCancelled?: { verified: boolean; meetingId?: string };
   scheduleChanged?: { verified: boolean; requiresReplan: boolean; reason?: string };
+  planningRisks?: readonly {
+    taskId: string;
+    requiredMinutes: number;
+    availableMinutes: number;
+    deficitMinutes: number;
+  }[];
   config?: Partial<TriggerConfig> & { weights?: Partial<TriggerConfig["weights"]> };
   projects?: readonly ExecutionProject[];
   projectSignals?: Readonly<Record<string, { stale?: boolean; noNextAction?: boolean }>>;

@@ -92,21 +92,21 @@ Scoring must be deterministic, configurable, and return human-readable reasons. 
 
 | ID | Feature | Owner | Status | Dependencies | Tests / flag |
 |---|---|---|---|---|---|
-| P001 | available/planned/remaining/overcommit minutes | Planner | PLANNED | A004 | arithmetic tests; `planner` |
-| P002 | Estimated finish and tasks at risk | Planner | PLANNED | P001, A003 | deterministic fixture; `planner` |
-| P003 | Task chunking min/max/splittable | Planner | PARTIAL | A004 | chunk property tests; `planner` |
-| P004 | TimeBlocks reference canonical Task IDs | Planner | PLANNED | A001 | identity test; `planner` |
-| P005 | Manual blocks | Planner | PLANNED | P004 | CRUD/E2E; `planner` |
-| P006 | Calendar availability windows | Planner | PLANNED | X001 | adapter test; `calendarIntegration` |
-| P007 | Focus windows and buffers | Planner | PLANNED | P006 | allocation tests; `planner` |
-| P008 | Meetings and fixed events | Planner | PLANNED | P006 | calendar fixture; `planner` |
-| P009 | Flexible tasks | Planner | PLANNED | P004 | allocation tests; `planner` |
-| P010 | Lock Horizon | Planner | PLANNED | P004 | boundary tests; `planner` |
-| P011 | Manual locks always win | Planner | PLANNED | P010 | precedence test; `planner` |
-| P012 | Today mostly stable horizon | Planner | PLANNED | P010 | clock fixture; `planner` |
-| P013 | Tomorrow moderately flexible | Planner | PLANNED | P010 | clock fixture; `planner` |
-| P014 | Far future flexible | Planner | PLANNED | P010 | clock fixture; `planner` |
-| P015 | Re-plan without silently moving unfinished work | Planner | PLANNED | P010, A003 | regression fixture; `smartRescheduling` |
+| P001 | available/planned/remaining/overcommit minutes | Planner | IMPLEMENTED | A004 | arithmetic tests; `planner` |
+| P002 | Estimated finish and tasks at risk | Planner | IMPLEMENTED | P001, A003 | deterministic fixture; `planner` |
+| P003 | Task chunking min/max/splittable | Planner | IMPLEMENTED | A004 | chunk property tests; `planner` |
+| P004 | TimeBlocks reference canonical Task IDs | Planner | IMPLEMENTED | A001 | identity test; `planner` |
+| P005 | Manual blocks | Planner | IMPLEMENTED | P004 | explicit block contract; `planner` |
+| P006 | Calendar availability windows | Planner | PARTIAL | X001 | adapter contract; `calendarIntegration` |
+| P007 | Focus windows and buffers | Planner | IMPLEMENTED | P006 | allocation tests; `planner` |
+| P008 | Meetings and fixed events | Planner | IMPLEMENTED | P006 | explicit fixed block fixture; `planner` |
+| P009 | Flexible tasks | Planner | IMPLEMENTED | P004 | allocation tests; `planner` |
+| P010 | Lock Horizon | Planner | IMPLEMENTED | P004 | boundary tests; `planner` |
+| P011 | Manual locks always win | Planner | IMPLEMENTED | P010 | precedence test; `planner` |
+| P012 | Today mostly stable horizon | Planner | IMPLEMENTED | P010 | lock policy; `planner` |
+| P013 | Tomorrow moderately flexible | Planner | IMPLEMENTED | P010 | lock policy; `planner` |
+| P014 | Far future flexible | Planner | IMPLEMENTED | P010 | lock policy; `planner` |
+| P015 | Re-plan without silently moving unfinished work | Planner | IMPLEMENTED | P010, A003 | regression fixture; `smartRescheduling` |
 
 ## R — Routines / Review (8)
 
