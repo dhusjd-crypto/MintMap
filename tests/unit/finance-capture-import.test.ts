@@ -2,9 +2,20 @@ import { describe, expect, it } from "vitest";
 import { createFinanceApplication } from "@/application/finance/finance-application";
 import {
   createFinanceCaptureImportApplication,
+  matchPaymentEvidence,
   matchImportRow,
   parseCsvRows,
 } from "@/application/finance/capture-import";
+import {
+  imageOcrCapability,
+  interpretStatementText,
+} from "@/application/finance/document-extraction";
+import {
+  detectImportFormat,
+  parseCamt,
+  parseOfx,
+  parseQif,
+} from "@/application/finance/import-formats";
 import { fixedClock } from "@/lib/architecture/clock";
 import { createFinancePersistence } from "@/lib/canonical-persistence/repositories";
 import { InMemoryCanonicalStorage } from "@/lib/canonical-persistence/storage";
@@ -74,5 +85,49 @@ describe("Finance capture, import and reconciliation", () => {
     await expect(app.commands.completeReconciliation(session.id)).rejects.toThrow(
       "RECONCILIATION_DIFFERENCE",
     );
+  });
+  it("interprets explicit statement labels as proposal-only candidates", () => {
+    const proposal = interpretStatementText(
+      "Ekstre Tarihi: 01.08.2026\nSon Ödeme Tarihi: 25.08.2026\nDönem Borcu: 87.450,37 TL\nAsgari Ödeme: 17.490,07 TL",
+    );
+    expect(proposal.fields.newBalance).toMatchObject({
+      value: { minorUnits: 8745037, currency: "TRY" },
+      confidence: "HIGH",
+    });
+    expect(proposal.fields.dueDate).toMatchObject({ confidence: "HIGH" });
+    expect(imageOcrCapability().supported).toBe(false);
+  });
+  it("normalizes OFX/QFX, QIF and CAMT into import rows without writing finance truth", () => {
+    const ofx = parseOfx(
+      "OFXHEADER:100\n<STMTTRN><DTPOSTED>20260814<TRNAMT>-1250.50<FITID>fit-1<NAME>Market<MEMO>Gıda",
+      "TRY",
+    );
+    expect(ofx[0]).toMatchObject({ externalId: "fit-1", amount: { minorUnits: -125050 } });
+    const qif = parseQif("!Type:Bank\nD14/08/2026\nT-250,50\nPMarket\n^", "TRY");
+    expect(qif[0]).toMatchObject({
+      amount: { minorUnits: -25050 },
+      warnings: ["WEAK_EXTERNAL_ID"],
+    });
+    const camt = parseCamt(
+      '<Document><Ntry><Amt Ccy="TRY">500.00</Amt><CdtDbtInd>DBIT</CdtDbtInd><BookgDt><Dt>2026-08-14</Dt></BookgDt><NtryRef>ref-1</NtryRef><NtryDtls><TxDtls><RmtInf><Ustrd>Fatura</Ustrd></RmtInf></TxDtls></NtryDtls></Ntry></Document>',
+      "TRY",
+    );
+    expect(camt[0]).toMatchObject({ externalId: "ref-1", amount: { minorUnits: -50000 } });
+    expect(detectImportFormat("bank.qfx", "OFXHEADER:100")).toBe("QFX");
+  });
+  it("keeps payment receipt matching as a reviewed candidate", () => {
+    const matches = matchPaymentEvidence(
+      { amount: { minorUnits: 2000000, currency: "TRY" }, date: clock.nowMs(), reference: "ABC" },
+      [
+        {
+          id: "payment",
+          obligationId: "obligation",
+          amount: { minorUnits: 2000000, currency: "TRY" },
+          paymentReference: "ABC",
+          scheduledFor: clock.nowMs(),
+        },
+      ],
+    );
+    expect(matches[0]).toMatchObject({ paymentId: "payment", confidence: "EXACT" });
   });
 });

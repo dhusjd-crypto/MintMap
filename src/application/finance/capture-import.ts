@@ -7,11 +7,13 @@ import {
   type FinanceImportBatch,
   type ImportRowProposal,
   type ImportMatchConfidence,
+  type PaymentEvidenceMatch,
   type ReconciliationSession,
 } from "@/domain/finance";
 import { systemClock, type Clock } from "@/lib/architecture/clock";
 import { createFinancePersistence } from "@/lib/canonical-persistence/repositories";
 import { parseMoneyInput } from "./money-input";
+import { parseStructuredImport, type ImportFormat, type ParsedImportRow } from "./import-formats";
 
 export type CsvMapping = {
   date: string;
@@ -133,6 +135,99 @@ export function matchImportRow(
     (a, b) => ranks[b.confidence as keyof typeof ranks] - ranks[a.confidence as keyof typeof ranks],
   );
 }
+
+/** Evidence matching remains a proposal. Only a later explicit command confirms a payment. */
+export function matchPaymentEvidence(
+  evidence: {
+    amount?: { minorUnits: number; currency: string };
+    date?: number;
+    reference?: string;
+  },
+  payments: readonly {
+    id: string;
+    obligationId: string;
+    amount: { minorUnits: number; currency: string };
+    paymentReference?: string;
+    scheduledFor?: number;
+    transferId?: string;
+  }[],
+): PaymentEvidenceMatch[] {
+  const ranks: Record<ImportMatchConfidence, number> = {
+    EXACT: 4,
+    HIGH: 3,
+    MEDIUM: 2,
+    LOW: 1,
+    NONE: 0,
+  };
+  return payments
+    .map((payment) => {
+      const reasonCodes: string[] = [];
+      if (evidence.reference && evidence.reference === payment.paymentReference)
+        reasonCodes.push("EXACT_REFERENCE");
+      if (evidence.amount?.currency === payment.amount.currency) reasonCodes.push("EXACT_CURRENCY");
+      if (evidence.amount?.minorUnits === payment.amount.minorUnits)
+        reasonCodes.push("EXACT_AMOUNT");
+      if (evidence.date && payment.scheduledFor) {
+        const days = Math.abs(evidence.date - payment.scheduledFor) / 86_400_000;
+        if (days < 1) reasonCodes.push("DATE_MATCH");
+        else if (days <= 3) reasonCodes.push("DATE_NEAR");
+      }
+      const confidence: ImportMatchConfidence =
+        reasonCodes.includes("EXACT_REFERENCE") && reasonCodes.includes("EXACT_AMOUNT")
+          ? "EXACT"
+          : reasonCodes.includes("EXACT_AMOUNT") &&
+              reasonCodes.includes("EXACT_CURRENCY") &&
+              reasonCodes.some((x) => x.startsWith("DATE_"))
+            ? "HIGH"
+            : reasonCodes.includes("EXACT_AMOUNT") && reasonCodes.includes("EXACT_CURRENCY")
+              ? "MEDIUM"
+              : "NONE";
+      return {
+        paymentId: payment.id,
+        transferId: payment.transferId,
+        obligationId: payment.obligationId,
+        confidence,
+        reasonCodes,
+      };
+    })
+    .filter((match) => match.confidence !== "NONE")
+    .sort((a, b) => ranks[b.confidence] - ranks[a.confidence]);
+}
+
+function toRowProposals(
+  parsed: ParsedImportRow[],
+  batchId: string,
+  transactions: Awaited<
+    ReturnType<ReturnType<typeof createFinancePersistence>["listTransactions"]>
+  >,
+  accountId: string,
+) {
+  return parsed.map((row) => {
+    const matchCandidates = row.amount ? matchImportRow(row, transactions, accountId) : [];
+    const exact = matchCandidates[0]?.confidence === "EXACT";
+    return {
+      id: nanoid(12),
+      batchId,
+      date: row.date,
+      amount: row.amount,
+      currency: row.amount?.currency,
+      description: row.description,
+      reference: row.reference,
+      externalId: row.externalId,
+      warnings: row.warnings,
+      matchCandidates,
+      decision: row.warnings.length
+        ? "REVIEW"
+        : exact
+          ? "SKIP_DUPLICATE"
+          : matchCandidates.length
+            ? "REVIEW"
+            : "IMPORT_NEW",
+      errorCode: row.warnings[0],
+      metadata: row.metadata,
+    } satisfies ImportRowProposal;
+  });
+}
 export function createFinanceCaptureImportApplication(
   deps: { persistence?: ReturnType<typeof createFinancePersistence>; clock?: Clock } = {},
 ) {
@@ -233,39 +328,68 @@ export function createFinanceCaptureImportApplication(
         };
         const rows = parseCsvRows(input.csv, input.mapping, input.currency);
         const transactions = await persistence.listTransactions(input.financeBookId);
-        const proposals: ImportRowProposal[] = rows.map((row) => {
-          const matchCandidates: ImportRowProposal["matchCandidates"] = row.amount
-            ? matchImportRow(row, transactions, input.accountId)
-            : [];
-          const exact = matchCandidates[0]?.confidence === "EXACT";
-          return {
-            id: nanoid(12),
-            batchId: batch.id,
-            date: row.date,
-            amount: row.amount,
-            currency: row.amount?.currency,
-            description: row.description,
-            reference: row.reference,
-            externalId: row.externalId,
-            warnings: row.warnings,
-            matchCandidates,
-            decision: row.warnings.length
-              ? "REVIEW"
-              : exact
-                ? "SKIP_DUPLICATE"
-                : matchCandidates.length
-                  ? "REVIEW"
-                  : "IMPORT_NEW",
-            errorCode: row.warnings[0],
-            metadata: {},
-          };
-        });
+        const proposals = toRowProposals(
+          rows.map((row) => ({ ...row, metadata: {} })),
+          batch.id,
+          transactions,
+          input.accountId,
+        );
         batch.rowCount = proposals.length;
         batch.duplicateCount = proposals.filter((x) => x.decision === "SKIP_DUPLICATE").length;
         batch.errorCount = proposals.filter((x) => x.warnings.length).length;
         await persistence.repositories.importBatches.save(batch);
         await Promise.all(proposals.map((row) => persistence.repositories.importRows.save(row)));
         return { batch, rows: proposals };
+      },
+      async createStructuredImportBatch(input: {
+        financeBookId: string;
+        accountId: string;
+        filename: string;
+        content: string;
+        format: Exclude<ImportFormat, "CSV">;
+        currency: "TRY" | "USD" | "EUR";
+        sourceDocumentId?: string;
+      }) {
+        const account = await persistence.repositories.accounts.get(input.accountId);
+        if (
+          !account ||
+          account.financeBookId !== input.financeBookId ||
+          account.currency !== input.currency
+        )
+          throw new Error("ACCOUNT_CURRENCY_MISMATCH");
+        const batch: FinanceImportBatch = {
+          id: nanoid(12),
+          financeBookId: input.financeBookId,
+          accountId: input.accountId,
+          filename: input.filename,
+          format: input.format,
+          createdAt: clock.nowMs(),
+          updatedAt: clock.nowMs(),
+          status: "REVIEW_REQUIRED",
+          rowCount: 0,
+          acceptedCount: 0,
+          skippedCount: 0,
+          duplicateCount: 0,
+          errorCount: 0,
+          sourceDocumentId: input.sourceDocumentId,
+          parserVersion: `${input.format}_IMPORT_V1`,
+          metadata: {
+            trust: input.format === "QIF" ? "QIF_WEAK_ID" : "BANK_FILE_WITH_EXTERNAL_ID",
+          },
+        };
+        const parsed = parseStructuredImport(input.content, input.format, input.currency);
+        const rows = toRowProposals(
+          parsed,
+          batch.id,
+          await persistence.listTransactions(input.financeBookId),
+          input.accountId,
+        );
+        batch.rowCount = rows.length;
+        batch.duplicateCount = rows.filter((x) => x.decision === "SKIP_DUPLICATE").length;
+        batch.errorCount = rows.filter((x) => x.warnings.length).length;
+        await persistence.repositories.importBatches.save(batch);
+        await Promise.all(rows.map((row) => persistence.repositories.importRows.save(row)));
+        return { batch, rows };
       },
       async confirmImportRows(batchId: string, rowIds: string[]) {
         const batch = await persistence.repositories.importBatches.get(batchId);

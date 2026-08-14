@@ -4,6 +4,8 @@ import { CreditCard, Landmark, Plus, ReceiptText, Send, WalletCards } from "luci
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { financeApplication } from "@/application/finance/finance-application";
+import { financeCaptureImportApplication } from "@/application/finance/capture-import";
+import { detectImportFormat, type ImportFormat } from "@/application/finance/import-formats";
 import { financeTriggerApplication, type FinanceAlertView } from "@/application/finance/triggers";
 import { formatMoney, parseMoneyInput } from "@/application/finance/money-input";
 import type { CurrencyCode, FinanceBook, FinancialAccount } from "@/domain/finance";
@@ -13,7 +15,7 @@ export const Route = createFileRoute("/finance")({
   head: () => ({ meta: [{ title: "Finans — MintMap" }] }),
   component: FinancePage,
 });
-type Tab = "OVERVIEW" | "ACCOUNTS" | "LEDGER" | "OBLIGATIONS" | "STATEMENTS";
+type Tab = "OVERVIEW" | "ACCOUNTS" | "LEDGER" | "OBLIGATIONS" | "STATEMENTS" | "IMPORT";
 const dateValue = () => new Date().toISOString().slice(0, 10);
 const dateMs = (value: string) => new Date(`${value}T12:00:00`).getTime();
 
@@ -91,7 +93,7 @@ function FinancePage() {
           </select>
         </header>
         <nav className="flex gap-1 overflow-x-auto rounded-xl border bg-card p-1">
-          {(["OVERVIEW", "ACCOUNTS", "LEDGER", "OBLIGATIONS", "STATEMENTS"] as Tab[]).map(
+          {(["OVERVIEW", "ACCOUNTS", "LEDGER", "OBLIGATIONS", "STATEMENTS", "IMPORT"] as Tab[]).map(
             (item) => (
               <button
                 key={item}
@@ -106,6 +108,7 @@ function FinancePage() {
                       LEDGER: "İşlemler",
                       OBLIGATIONS: "Ödemeler",
                       STATEMENTS: "Ekstreler",
+                      IMPORT: "İçe aktar",
                     } as Record<Tab, string>
                   )[item]
                 }
@@ -143,9 +146,123 @@ function FinancePage() {
             onDone={() => void refresh()}
           />
         )}
+        {tab === "IMPORT" && (
+          <ImportTransactions book={activeBook} accounts={accounts} onDone={() => void refresh()} />
+        )}
       </main>
       <BottomNav />
     </div>
+  );
+}
+function ImportTransactions({
+  book,
+  accounts,
+  onDone,
+}: {
+  book: FinanceBook;
+  accounts: FinancialAccount[];
+  onDone: () => void;
+}) {
+  const [accountId, setAccountId] = useState("");
+  const [preview, setPreview] =
+    useState<Awaited<ReturnType<typeof financeCaptureImportApplication.commands.createCsvBatch>>>();
+  const upload = async (file?: File) => {
+    if (!file || !accountId) return;
+    const account = accounts.find((item) => item.id === accountId);
+    if (!account) return;
+    try {
+      const text = await file.text();
+      const format = detectImportFormat(file.name, text);
+      if (!format) throw new Error("UNSUPPORTED_FORMAT");
+      const result =
+        format === "CSV"
+          ? await financeCaptureImportApplication.commands.createCsvBatch({
+              financeBookId: book.id,
+              accountId,
+              filename: file.name,
+              csv: text,
+              currency: account.currency,
+              mapping: {
+                date: "Tarih",
+                amount: "Tutar",
+                description: "Açıklama",
+                externalId: "ID",
+                dateFormat: "DD.MM.YYYY",
+              },
+            })
+          : await financeCaptureImportApplication.commands.createStructuredImportBatch({
+              financeBookId: book.id,
+              accountId,
+              filename: file.name,
+              content: text,
+              format: format as Exclude<ImportFormat, "CSV">,
+              currency: account.currency,
+            });
+      setPreview(result);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Dosya ayrıştırılamadı");
+    }
+  };
+  const confirm = async () => {
+    if (!preview) return;
+    await financeCaptureImportApplication.commands.confirmImportRows(
+      preview.batch.id,
+      preview.rows.filter((row) => row.decision === "IMPORT_NEW").map((row) => row.id),
+    );
+    toast.success("Uygun satırlar içe aktarıldı");
+    setPreview(undefined);
+    onDone();
+  };
+  return (
+    <section className="space-y-4 rounded-2xl border bg-card p-4">
+      <div>
+        <h2 className="font-semibold">Banka dosyasını incele</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Dosya önce önerilere ayrılır; onaydan önce finans kayıtları değişmez.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <select
+          value={accountId}
+          onChange={(event) => setAccountId(event.target.value)}
+          className="rounded-lg border p-3"
+        >
+          <option value="">Hedef hesap seç</option>
+          {accounts.map((account) => (
+            <option key={account.id} value={account.id}>
+              {account.name}
+            </option>
+          ))}
+        </select>
+        <label className="inline-flex cursor-pointer items-center rounded-lg border px-3 py-2 text-sm font-medium">
+          Dosya seç
+          <input
+            className="hidden"
+            type="file"
+            accept=".csv,.ofx,.qfx,.qif,.xml,.camt"
+            onChange={(event) => void upload(event.target.files?.[0])}
+          />
+        </label>
+      </div>
+      {preview && (
+        <div className="space-y-3 rounded-xl border bg-muted/30 p-3">
+          <p className="text-sm">
+            {preview.batch.format} · {preview.batch.rowCount} satır · {preview.batch.duplicateCount}{" "}
+            yinelenen
+          </p>
+          {preview.rows.slice(0, 8).map((row) => (
+            <div key={row.id} className="flex justify-between gap-3 text-sm">
+              <span>{row.description ?? "Açıklama yok"}</span>
+              <span>
+                {row.decision}
+                {row.warnings.length ? ` · ${row.warnings.join(", ")}` : ""}
+              </span>
+            </div>
+          ))}
+          <Button onClick={() => void confirm()}>Yeni satırları onayla</Button>
+        </div>
+      )}
+    </section>
   );
 }
 function Setup({ onCreated }: { onCreated: (id: string) => void }) {

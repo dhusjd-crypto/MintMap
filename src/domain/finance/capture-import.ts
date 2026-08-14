@@ -51,6 +51,13 @@ export type ImportMatch = {
   confidence: ImportMatchConfidence;
   reasonCodes: string[];
 };
+export type PaymentEvidenceMatch = {
+  paymentId?: string;
+  transferId?: string;
+  obligationId?: string;
+  confidence: ImportMatchConfidence;
+  reasonCodes: string[];
+};
 export type ImportRowProposal = {
   id: string;
   batchId: string;
