@@ -10,11 +10,15 @@ import type {
   CreditCardStatement,
   FinancialTransfer,
   Payee,
+  ExpectedCashflowItem,
+  Budget,
+  BudgetAllocation,
+  FinancialGoal,
 } from "@/domain/finance/models";
 
 export const CANONICAL_SCHEMA_VERSION = 1 as const;
 export const CANONICAL_DB_NAME = "mintmap-canonical";
-export const CANONICAL_DB_VERSION = 7;
+export const CANONICAL_DB_VERSION = 8;
 
 export const CANONICAL_STORES = [
   "meta",
@@ -46,6 +50,10 @@ export const CANONICAL_STORES = [
   "finance_import_batches",
   "finance_import_rows",
   "reconciliation_sessions",
+  "expected_cashflow_items",
+  "budgets",
+  "budget_allocations",
+  "financial_goals",
 ] as const;
 
 export type CanonicalStoreName = (typeof CANONICAL_STORES)[number];
@@ -71,7 +79,11 @@ export type CanonicalEntity =
   | FinancialObligation
   | FinancialPayment
   | CreditCardStatement
-  | FinancialSchedule;
+  | FinancialSchedule
+  | ExpectedCashflowItem
+  | Budget
+  | BudgetAllocation
+  | FinancialGoal;
 
 export type CanonicalRecord = PersistenceEnvelope<CanonicalEntity | Record<string, unknown>>;
 

@@ -19,7 +19,7 @@ The order is deliberately incremental. A phase must leave the application usable
 12. Finance ledger, obligations, statements
 13. Finance triggers and payment workflow **(Phase 13 complete; cashflow shortfall remains intentionally partial)**
 14. Finance capture, import, reconciliation **(Phase 14C complete: local image OCR, bounded PDF OCR fallback, Capture-to-Finance review, payment-evidence confirmation; CAMT remains bounded/partial by design)**
-15. Budgets and cashflow forecast
+15. Budgets and cashflow forecast **(Phase 15 complete; no FX, predictive spend, portfolio valuation or bank APIs)**
 16. Smart Views and Command Center
 17. Mind Map projection refactor
 18. Windows/Tauri adapter

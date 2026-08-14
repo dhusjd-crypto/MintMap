@@ -211,3 +211,86 @@ export type FinancialSchedule = {
   updatedAt: number;
   metadata: Record<string, unknown>;
 };
+
+export type CashflowItemDirection = "INFLOW" | "OUTFLOW";
+export type CashflowItemConfidence = "COMMITTED" | "EXPECTED" | "ESTIMATED" | "OPTIONAL";
+export type ExpectedCashflowItemStatus = "ACTIVE" | "REALIZED" | "CANCELLED" | "MISSED";
+export type ExpectedCashflowItem = {
+  id: string;
+  financeBookId: string;
+  title: string;
+  direction: CashflowItemDirection;
+  amount: Money;
+  expectedAt: number;
+  confidence: CashflowItemConfidence;
+  status: ExpectedCashflowItemStatus;
+  accountId?: string;
+  transactionId?: string;
+  recurrence?: string;
+  sourceType?: "MANUAL_FORECAST_ITEM" | "EXPECTED_INCOME" | "EXPECTED_EXPENSE" | "RECURRING_INCOME" | "RECURRING_EXPENSE";
+  sourceId?: string;
+  createdAt: number;
+  updatedAt: number;
+  metadata: Record<string, unknown>;
+};
+
+export type BudgetPeriodType = "MONTHLY" | "WEEKLY" | "CUSTOM";
+export type BudgetStatus = "DRAFT" | "ACTIVE" | "CLOSED" | "ARCHIVED";
+export type Budget = {
+  id: string;
+  financeBookId: string;
+  name: string;
+  periodType: BudgetPeriodType;
+  startDate: number;
+  endDate: number;
+  currency: CurrencyCode;
+  status: BudgetStatus;
+  warningThresholds: number[];
+  createdAt: number;
+  updatedAt: number;
+  metadata: Record<string, unknown>;
+};
+export type BudgetAllocation = {
+  id: string;
+  budgetId: string;
+  financeBookId: string;
+  categoryId?: string;
+  amount: Money;
+  notes?: string;
+  createdAt: number;
+  updatedAt: number;
+  metadata: Record<string, unknown>;
+};
+
+export type FinancialGoalType =
+  | "EMERGENCY_FUND"
+  | "LAND"
+  | "REAL_ESTATE"
+  | "VEHICLE"
+  | "INVESTMENT_CAPITAL"
+  | "DEBT_PAYOFF"
+  | "TAX_RESERVE"
+  | "CUSTOM";
+export type FinancialGoalStatus = "ACTIVE" | "ACHIEVED" | "PAUSED" | "CANCELLED" | "ARCHIVED";
+export type FinancialGoalCurrentAmountMode =
+  | "MANUAL"
+  | "LINKED_ACCOUNT_BALANCE"
+  | "LINKED_ACCOUNT_SUM"
+  | "DEBT_REDUCTION"
+  | "RESERVE_BALANCE";
+export type FinancialGoal = {
+  id: string;
+  financeBookId: string;
+  name: string;
+  type: FinancialGoalType;
+  targetAmount: Money;
+  currency: CurrencyCode;
+  targetDate?: number;
+  currentAmountMode: FinancialGoalCurrentAmountMode;
+  linkedAccountIds?: string[];
+  manualCurrentAmount?: Money;
+  status: FinancialGoalStatus;
+  createdAt: number;
+  updatedAt: number;
+  metadata: Record<string, unknown>;
+};

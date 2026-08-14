@@ -10,6 +10,10 @@ import type {
   FinancialTransfer,
   FinanceBook,
   Payee,
+  ExpectedCashflowItem,
+  Budget,
+  BudgetAllocation,
+  FinancialGoal,
 } from "@/domain/finance/models";
 import type {
   FinanceCaptureProposal,
@@ -45,6 +49,10 @@ const ENTITY_STORE: Record<string, CanonicalStoreName> = {
   FinancialPayment: "finance_payments",
   CreditCardStatement: "finance_statements",
   FinancialSchedule: "finance_schedules",
+  ExpectedCashflowItem: "expected_cashflow_items",
+  Budget: "budgets",
+  BudgetAllocation: "budget_allocations",
+  FinancialGoal: "financial_goals",
 };
 
 function envelope<T extends { id: string }>(
@@ -133,6 +141,10 @@ export type FinanceRepositories = {
   importBatches: AsyncRepository<FinanceImportBatch>;
   importRows: AsyncRepository<ImportRowProposal>;
   reconciliationSessions: AsyncRepository<ReconciliationSession>;
+  expectedCashflowItems: AsyncRepository<ExpectedCashflowItem>;
+  budgets: AsyncRepository<Budget>;
+  budgetAllocations: AsyncRepository<BudgetAllocation>;
+  financialGoals: AsyncRepository<FinancialGoal>;
 };
 
 export function createFinanceRepositories(
@@ -190,6 +202,10 @@ export function createFinanceRepositories(
       "reconciliation_sessions",
       storage,
     ),
+    expectedCashflowItems: new IndexedDbRepository("ExpectedCashflowItem", "expected_cashflow_items", storage),
+    budgets: new IndexedDbRepository("Budget", "budgets", storage),
+    budgetAllocations: new IndexedDbRepository("BudgetAllocation", "budget_allocations", storage),
+    financialGoals: new IndexedDbRepository("FinancialGoal", "financial_goals", storage),
   };
 }
 
@@ -350,6 +366,46 @@ export function createFinancePersistence(storage: CanonicalStorage = canonicalSt
         );
       await repositories.schedules.save(schedule);
     },
+    async saveExpectedCashflowItem(item: ExpectedCashflowItem) {
+      if (!(await repositories.books.get(item.financeBookId)))
+        throw new CanonicalPersistenceError("Beklenen nakit akışının FinanceBook kaydı yok.", "RELATIONSHIP_MISSING");
+      if (item.accountId) {
+        const account = await repositories.accounts.get(item.accountId);
+        if (!account || account.financeBookId !== item.financeBookId)
+          throw new CanonicalPersistenceError("Beklenen nakit akışının hesabı geçersiz.", "RELATIONSHIP_MISSING");
+      }
+      validateMoney(item.amount);
+      await repositories.expectedCashflowItems.save(item);
+    },
+    async saveBudget(budget: Budget) {
+      if (!(await repositories.books.get(budget.financeBookId)))
+        throw new CanonicalPersistenceError("Bütçenin FinanceBook kaydı yok.", "RELATIONSHIP_MISSING");
+      await repositories.budgets.save(budget);
+    },
+    async saveBudgetAllocation(allocation: BudgetAllocation) {
+      const budget = await repositories.budgets.get(allocation.budgetId);
+      if (!budget || budget.financeBookId !== allocation.financeBookId)
+        throw new CanonicalPersistenceError("Bütçe tahsisinin bütçe ilişkisi geçersiz.", "RELATIONSHIP_MISSING");
+      if (allocation.categoryId) {
+        const category = await repositories.categories.get(allocation.categoryId);
+        if (!category || category.financeBookId !== allocation.financeBookId)
+          throw new CanonicalPersistenceError("Bütçe kategorisi geçersiz.", "RELATIONSHIP_MISSING");
+      }
+      validateMoney(allocation.amount);
+      await repositories.budgetAllocations.save(allocation);
+    },
+    async saveFinancialGoal(goal: FinancialGoal) {
+      if (!(await repositories.books.get(goal.financeBookId)))
+        throw new CanonicalPersistenceError("Finansal hedefin FinanceBook kaydı yok.", "RELATIONSHIP_MISSING");
+      for (const accountId of goal.linkedAccountIds ?? []) {
+        const account = await repositories.accounts.get(accountId);
+        if (!account || account.financeBookId !== goal.financeBookId)
+          throw new CanonicalPersistenceError("Finansal hedef hesabı geçersiz.", "RELATIONSHIP_MISSING");
+      }
+      validateMoney(goal.targetAmount);
+      if (goal.manualCurrentAmount) validateMoney(goal.manualCurrentAmount);
+      await repositories.financialGoals.save(goal);
+    },
     async listAccounts(financeBookId: string) {
       return (await repositories.accounts.list()).filter(
         (value) => value.financeBookId === financeBookId,
@@ -384,6 +440,18 @@ export function createFinancePersistence(storage: CanonicalStorage = canonicalSt
       return (await repositories.statements.list()).filter(
         (value) => value.financeBookId === financeBookId,
       );
+    },
+    async listExpectedCashflowItems(financeBookId: string) {
+      return (await repositories.expectedCashflowItems.list()).filter((value) => value.financeBookId === financeBookId);
+    },
+    async listBudgets(financeBookId: string) {
+      return (await repositories.budgets.list()).filter((value) => value.financeBookId === financeBookId);
+    },
+    async listBudgetAllocations(budgetId: string) {
+      return (await repositories.budgetAllocations.list()).filter((value) => value.budgetId === budgetId);
+    },
+    async listFinancialGoals(financeBookId: string) {
+      return (await repositories.financialGoals.list()).filter((value) => value.financeBookId === financeBookId);
     },
   };
 }

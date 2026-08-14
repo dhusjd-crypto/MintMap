@@ -300,6 +300,9 @@ export function evaluateFinanceTriggers(input: FinanceTriggerContext): FinanceTr
         ),
       );
     }
+  const cashflowContext = input.cashflowSignals?.find(
+    (signal) => signal.financeBookId === input.financeBookId,
+  );
   const shortfall = input.cashflowSignals?.find(
     (signal) =>
       signal.financeBookId === input.financeBookId && signal.shortfallAmount.minorUnits > 0,
@@ -310,8 +313,8 @@ export function evaluateFinanceTriggers(input: FinanceTriggerContext): FinanceTr
       "FIN-T15",
       "FINANCE_BOOK",
       input.financeBookId,
-      shortfall ? "TRIGGERED" : "NOT_EVALUATED",
-      shortfall ? ["EXPECTED_CASH_SHORTFALL"] : ["CASHFLOW_CONTEXT_MISSING"],
+      shortfall ? "TRIGGERED" : cashflowContext ? "NOT_TRIGGERED" : "NOT_EVALUATED",
+      shortfall ? ["EXPECTED_CASH_SHORTFALL"] : cashflowContext ? [] : ["CASHFLOW_CONTEXT_MISSING"],
       shortfall ? { shortfallMinorUnits: shortfall.shortfallAmount.minorUnits } : {},
       ["OPEN_CASHFLOW"],
     ),

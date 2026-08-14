@@ -18,6 +18,11 @@ Blob only behind the Capture boundary, keyed by `CaptureDocumentRef.id`.
 Finance records retain just document references and provenance; binary OCR input
 is never embedded in a statement, payment, or transaction record.
 
+Version 8 adds `expected_cashflow_items`, `budgets`, `budget_allocations`, and
+`financial_goals` additively. They are planning intent and derived-forecast inputs,
+not ledger transactions. Existing Finance, Capture, Execution and Blob records are
+unchanged and remain covered by the existing backup/journal migration contract.
+
 Finance amounts use `{ minorUnits, currency }`; no floating point currency
 value is authoritative. Timestamps are UTC instants represented as epoch
 milliseconds. Date-only financial concepts remain explicit domain values.

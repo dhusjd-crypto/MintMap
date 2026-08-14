@@ -10,6 +10,10 @@ import type {
   FinancialTransaction,
   FinancialTransfer,
   FinanceBook,
+  ExpectedCashflowItem,
+  Budget,
+  BudgetAllocation,
+  FinancialGoal,
   TransactionSplit,
 } from "./models";
 
@@ -58,6 +62,46 @@ export function createFinancialAccount(
   if (input.maskedIdentifier?.includes("CVV") || input.maskedIdentifier?.includes("PIN"))
     throw new FinanceDomainError("Gizli kart bilgileri saklanamaz.");
   return { ...input, ...nowPair(clock), metadata: input.metadata ?? {} };
+}
+
+export function createExpectedCashflowItem(
+  input: Pick<ExpectedCashflowItem, "id" | "financeBookId" | "title" | "direction" | "amount" | "expectedAt" | "confidence"> & Partial<ExpectedCashflowItem>,
+  clock: Clock,
+): ExpectedCashflowItem {
+  requireNonEmpty(input.title, "Beklenen nakit akışı başlığı");
+  if (input.amount.minorUnits <= 0) throw new FinanceDomainError("Beklenen tutar pozitif olmalıdır.");
+  return { ...input, status: input.status ?? "ACTIVE", ...nowPair(clock), metadata: input.metadata ?? {} };
+}
+
+export function createBudget(
+  input: Pick<Budget, "id" | "financeBookId" | "name" | "periodType" | "startDate" | "endDate" | "currency"> & Partial<Budget>,
+  clock: Clock,
+): Budget {
+  requireNonEmpty(input.name, "Bütçe adı");
+  if (input.endDate < input.startDate) throw new FinanceDomainError("Bütçe bitişi başlangıçtan önce olamaz.");
+  const thresholds = input.warningThresholds ?? [80, 90, 100];
+  if (thresholds.some((value) => value <= 0 || value > 100)) throw new FinanceDomainError("Bütçe eşikleri 1-100 arasında olmalıdır.");
+  return { ...input, status: input.status ?? "DRAFT", warningThresholds: thresholds, ...nowPair(clock), metadata: input.metadata ?? {} };
+}
+
+export function createBudgetAllocation(
+  input: Pick<BudgetAllocation, "id" | "budgetId" | "financeBookId" | "amount"> & Partial<BudgetAllocation>,
+  clock: Clock,
+): BudgetAllocation {
+  if (input.amount.minorUnits < 0) throw new FinanceDomainError("Bütçe tahsisi negatif olamaz.");
+  return { ...input, ...nowPair(clock), metadata: input.metadata ?? {} };
+}
+
+export function createFinancialGoal(
+  input: Pick<FinancialGoal, "id" | "financeBookId" | "name" | "type" | "targetAmount" | "currency" | "currentAmountMode"> & Partial<FinancialGoal>,
+  clock: Clock,
+): FinancialGoal {
+  requireNonEmpty(input.name, "Finansal hedef adı");
+  if (input.targetAmount.currency !== input.currency || input.targetAmount.minorUnits <= 0)
+    throw new FinanceDomainError("Hedef tutarı geçerli ve pozitif olmalıdır.");
+  if (input.manualCurrentAmount && input.manualCurrentAmount.currency !== input.currency)
+    throw new FinanceDomainError("Hedef para birimleri eşleşmelidir.");
+  return { ...input, status: input.status ?? "ACTIVE", ...nowPair(clock), metadata: input.metadata ?? {} };
 }
 
 export function archiveFinancialAccount(account: FinancialAccount, clock: Clock): FinancialAccount {

@@ -4,18 +4,19 @@ import { CreditCard, Landmark, Plus, ReceiptText, Send, WalletCards } from "luci
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { financeApplication } from "@/application/finance/finance-application";
+import { cashflowPlanningApplication } from "@/application/finance/cashflow-planning";
 import { financeCaptureImportApplication } from "@/application/finance/capture-import";
 import { detectImportFormat, type ImportFormat } from "@/application/finance/import-formats";
 import { financeTriggerApplication, type FinanceAlertView } from "@/application/finance/triggers";
 import { formatMoney, parseMoneyInput } from "@/application/finance/money-input";
-import type { CurrencyCode, FinanceBook, FinancialAccount } from "@/domain/finance";
+import type { Budget, CurrencyCode, FinanceBook, FinancialAccount, FinancialGoal } from "@/domain/finance";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/finance")({
   head: () => ({ meta: [{ title: "Finans — MintMap" }] }),
   component: FinancePage,
 });
-type Tab = "OVERVIEW" | "ACCOUNTS" | "LEDGER" | "OBLIGATIONS" | "STATEMENTS" | "IMPORT";
+type Tab = "OVERVIEW" | "ACCOUNTS" | "LEDGER" | "OBLIGATIONS" | "STATEMENTS" | "IMPORT" | "CASHFLOW" | "BUDGETS" | "GOALS";
 const dateValue = () => new Date().toISOString().slice(0, 10);
 const dateMs = (value: string) => new Date(`${value}T12:00:00`).getTime();
 
@@ -39,6 +40,8 @@ function FinancePage() {
     Awaited<ReturnType<typeof financeApplication.queries.statements>>
   >([]);
   const [alerts, setAlerts] = useState<FinanceAlertView[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [goals, setGoals] = useState<FinancialGoal[]>([]);
   const refresh = async (selected = bookId) => {
     const nextBooks = await financeApplication.queries.books();
     setBooks(nextBooks);
@@ -52,6 +55,8 @@ function FinancePage() {
       nextObligations,
       nextStatements,
       triggerResult,
+      nextBudgets,
+      nextGoals,
     ] = await Promise.all([
       financeApplication.queries.accounts(active),
       financeApplication.queries.overview(active),
@@ -59,6 +64,8 @@ function FinancePage() {
       financeApplication.queries.obligations(active),
       financeApplication.queries.statements(active),
       financeTriggerApplication.evaluate(active),
+      cashflowPlanningApplication.queries.budgets(active),
+      cashflowPlanningApplication.queries.goals(active),
     ]);
     setAccounts(nextAccounts);
     setOverview(nextOverview);
@@ -66,6 +73,8 @@ function FinancePage() {
     setObligations(nextObligations);
     setStatements(nextStatements);
     setAlerts(triggerResult.alerts);
+    setBudgets(nextBudgets);
+    setGoals(nextGoals);
   };
   useEffect(() => {
     void refresh();
@@ -97,7 +106,7 @@ function FinancePage() {
           </select>
         </header>
         <nav className="flex gap-1 overflow-x-auto rounded-xl border bg-card p-1">
-          {(["OVERVIEW", "ACCOUNTS", "LEDGER", "OBLIGATIONS", "STATEMENTS", "IMPORT"] as Tab[]).map(
+          {(["OVERVIEW", "ACCOUNTS", "LEDGER", "OBLIGATIONS", "STATEMENTS", "IMPORT", "CASHFLOW", "BUDGETS", "GOALS"] as Tab[]).map(
             (item) => (
               <button
                 key={item}
@@ -113,6 +122,9 @@ function FinancePage() {
                       OBLIGATIONS: "Ödemeler",
                       STATEMENTS: "Ekstreler",
                       IMPORT: "İçe aktar",
+                      CASHFLOW: "Nakit akışı",
+                      BUDGETS: "Bütçeler",
+                      GOALS: "Hedefler",
                     } as Record<Tab, string>
                   )[item]
                 }
@@ -153,6 +165,9 @@ function FinancePage() {
         {tab === "IMPORT" && (
           <ImportTransactions book={activeBook} accounts={accounts} onDone={() => void refresh()} />
         )}
+        {tab === "CASHFLOW" && <Cashflow book={activeBook} onDone={() => void refresh()} />}
+        {tab === "BUDGETS" && <Budgets book={activeBook} budgets={budgets} onDone={() => void refresh()} />}
+        {tab === "GOALS" && <Goals book={activeBook} goals={goals} onDone={() => void refresh()} />}
       </main>
       <BottomNav />
     </div>
@@ -794,4 +809,42 @@ function Statements({
       ))}
     </section>
   );
+}
+
+function Cashflow({ book, onDone }: { book: FinanceBook; onDone: () => void }) {
+  const [horizon, setHorizon] = useState(30);
+  const [amount, setAmount] = useState("");
+  const [title, setTitle] = useState("");
+  const [direction, setDirection] = useState<"INFLOW" | "OUTFLOW">("INFLOW");
+  const [forecast, setForecast] = useState<Awaited<ReturnType<typeof cashflowPlanningApplication.queries.cashflow>>>();
+  const load = async () => setForecast(await cashflowPlanningApplication.queries.cashflow(book.id, { currency: book.baseCurrency, horizonDays: horizon }));
+  useEffect(() => { void load(); }, [book.id, horizon]);
+  const add = async () => {
+    try {
+      await cashflowPlanningApplication.commands.createExpectedCashflowItem({ financeBookId: book.id, title, direction, amount: parseMoneyInput(amount, book.baseCurrency), expectedAt: dateMs(dateValue()), confidence: "EXPECTED" });
+      setTitle(""); setAmount(""); await load(); onDone();
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Nakit akışı kaydedilemedi"); }
+  };
+  return <section className="space-y-4">
+    <div className="rounded-xl border bg-card p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">Nakit akışı</h2><p className="text-sm text-muted-foreground">Likit hesaplar, beklenen girişler ve gerçek yükümlülükler üzerinden hesaplanır.</p></div><select value={horizon} onChange={(event) => setHorizon(Number(event.target.value))} className="rounded-lg border p-2">{[7, 14, 30, 90].map((day) => <option key={day} value={day}>{day} gün</option>)}</select></div>
+    {forecast && <div className="mt-4 grid gap-3 sm:grid-cols-4 text-sm"><Metric label="Açılış" value={formatMoney(forecast.openingCash)} /><Metric label="Kapanış" value={formatMoney(forecast.closingCash)} /><Metric label="En düşük" value={formatMoney(forecast.minimumProjectedCash)} /><Metric label="Açık" value={formatMoney(forecast.shortfallAmount)} /></div>}</div>
+    <div className="rounded-xl border bg-card p-4"><h2 className="font-semibold">Beklenen hareket ekle</h2><div className="mt-3 grid gap-2 sm:grid-cols-4"><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Örn. Maaş" className="rounded-lg border p-3"/><select value={direction} onChange={(event) => setDirection(event.target.value as typeof direction)} className="rounded-lg border p-3"><option value="INFLOW">Beklenen giriş</option><option value="OUTFLOW">Beklenen çıkış</option></select><input value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Tutar" className="rounded-lg border p-3"/><Button onClick={() => void add()} disabled={!title || !amount}><Plus />Ekle</Button></div></div>
+    {forecast?.points.map((point) => <div key={point.at} className="rounded-xl border bg-card p-4 text-sm"><div className="flex justify-between"><strong>{new Date(point.at).toLocaleDateString("tr-TR")}</strong><strong>{formatMoney(point.closingBalance)}</strong></div>{point.sourceItems.map((item) => <p key={item.id} className="mt-2 text-muted-foreground">{item.direction === "INFLOW" ? "+" : "-"} {item.title} · {formatMoney(item.amount)}</p>)}</div>)}
+  </section>;
+}
+function Metric({ label, value }: { label: string; value: string }) { return <div className="rounded-lg bg-muted/50 p-3"><p className="text-xs text-muted-foreground">{label}</p><strong>{value}</strong></div>; }
+
+function Budgets({ book, budgets, onDone }: { book: FinanceBook; budgets: Budget[]; onDone: () => void }) {
+  const [name, setName] = useState(""); const [amount, setAmount] = useState(""); const [performance, setPerformance] = useState<Awaited<ReturnType<typeof cashflowPlanningApplication.queries.budgetPerformance>>>();
+  const create = async () => { try { const now = dateMs(dateValue()); const budget = await cashflowPlanningApplication.commands.createBudget({ financeBookId: book.id, name, periodType: "MONTHLY", startDate: now, endDate: now + 30 * 86_400_000, currency: book.baseCurrency }); await cashflowPlanningApplication.commands.setBudgetAllocation({ budgetId: budget.id, financeBookId: book.id, amount: parseMoneyInput(amount, book.baseCurrency) }); setName(""); setAmount(""); onDone(); setPerformance(await cashflowPlanningApplication.queries.budgetPerformance(budget.id)); } catch (error) { toast.error(error instanceof Error ? error.message : "Bütçe oluşturulamadı"); } };
+  const view = async (id: string) => setPerformance(await cashflowPlanningApplication.queries.budgetPerformance(id));
+  return <section className="space-y-4"><div className="rounded-xl border bg-card p-4"><h2 className="font-semibold">Aylık bütçe</h2><div className="mt-3 grid gap-2 sm:grid-cols-3"><input value={name} onChange={(event) => setName(event.target.value)} placeholder="Örn. Ağustos" className="rounded-lg border p-3"/><input value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Toplam tahsis" className="rounded-lg border p-3"/><Button onClick={() => void create()} disabled={!name || !amount}><Plus />Oluştur</Button></div></div>{budgets.map((budget) => <button key={budget.id} onClick={() => void view(budget.id)} className="block w-full rounded-xl border bg-card p-4 text-left"><strong>{budget.name}</strong><p className="text-sm text-muted-foreground">{budget.periodType} · {budget.status}</p></button>)}{performance && <div className="rounded-xl border bg-card p-4"><h2 className="font-semibold">{performance.budget.name}</h2><p className="mt-2 text-sm">Planlanan {formatMoney(performance.totalBudgeted)} · Harcanan {formatMoney(performance.totalActual)}</p><p className="mt-1 text-sm text-muted-foreground">Kategorisiz harcama: {formatMoney(performance.uncategorized)}</p></div>}</section>;
+}
+
+function Goals({ book, goals, onDone }: { book: FinanceBook; goals: FinancialGoal[]; onDone: () => void }) {
+  const [name, setName] = useState(""); const [amount, setAmount] = useState(""); const [details, setDetails] = useState<Awaited<ReturnType<typeof cashflowPlanningApplication.queries.goalProgress>>[]> ([]);
+  const load = async () => setDetails(await Promise.all(goals.map((goal) => cashflowPlanningApplication.queries.goalProgress(goal.id))));
+  useEffect(() => { void load(); }, [goals]);
+  const create = async () => { try { await cashflowPlanningApplication.commands.createFinancialGoal({ financeBookId: book.id, name, type: "CUSTOM", targetAmount: parseMoneyInput(amount, book.baseCurrency), currentAmountMode: "MANUAL", manualCurrentAmount: parseMoneyInput("0", book.baseCurrency) }); setName(""); setAmount(""); onDone(); } catch (error) { toast.error(error instanceof Error ? error.message : "Hedef oluşturulamadı"); } };
+  return <section className="space-y-4"><div className="rounded-xl border bg-card p-4"><h2 className="font-semibold">Finansal hedef</h2><div className="mt-3 grid gap-2 sm:grid-cols-3"><input value={name} onChange={(event) => setName(event.target.value)} placeholder="Örn. Acil durum fonu" className="rounded-lg border p-3"/><input value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Hedef tutar" className="rounded-lg border p-3"/><Button onClick={() => void create()} disabled={!name || !amount}><Plus />Oluştur</Button></div></div>{details.map(({ goal, current, remaining, percentage, requiredMonthlySaving }) => <div key={goal.id} className="rounded-xl border bg-card p-4"><div className="flex justify-between"><strong>{goal.name}</strong><span>{Math.min(100, percentage).toFixed(0)}%</span></div><p className="mt-2 text-sm">{formatMoney(current)} / {formatMoney(goal.targetAmount)}</p><p className="text-sm text-muted-foreground">Kalan: {formatMoney(remaining)}{requiredMonthlySaving ? ` · Aylık gerekli: ${formatMoney(requiredMonthlySaving)}` : ""}</p></div>)}</section>;
 }

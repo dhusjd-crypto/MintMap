@@ -12,7 +12,7 @@ Events are lightweight typed facts, not a global enterprise event bus. Producers
 
 ## Finance events
 
-`FinancialObligationCreated`, `FinancialObligationUpdated`, `FinancialObligationDueSoon`, `FinancialObligationPaid`, `FinancialObligationOverdue`, `CreditCardStatementCaptured`, `StatementReconciled`, `ExpectedCashShortfallDetected`, `BudgetThresholdReached`, `RecurringPaymentGenerated`.
+`FinancialObligationCreated`, `FinancialObligationUpdated`, `FinancialObligationDueSoon`, `FinancialObligationPaid`, `FinancialObligationOverdue`, `CreditCardStatementCaptured`, `StatementReconciled`, `ExpectedCashflowItemCreated`, `ExpectedCashflowItemRealized`, `ExpectedCashShortfallDetected`, `BudgetCreated`, `BudgetAllocationUpdated`, `BudgetThresholdReached`, `FinancialGoalCreated`, `FinancialGoalUpdated`, `FinancialGoalAchieved`, `RecurringPaymentGenerated`.
 
 Phase 4 defines a separate Finance event contract for `FinanceBookCreated`, `FinancialAccountCreated`, `FinancialTransactionRecorded`, `FinancialTransferRecorded`, `FinancialObligationCreated`, `FinancialObligationUpdated`, `FinancialObligationPaid`, `FinancialObligationCancelled`, `PaymentScheduled`, `PaymentConfirmed`, `PaymentFailed`, `CreditCardStatementCreated`, `CreditCardStatementConfirmed`, and `StatementReconciled`. No trigger, reminder, or execution consumer is attached.
 
