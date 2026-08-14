@@ -16,6 +16,8 @@ Events are lightweight typed facts, not a global enterprise event bus. Producers
 
 Phase 4 defines a separate Finance event contract for `FinanceBookCreated`, `FinancialAccountCreated`, `FinancialTransactionRecorded`, `FinancialTransferRecorded`, `FinancialObligationCreated`, `FinancialObligationUpdated`, `FinancialObligationPaid`, `FinancialObligationCancelled`, `PaymentScheduled`, `PaymentConfirmed`, `PaymentFailed`, `CreditCardStatementCreated`, `CreditCardStatementConfirmed`, and `StatementReconciled`. No trigger, reminder, or execution consumer is attached.
 
+Phase 13 derives read-only Finance trigger facts from those canonical records. Recurrence generation records `RecurringFinancialObligationGenerated` provenance in the generated obligation metadata. Finance signals are then eligible for Notification application mapping; they never send a notification or mutate an Execution task directly.
+
 ## Contract shape
 
 Every event has `id`, `name`, `occurredAt`, `aggregateId`, `schemaVersion`, and a typed payload. Consumers must be idempotent. External events are translated at the adapter boundary and never trusted without validation.

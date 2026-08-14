@@ -4,6 +4,7 @@ import { CreditCard, Landmark, Plus, ReceiptText, Send, WalletCards } from "luci
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { financeApplication } from "@/application/finance/finance-application";
+import { financeTriggerApplication, type FinanceAlertView } from "@/application/finance/triggers";
 import { formatMoney, parseMoneyInput } from "@/application/finance/money-input";
 import type { CurrencyCode, FinanceBook, FinancialAccount } from "@/domain/finance";
 import { toast } from "sonner";
@@ -32,25 +33,34 @@ function FinancePage() {
   const [statements, setStatements] = useState<
     Awaited<ReturnType<typeof financeApplication.queries.statements>>
   >([]);
+  const [alerts, setAlerts] = useState<FinanceAlertView[]>([]);
   const refresh = async (selected = bookId) => {
     const nextBooks = await financeApplication.queries.books();
     setBooks(nextBooks);
     const active = selected || nextBooks[0]?.id || "";
     if (!active) return;
     setBookId(active);
-    const [nextAccounts, nextOverview, nextTransactions, nextObligations, nextStatements] =
-      await Promise.all([
-        financeApplication.queries.accounts(active),
-        financeApplication.queries.overview(active),
-        financeApplication.queries.transactions(active),
-        financeApplication.queries.obligations(active),
-        financeApplication.queries.statements(active),
-      ]);
+    const [
+      nextAccounts,
+      nextOverview,
+      nextTransactions,
+      nextObligations,
+      nextStatements,
+      triggerResult,
+    ] = await Promise.all([
+      financeApplication.queries.accounts(active),
+      financeApplication.queries.overview(active),
+      financeApplication.queries.transactions(active),
+      financeApplication.queries.obligations(active),
+      financeApplication.queries.statements(active),
+      financeTriggerApplication.evaluate(active),
+    ]);
     setAccounts(nextAccounts);
     setOverview(nextOverview);
     setTransactions(nextTransactions);
     setObligations(nextObligations);
     setStatements(nextStatements);
+    setAlerts(triggerResult.alerts);
   };
   useEffect(() => {
     void refresh();
@@ -103,7 +113,9 @@ function FinancePage() {
             ),
           )}
         </nav>
-        {tab === "OVERVIEW" && <Overview overview={overview} obligations={obligations} />}
+        {tab === "OVERVIEW" && (
+          <Overview overview={overview} obligations={obligations} alerts={alerts} />
+        )}
         {tab === "ACCOUNTS" && (
           <Accounts book={activeBook} accounts={accounts} onDone={() => void refresh()} />
         )}
@@ -195,9 +207,11 @@ function Setup({ onCreated }: { onCreated: (id: string) => void }) {
 function Overview({
   overview,
   obligations,
+  alerts,
 }: {
   overview: Awaited<ReturnType<typeof financeApplication.queries.overview>> | undefined;
   obligations: Awaited<ReturnType<typeof financeApplication.queries.obligations>>;
+  alerts: FinanceAlertView[];
 }) {
   const overdue = obligations.filter((x) => x.status === "OVERDUE");
   return (
@@ -231,6 +245,36 @@ function Overview({
             <span>{formatMoney(outstanding)}</span>
           </div>
         ))}
+      </div>
+      <div className="rounded-2xl border bg-card p-4 md:col-span-2">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-semibold">Finans uyarıları</h2>
+          <span className="text-xs text-muted-foreground">{alerts.length} açık sinyal</span>
+        </div>
+        {alerts.length ? (
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {alerts
+              .sort(
+                (a, b) =>
+                  ({ CRITICAL: 3, HIGH: 2, ATTENTION: 1, INFO: 0 })[b.severity] -
+                  { CRITICAL: 3, HIGH: 2, ATTENTION: 1, INFO: 0 }[a.severity],
+              )
+              .slice(0, 6)
+              .map((alert) => (
+                <div
+                  key={`${alert.triggerId}:${alert.entityId}`}
+                  className="rounded-xl bg-muted/50 p-3"
+                >
+                  <p className="text-sm font-medium">{alert.title}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{alert.detail}</p>
+                </div>
+              ))}
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-muted-foreground">
+            Şu anda eylem gerektiren finans uyarısı yok.
+          </p>
+        )}
       </div>
     </section>
   );

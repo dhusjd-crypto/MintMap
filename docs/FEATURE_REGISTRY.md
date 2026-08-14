@@ -282,3 +282,7 @@ Scoring must be deterministic, configurable, and return human-readable reasons. 
 | FIN060 | Financial capture review state and reconciliation confidence             | Finance              | PLANNED     | FIN025, FIN053 | state/property tests; `financeReconciliation`                                |
 
 Phase 5 persistence features now implemented: versioned canonical envelopes (`canonicalPersistenceV1`), Execution extension sidecar (`executionExtensionPersistence`), local Finance repositories (`financePersistenceV1`), migration journal, checksum-validated local backup/restore (`migrationBackups`), canonical hydration, and corruption quarantine. UI, multi-device canonical sync, imports, OCR/AI, budgets, cashflow, investments, bank connections, and trigger/notification integration remain planned or partial.
+
+### Phase 13 Finance trigger status
+
+`FIN-T01`–`FIN-T04`, `FIN-T06`–`FIN-T14`, and `FIN-T16`–`FIN-T20` are implemented as deterministic Finance-trigger evaluations. `FIN-T05` is implemented only where an explicit time-bearing due timestamp is supplied; date-only obligations return `NOT_EVALUATED`. `FIN-T13`/`FIN-T14` calculate exact per-currency requirements and need user thresholds before “high” classification. `FIN-T15` is intentionally PARTIAL: it only consumes a future authoritative cashflow signal and never fabricates a forecast. Delivery remains PARTIAL until Finance signals are wired into a persistent app-wide notification orchestration loop; the shared Notification Engine mapping is implemented.

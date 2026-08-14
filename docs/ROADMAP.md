@@ -17,7 +17,7 @@ The order is deliberately incremental. A phase must leave the application usable
 12. Finance application workflows **(Phase 12 in progress; ledger, transfer, statement and obligation UI foundation implemented; trigger automation remains planned)**
 11. Quick Capture
 12. Finance ledger, obligations, statements
-13. Finance triggers and payment workflow
+13. Finance triggers and payment workflow **(Phase 13 complete; cashflow shortfall remains intentionally partial)**
 14. Finance capture, import, reconciliation
 15. Budgets and cashflow forecast
 16. Smart Views and Command Center
