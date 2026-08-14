@@ -150,25 +150,25 @@ Scoring must be deterministic, configurable, and return human-readable reasons. 
 
 | ID   | View                | Owner   | Status  | Dependencies         | Tests / flag                |
 | ---- | ------------------- | ------- | ------- | -------------------- | --------------------------- |
-| V001 | NOW                 | Queries | PARTIAL | current task queries | query test; `smartViews`    |
-| V002 | Top 3 Today         | Queries | PLANNED | T01                  | query test; `smartViews`    |
-| V003 | Today               | Queries | PARTIAL | current my-day       | query test; `smartViews`    |
-| V004 | This Week           | Queries | PLANNED | A003                 | date test; `smartViews`     |
-| V005 | Waiting             | Queries | PARTIAL | A012                 | query test; `smartViews`    |
-| V006 | Follow-Up Due       | Queries | PLANNED | A003                 | date test; `smartViews`     |
-| V007 | Stale 7+ Days       | Queries | PLANNED | A003                 | clock test; `smartViews`    |
-| V008 | Deadline Risk       | Queries | PLANNED | T16                  | reason test; `smartViews`   |
-| V009 | Blocked             | Queries | PARTIAL | A005                 | graph test; `smartViews`    |
-| V010 | Blocking Other Work | Queries | PLANNED | A005                 | graph test; `smartViews`    |
-| V011 | Quick Wins          | Queries | PLANNED | P, T24               | eligibility; `smartViews`   |
+| V001 | NOW                 | Queries | IMPLEMENTED | canonical Trigger selector | query test; `smartViews`    |
+| V002 | Top 3 Today         | Queries | IMPLEMENTED | T01                  | query test; `smartViews`    |
+| V003 | Today               | Queries | IMPLEMENTED | canonical dates      | query test; `smartViews`    |
+| V004 | This Week           | Queries | IMPLEMENTED | A003                 | date test; `smartViews`     |
+| V005 | Waiting             | Queries | IMPLEMENTED | A012                 | query test; `smartViews`    |
+| V006 | Follow-Up Due       | Queries | IMPLEMENTED | A003                 | date test; `smartViews`     |
+| V007 | Stale 7+ Days       | Queries | IMPLEMENTED | A003                 | clock test; `smartViews`    |
+| V008 | Deadline Risk       | Queries | IMPLEMENTED | T16                  | reason test; `smartViews`   |
+| V009 | Blocked             | Queries | IMPLEMENTED | A005                 | graph test; `smartViews`    |
+| V010 | Blocking Other Work | Queries | IMPLEMENTED | A005                 | graph test; `smartViews`    |
+| V011 | Quick Wins          | Queries | IMPLEMENTED | P, T24               | eligibility; `smartViews`   |
 | V012 | 15-Minute Tasks     | Queries | PLANNED | A004                 | duration test; `smartViews` |
-| V013 | Phone Context       | Queries | PLANNED | A006                 | filter test; `smartViews`   |
-| V014 | Office Context      | Queries | PLANNED | A006                 | filter test; `smartViews`   |
-| V015 | Outside Context     | Queries | PLANNED | A006                 | filter test; `smartViews`   |
-| V016 | Low Energy          | Queries | PLANNED | A006                 | filter test; `smartViews`   |
-| V017 | Deep Work           | Queries | PLANNED | A006                 | filter test; `smartViews`   |
-| V018 | Someday             | Queries | PARTIAL | A002                 | query test; `smartViews`    |
-| V019 | Completed           | Queries | PARTIAL | A002                 | query test; `smartViews`    |
+| V013 | Phone Context       | Queries | IMPLEMENTED | A006                 | filter test; `smartViews`   |
+| V014 | Office Context      | Queries | IMPLEMENTED | A006                 | filter test; `smartViews`   |
+| V015 | Outside Context     | Queries | IMPLEMENTED | A006                 | filter test; `smartViews`   |
+| V016 | Low Energy          | Queries | IMPLEMENTED | A006                 | filter test; `smartViews`   |
+| V017 | Deep Work           | Queries | IMPLEMENTED | A006                 | filter test; `smartViews`   |
+| V018 | Someday             | Queries | IMPLEMENTED | A002                 | query test; `smartViews`    |
+| V019 | Completed           | Queries | IMPLEMENTED | A002                 | query test; `smartViews`    |
 
 ## L — Learning / Analytics (10)
 

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowRight, Check, Clock3, Crosshair, Play, Sparkles } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,8 @@ import { useNodes } from "@/lib/mindmap-store";
 import { createExecutionExperienceQueries } from "@/application/queries/execution-experience-queries";
 import { executionExperience } from "@/application/execution-experience";
 import { toast } from "sonner";
+import { SMART_VIEW_REGISTRY } from "@/application/smart-views";
+import { commandCenterV2Application } from "@/application/command-center-v2";
 
 export const Route = createFileRoute("/command-center")({
   head: () => ({ meta: [{ title: "Komuta Merkezi — MintMap" }] }),
@@ -23,6 +25,25 @@ function formatMinutes(value?: number) {
 function CommandCenterPage() {
   const nodes = useNodes();
   const [now, setNow] = useState(() => Date.now());
+  const [commandCenterV2, setCommandCenterV2] =
+    useState<Awaited<ReturnType<typeof commandCenterV2Application.get>>>();
+  useEffect(() => {
+    let active = true;
+    void commandCenterV2Application
+      .get({ now, timezone: "Europe/Istanbul", availableSlotMinutes: 30 })
+      .then((value) => {
+        if (active) setCommandCenterV2(value);
+      })
+      .catch((error) =>
+        toast.error(
+          error instanceof Error ? error.message : "Komuta Merkezi sinyalleri yüklenemedi",
+        ),
+      );
+    return () => {
+      active = false;
+    };
+  }, [nodes, now]);
+  const v2Signals = commandCenterV2?.signals ?? [];
   const queries = useMemo(
     () =>
       createExecutionExperienceQueries({
@@ -67,9 +88,17 @@ function CommandCenterPage() {
               Şimdi ne yapacağını tek bakışta gör.
             </p>
           </div>
-            <div className="flex items-center gap-3"><Link to="/capture" className="rounded-md border border-primary/30 px-3 py-2 text-sm font-medium text-primary hover:bg-primary/10">Hızlı yakala</Link><Link to="/" className="text-sm text-muted-foreground hover:text-foreground">
+          <div className="flex items-center gap-3">
+            <Link
+              to="/capture"
+              className="rounded-md border border-primary/30 px-3 py-2 text-sm font-medium text-primary hover:bg-primary/10"
+            >
+              Hızlı yakala
+            </Link>
+            <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">
               Mind Map’e dön
-            </Link></div>
+            </Link>
+          </div>
         </header>
 
         <section
@@ -204,7 +233,22 @@ function CommandCenterPage() {
           </div>
           <div className="rounded-2xl border bg-card p-4">
             <h2 className="font-semibold">Bugün</h2>
-            {view.capacity ? (
+            {commandCenterV2?.capacity.status === "READY" ? (
+              <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                <Metric
+                  label="Kalan"
+                  value={formatMinutes(commandCenterV2.capacity.remainingMinutes)}
+                />
+                <Metric
+                  label="Planlı"
+                  value={formatMinutes(commandCenterV2.capacity.plannedMinutes)}
+                />
+                <Metric
+                  label="Aşım"
+                  value={formatMinutes(commandCenterV2.capacity.overcommitMinutes)}
+                />
+              </div>
+            ) : view.capacity ? (
               <div className="mt-3 grid grid-cols-3 gap-2 text-center">
                 <Metric label="Kalan" value={formatMinutes(view.capacity.remainingMinutes)} />
                 <Metric label="Planlı" value={formatMinutes(view.capacity.plannedTaskMinutes)} />
@@ -218,19 +262,38 @@ function CommandCenterPage() {
           </div>
         </section>
 
-        {view.signals.length > 0 && (
+        {(view.signals.length > 0 || v2Signals.length > 0) && (
           <section className="rounded-2xl border bg-card p-4">
             <h2 className="font-semibold">Önemli sinyaller</h2>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              {view.signals.map((signal) => (
-                <div key={signal.id} className="rounded-xl bg-muted/50 p-3">
+              {v2Signals.map((signal) => (
+                <Link
+                  key={signal.id}
+                  to={signal.href}
+                  params={
+                    signal.href === "/views/$viewId" ? { viewId: "deadline-risk" } : undefined
+                  }
+                  className="rounded-xl bg-muted/50 p-3 hover:bg-primary/10"
+                >
                   <div className="flex items-center gap-2 text-sm font-medium">
                     <AlertTriangle className="h-4 w-4 text-amber-600" />
                     {signal.title}
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">{signal.severity}</p>
-                </div>
+                  <p className="mt-1 text-xs text-muted-foreground">{signal.detail}</p>
+                </Link>
               ))}
+              {view.signals
+                .filter((signal) => !v2Signals.some((v2) => v2.entityId === signal.entityId))
+                .slice(0, Math.max(0, 4 - v2Signals.length))
+                .map((signal) => (
+                  <div key={signal.id} className="rounded-xl bg-muted/50 p-3">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <AlertTriangle className="h-4 w-4 text-amber-600" />
+                      {signal.title}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">{signal.severity}</p>
+                  </div>
+                ))}
             </div>
           </section>
         )}
@@ -249,6 +312,55 @@ function CommandCenterPage() {
             ) : (
               <p className="text-sm text-muted-foreground">Bugün için seçilmiş görev yok.</p>
             )}
+          </div>
+        </section>
+        {commandCenterV2?.routine && (
+          <section className="rounded-2xl border bg-card p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="font-semibold">Rutin</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {commandCenterV2.routine.title}
+                  {commandCenterV2.reentryActive ? " · Yeniden giriş etkin" : ""}
+                </p>
+              </div>
+              <Link
+                to="/review/$reviewType"
+                params={{ reviewType: commandCenterV2.routine.type }}
+                className="text-sm text-primary"
+              >
+                Aç
+              </Link>
+            </div>
+          </section>
+        )}
+        <section className="rounded-2xl border bg-card p-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">Operasyon görünümleri</h2>
+            <Link to="/views/$viewId" params={{ viewId: "today" }} className="text-sm text-primary">
+              Bugün
+            </Link>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {SMART_VIEW_REGISTRY.filter((item) =>
+              [
+                "waiting",
+                "follow-up",
+                "deadline-risk",
+                "quick-wins",
+                "low-energy",
+                "deep-work",
+              ].includes(item.id),
+            ).map((item) => (
+              <Link
+                key={item.id}
+                to="/views/$viewId"
+                params={{ viewId: item.id }}
+                className="rounded-md bg-muted px-3 py-2 text-sm hover:bg-primary/10"
+              >
+                {item.label}
+              </Link>
+            ))}
           </div>
         </section>
         {view.quickWins.length > 0 && (
@@ -273,11 +385,47 @@ function CommandCenterPage() {
         )}
         <section className="rounded-2xl border bg-card p-4">
           <div className="flex items-center justify-between gap-3">
-            <div><h2 className="font-semibold">Günün ritmi</h2><p className="text-xs text-muted-foreground">Kısa gözden geçirmeler, ayrı ve sakin akışlarda.</p></div>
-            <Link to="/review/$reviewType" params={{ reviewType: "MORNING_PLANNING" }} className="text-sm text-primary">Sabah planı</Link>
+            <div>
+              <h2 className="font-semibold">Günün ritmi</h2>
+              <p className="text-xs text-muted-foreground">
+                Kısa gözden geçirmeler, ayrı ve sakin akışlarda.
+              </p>
+            </div>
+            <Link
+              to="/review/$reviewType"
+              params={{ reviewType: "MORNING_PLANNING" }}
+              className="text-sm text-primary"
+            >
+              Sabah planı
+            </Link>
           </div>
           <div className="mt-3 flex flex-wrap gap-2 text-sm">
-            {(["MIDDAY_RECALIBRATION", "EVENING_SHUTDOWN", "TOMORROW_PLANNING", "WEEKLY_REVIEW", "REENTRY_RESET"] as const).map((type) => <Link key={type} to="/review/$reviewType" params={{ reviewType: type }} className="rounded-full bg-muted px-3 py-1.5 hover:bg-primary/10">{type === "MIDDAY_RECALIBRATION" ? "Gün ortası" : type === "EVENING_SHUTDOWN" ? "Günü kapat" : type === "TOMORROW_PLANNING" ? "Yarın" : type === "WEEKLY_REVIEW" ? "Hafta" : "Yeniden başla"}</Link>)}
+            {(
+              [
+                "MIDDAY_RECALIBRATION",
+                "EVENING_SHUTDOWN",
+                "TOMORROW_PLANNING",
+                "WEEKLY_REVIEW",
+                "REENTRY_RESET",
+              ] as const
+            ).map((type) => (
+              <Link
+                key={type}
+                to="/review/$reviewType"
+                params={{ reviewType: type }}
+                className="rounded-full bg-muted px-3 py-1.5 hover:bg-primary/10"
+              >
+                {type === "MIDDAY_RECALIBRATION"
+                  ? "Gün ortası"
+                  : type === "EVENING_SHUTDOWN"
+                    ? "Günü kapat"
+                    : type === "TOMORROW_PLANNING"
+                      ? "Yarın"
+                      : type === "WEEKLY_REVIEW"
+                        ? "Hafta"
+                        : "Yeniden başla"}
+              </Link>
+            ))}
           </div>
         </section>
       </main>
