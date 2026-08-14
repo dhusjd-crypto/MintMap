@@ -11,6 +11,12 @@ import type {
   FinanceBook,
   Payee,
 } from "@/domain/finance/models";
+import type {
+  FinanceCaptureProposal,
+  FinanceImportBatch,
+  ImportRowProposal,
+  ReconciliationSession,
+} from "@/domain/finance/capture-import";
 import { validateMoney } from "@/domain/finance/money";
 import {
   CanonicalPersistenceError,
@@ -123,6 +129,10 @@ export type FinanceRepositories = {
   payments: AsyncRepository<FinancialPayment>;
   statements: AsyncRepository<CreditCardStatement>;
   schedules: AsyncRepository<FinancialSchedule>;
+  captureProposals: AsyncRepository<FinanceCaptureProposal>;
+  importBatches: AsyncRepository<FinanceImportBatch>;
+  importRows: AsyncRepository<ImportRowProposal>;
+  reconciliationSessions: AsyncRepository<ReconciliationSession>;
 };
 
 export function createFinanceRepositories(
@@ -166,6 +176,18 @@ export function createFinanceRepositories(
     schedules: new IndexedDbRepository(
       "FinancialSchedule",
       ENTITY_STORE.FinancialSchedule,
+      storage,
+    ),
+    captureProposals: new IndexedDbRepository(
+      "FinanceCaptureProposal",
+      "finance_capture_proposals",
+      storage,
+    ),
+    importBatches: new IndexedDbRepository("FinanceImportBatch", "finance_import_batches", storage),
+    importRows: new IndexedDbRepository("ImportRowProposal", "finance_import_rows", storage),
+    reconciliationSessions: new IndexedDbRepository(
+      "ReconciliationSession",
+      "reconciliation_sessions",
       storage,
     ),
   };

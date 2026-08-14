@@ -18,7 +18,7 @@ The order is deliberately incremental. A phase must leave the application usable
 11. Quick Capture
 12. Finance ledger, obligations, statements
 13. Finance triggers and payment workflow **(Phase 13 complete; cashflow shortfall remains intentionally partial)**
-14. Finance capture, import, reconciliation
+14. Finance capture, import, reconciliation **(Phase 14 foundation complete; CSV + proposal/reconciliation core)**
 15. Budgets and cashflow forecast
 16. Smart Views and Command Center
 17. Mind Map projection refactor
