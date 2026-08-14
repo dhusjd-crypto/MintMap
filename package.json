@@ -15,6 +15,7 @@
     "test:unit:watch": "vitest",
     "test:e2e": "python3 tests/e2e/run_all.py",
     "test:e2e:finance-capture": "node tests/e2e/finance_capture_browser.mjs",
+    "test:e2e:finance-planning": "node tests/e2e/finance_planning_browser.mjs",
     "test:update-baselines": "UPDATE_BASELINE=1 python3 tests/e2e/visual_regression.py && UPDATE_BASELINE=1 python3 tests/e2e/fab_visual.py"
   },
   "dependencies": {
