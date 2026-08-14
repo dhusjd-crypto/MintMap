@@ -5,6 +5,7 @@ import { InMemoryCanonicalStorage } from "@/lib/canonical-persistence/storage";
 import {
   createBackup,
   InMemoryBackupStore,
+  retainBackups,
   restoreBackup,
   validateBackup,
 } from "@/lib/canonical-persistence/backup";
@@ -165,5 +166,21 @@ describe("canonical local persistence", () => {
         (entry) => entry.payload.status === "QUARANTINED",
       ),
     ).toBe(true);
+  });
+
+  it("does not prefer an invalid backup over a valid backup during retention", async () => {
+    const storage = new InMemoryCanonicalStorage();
+    const backups = new InMemoryBackupStore();
+    const valid = await createBackup(storage, backups);
+    const invalid = structuredClone(valid);
+    invalid.manifest.backupId = "invalid-newer";
+    invalid.manifest.createdAt = valid.manifest.createdAt + 1000;
+    invalid.manifest.checksum = "corrupt";
+    await backups.save(invalid);
+
+    const retained = await retainBackups(1, backups);
+    expect(retained).toHaveLength(1);
+    expect(retained[0].manifest.backupId).toBe(valid.manifest.backupId);
+    expect(await backups.get("invalid-newer")).toBeUndefined();
   });
 });

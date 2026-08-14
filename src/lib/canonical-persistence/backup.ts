@@ -193,11 +193,29 @@ export async function listBackups(store: BackupStore = backupStore) {
   return (await store.list()).sort((a, b) => b.manifest.createdAt - a.manifest.createdAt);
 }
 
+async function isValidBackup(bundle: CanonicalBackupBundle) {
+  try {
+    await validateBackup(bundle);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function retainBackups(keepLast: number, store: BackupStore = backupStore) {
   const backups = await listBackups(store);
-  for (const backup of backups.slice(Math.max(1, keepLast)))
+  const valid: CanonicalBackupBundle[] = [];
+  const invalid: CanonicalBackupBundle[] = [];
+  for (const backup of backups) {
+    if (await isValidBackup(backup)) valid.push(backup);
+    else invalid.push(backup);
+  }
+  const ordered = [...valid, ...invalid];
+  const retained = ordered.slice(0, Math.max(1, keepLast));
+  const retainedIds = new Set(retained.map((backup) => backup.manifest.backupId));
+  for (const backup of ordered.filter((candidate) => !retainedIds.has(candidate.manifest.backupId)))
     await store.remove(backup.manifest.backupId);
-  return backups.slice(0, Math.max(1, keepLast));
+  return retained;
 }
 
 export async function restoreBackup(
