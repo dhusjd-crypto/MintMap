@@ -271,6 +271,15 @@ function CommandCenterPage() {
             </div>
           </section>
         )}
+        <section className="rounded-2xl border bg-card p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div><h2 className="font-semibold">Günün ritmi</h2><p className="text-xs text-muted-foreground">Kısa gözden geçirmeler, ayrı ve sakin akışlarda.</p></div>
+            <Link to="/review/$reviewType" params={{ reviewType: "MORNING_PLANNING" }} className="text-sm text-primary">Sabah planı</Link>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2 text-sm">
+            {(["MIDDAY_RECALIBRATION", "EVENING_SHUTDOWN", "TOMORROW_PLANNING", "WEEKLY_REVIEW", "REENTRY_RESET"] as const).map((type) => <Link key={type} to="/review/$reviewType" params={{ reviewType: type }} className="rounded-full bg-muted px-3 py-1.5 hover:bg-primary/10">{type === "MIDDAY_RECALIBRATION" ? "Gün ortası" : type === "EVENING_SHUTDOWN" ? "Günü kapat" : type === "TOMORROW_PLANNING" ? "Yarın" : type === "WEEKLY_REVIEW" ? "Hafta" : "Yeniden başla"}</Link>)}
+          </div>
+        </section>
       </main>
       <BottomNav />
     </div>

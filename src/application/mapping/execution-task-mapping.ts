@@ -32,6 +32,7 @@ export function legacyTaskToDomainTask(
     updatedAt,
     lastTouchedAt: updatedAt,
     dueAt: todo.dueAt,
+    doAt: todo.myDayAt,
     remindAt: todo.reminderAt,
     estimatedMinutes: todo.estimateMin,
     actualMinutes: todo.focusedMin,
@@ -64,6 +65,10 @@ export function domainTaskToLegacyPatch(task: ExecutionTask, current: Todo): Par
   if ((task.state === "DONE") !== current.done) patch.done = task.state === "DONE";
   if (status !== (current.status ?? (current.done ? "done" : "todo"))) patch.status = status;
   if (task.dueAt !== current.dueAt) patch.dueAt = task.dueAt;
+  if (task.doAt !== current.myDayAt) patch.myDayAt = task.doAt;
+  if (task.startAt !== undefined) patch.updatedAt = task.updatedAt;
+  if (task.softEndAt !== undefined) patch.updatedAt = task.updatedAt;
+  if (task.followUpAt !== undefined) patch.updatedAt = task.updatedAt;
   if (task.remindAt !== current.reminderAt) patch.reminderAt = task.remindAt;
   if (task.estimatedMinutes !== current.estimateMin) patch.estimateMin = task.estimatedMinutes;
   if (task.actualMinutes !== current.focusedMin) patch.focusedMin = task.actualMinutes;

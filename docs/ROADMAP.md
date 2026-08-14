@@ -12,7 +12,7 @@ The order is deliberately incremental. A phase must leave the application usable
 7. Planner and capacity **(Phase 7 complete; Calendar adapter remains partial)**
 8. Notification Engine **(Phase 8 complete; native delivery and full trigger orchestration remain partial)**
 9. Focus / NOW / execution modes **(Phase 9 complete; Planner capacity and native delivery remain partial)**
-10. Reset and routines
+10. Reset and routines **(Phase 10 complete; native scheduling and richer Planner integrations remain partial)**
 11. Quick Capture
 12. Finance ledger, obligations, statements
 13. Finance triggers and payment workflow

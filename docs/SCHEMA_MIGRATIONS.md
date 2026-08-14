@@ -18,3 +18,8 @@ Phase 9 adds the `focus_sessions` store additively at physical version 3.
 Focus sessions use schema version 1, retain timestamps needed to reconstruct
 active time, and are covered by the same backup, checksum, quarantine, and
 restore paths. Existing tasks and notification records are untouched.
+
+Phase 10 adds `routine_sessions` and `rollover_decisions` additively at
+physical version 4. Both use schema version 1 and store IDs and decisions,
+not task snapshots. Existing data and external D1/Drive behavior are
+unchanged.

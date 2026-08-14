@@ -108,18 +108,20 @@ Scoring must be deterministic, configurable, and return human-readable reasons. 
 | P014 | Far future flexible                             | Planner | IMPLEMENTED | P010         | lock policy; `planner`                  |
 | P015 | Re-plan without silently moving unfinished work | Planner | IMPLEMENTED | P010, A003   | regression fixture; `smartRescheduling` |
 
-## R — Routines / Review (8)
+## R — Routines / Review (10)
 
-| ID   | Feature                             | Owner    | Status  | Dependencies | Tests / flag                  |
-| ---- | ----------------------------------- | -------- | ------- | ------------ | ----------------------------- |
-| R001 | Morning Planning                    | Routines | PLANNED | P, T01       | workflow test; `routines`     |
-| R002 | Yesterday leftovers review          | Routines | PLANNED | A003         | no-auto-move test; `routines` |
-| R003 | Today's Top 3                       | Routines | PLANNED | T01          | query test; `routines`        |
-| R004 | Midday Recalibration                | Routines | PLANNED | P            | workflow test; `routines`     |
-| R005 | Evening Shutdown                    | Routines | PLANNED | A002         | workflow test; `routines`     |
-| R006 | Tomorrow Planning configurable time | Routines | PLANNED | R005         | timezone test; `routines`     |
-| R007 | Weekly Review                       | Routines | PLANNED | L            | workflow test; `routines`     |
-| R008 | Week Ahead Planning                 | Routines | PLANNED | P            | workflow test; `routines`     |
+| ID   | Feature                             | Owner    | Status      | Dependencies | Tests / flag                          |
+| ---- | ----------------------------------- | -------- | ----------- | ------------ | ------------------------------------- |
+| R001 | Morning Planning                    | Routines | IMPLEMENTED | P, T01       | review engine test; `routineEngineV1` |
+| R002 | Yesterday leftovers review          | Routines | IMPLEMENTED | A003         | no-auto-move test; `routineEngineV1`  |
+| R003 | Today's Top 3                       | Routines | IMPLEMENTED | T01          | query test; `routineEngineV1`         |
+| R004 | Midday Recalibration                | Routines | IMPLEMENTED | P            | workflow test; `routineEngineV1`      |
+| R005 | Evening Shutdown                    | Routines | IMPLEMENTED | A002         | workflow test; `routineEngineV1`      |
+| R006 | Tomorrow Planning configurable time | Routines | IMPLEMENTED | R005         | timezone test; `routineEngineV1`      |
+| R007 | Weekly Review                       | Routines | IMPLEMENTED | L            | workflow test; `routineEngineV1`      |
+| R008 | Week Ahead Planning                 | Routines | PARTIAL     | P            | draft projection; `routineEngineV1`   |
+| R009 | Intentional rollover decisions      | Routines | IMPLEMENTED | A003         | dueAt protection; `routineEngineV1`   |
+| R010 | Re-entry / reset workflow           | Routines | IMPLEMENTED | T20          | bounded set; `routineEngineV1`        |
 
 ## Q — Quick Capture (14)
 

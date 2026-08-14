@@ -126,7 +126,7 @@ export function createTaskCommands(deps: TaskApplicationDependencies) {
       const current = deps.tasks.get(id);
       if (!current) throw new Error("Görev bulunamadı.");
       const domain = legacyTaskToDomainTask(current.task, { projectId: current.nodeId });
-      const next = setDomainTaskDates(domain, { dueAt: dates.dueAt }, deps.clock ?? systemClock);
+      const next = setDomainTaskDates(domain, dates, deps.clock ?? systemClock);
       const updated = deps.tasks.update(id, domainTaskToLegacyPatch(next, current.task));
       if (!updated) throw new Error("Görev bulunamadı.");
       emit(deps, "TaskUpdated", updated);

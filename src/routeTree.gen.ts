@@ -21,6 +21,7 @@ import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as BorsaRouteImport } from './routes/borsa'
 import { Route as BoardRouteImport } from './routes/board'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ReviewReviewTypeRouteImport } from './routes/review.$reviewType'
 import { Route as FocusTaskIdRouteImport } from './routes/focus.$taskId'
 
 const UnlockRoute = UnlockRouteImport.update({
@@ -83,6 +84,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReviewReviewTypeRoute = ReviewReviewTypeRouteImport.update({
+  id: '/review/$reviewType',
+  path: '/review/$reviewType',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FocusTaskIdRoute = FocusTaskIdRouteImport.update({
   id: '/focus/$taskId',
   path: '/focus/$taskId',
@@ -103,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/todos': typeof TodosRoute
   '/unlock': typeof UnlockRoute
   '/focus/$taskId': typeof FocusTaskIdRoute
+  '/review/$reviewType': typeof ReviewReviewTypeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -118,6 +125,7 @@ export interface FileRoutesByTo {
   '/todos': typeof TodosRoute
   '/unlock': typeof UnlockRoute
   '/focus/$taskId': typeof FocusTaskIdRoute
+  '/review/$reviewType': typeof ReviewReviewTypeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -134,6 +142,7 @@ export interface FileRoutesById {
   '/todos': typeof TodosRoute
   '/unlock': typeof UnlockRoute
   '/focus/$taskId': typeof FocusTaskIdRoute
+  '/review/$reviewType': typeof ReviewReviewTypeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -151,6 +160,7 @@ export interface FileRouteTypes {
     | '/todos'
     | '/unlock'
     | '/focus/$taskId'
+    | '/review/$reviewType'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -166,6 +176,7 @@ export interface FileRouteTypes {
     | '/todos'
     | '/unlock'
     | '/focus/$taskId'
+    | '/review/$reviewType'
   id:
     | '__root__'
     | '/'
@@ -181,6 +192,7 @@ export interface FileRouteTypes {
     | '/todos'
     | '/unlock'
     | '/focus/$taskId'
+    | '/review/$reviewType'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -197,6 +209,7 @@ export interface RootRouteChildren {
   TodosRoute: typeof TodosRoute
   UnlockRoute: typeof UnlockRoute
   FocusTaskIdRoute: typeof FocusTaskIdRoute
+  ReviewReviewTypeRoute: typeof ReviewReviewTypeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -285,6 +298,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/review/$reviewType': {
+      id: '/review/$reviewType'
+      path: '/review/$reviewType'
+      fullPath: '/review/$reviewType'
+      preLoaderRoute: typeof ReviewReviewTypeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/focus/$taskId': {
       id: '/focus/$taskId'
       path: '/focus/$taskId'
@@ -309,6 +329,7 @@ const rootRouteChildren: RootRouteChildren = {
   TodosRoute: TodosRoute,
   UnlockRoute: UnlockRoute,
   FocusTaskIdRoute: FocusTaskIdRoute,
+  ReviewReviewTypeRoute: ReviewReviewTypeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

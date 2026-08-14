@@ -43,3 +43,10 @@ event bus. A future adapter may project `FocusSessionStarted`,
 `FocusSessionPaused`, `FocusSessionResumed`, `FocusSessionCompleted`, and
 `FocusSessionCancelled`; the current Focus service persists transitions and
 updates task actual minutes through the application command boundary.
+
+Phase 10 defines routine facts for future consumers: `RoutineStarted`,
+`RoutineCompleted`, `RoutineSkipped`, `MorningPlanCompleted`,
+`MiddayRecalibrationCompleted`, `EveningShutdownCompleted`,
+`TomorrowPlanPrepared`, `WeeklyReviewCompleted`, `ReEntryCompleted`, and
+`RolloverDecisionRecorded`. The current application persists routine state and
+does not dispatch native notifications directly.

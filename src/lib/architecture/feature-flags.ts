@@ -18,7 +18,8 @@ export type FeatureFlagName =
   | "financePersistenceV1"
   | "migrationBackups"
   | "commandCenterV1"
-  | "focusModeV1";
+  | "focusModeV1"
+  | "routineEngineV1";
 
 /** Safe Foundation defaults. Risky future capabilities stay off until wired. */
 export const FEATURE_FLAGS: Readonly<Record<FeatureFlagName, boolean>> = {
@@ -42,6 +43,7 @@ export const FEATURE_FLAGS: Readonly<Record<FeatureFlagName, boolean>> = {
   migrationBackups: true,
   commandCenterV1: true,
   focusModeV1: true,
+  routineEngineV1: true,
 };
 
 export function isFeatureEnabled(name: FeatureFlagName): boolean {
