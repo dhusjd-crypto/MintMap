@@ -14,4 +14,4 @@ Amounts are account-relative: positive enters an account, negative leaves it. A 
 
 Finance owns accounts, transactions, transfers, obligations, payments, statements, categories, payees, and recurrence primitives. Execution may later reference these records through `sourceType`/`sourceId`; Finance never creates tasks directly.
 
-Persistence ports and in-memory test repositories exist, but no production schema or store has been changed.
+Persistence ports, in-memory test repositories, and the local IndexedDB canonical repositories now exist. D1/Drive payloads and Finance UI remain unchanged.

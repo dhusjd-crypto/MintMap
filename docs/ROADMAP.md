@@ -30,4 +30,4 @@ The order is deliberately incremental. A phase must leave the application usable
 25. Hardening, backup, recovery, performance
 26. Final architecture audit
 
-Phase 3 establishes the pure Execution Domain without changing the persisted schema. Phase 4 establishes the pure Finance Domain Core without persistence, UI, OCR, budgets, cashflow, investments, or trigger integration. The next accepted phase is persistence and versioned canonical schema migration.
+Phase 3 establishes the pure Execution Domain. Phase 4 establishes the Finance Domain Core. Phase 5 adds local canonical IndexedDB persistence, Execution sidecars, migration journal, and local backup/restore without changing D1/Drive sync. The next accepted phase is the deterministic Trigger Engine, after any remaining persistence integrity issues are closed.

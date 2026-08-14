@@ -1,6 +1,6 @@
 # Schema Migration Runner Contract
 
-Phase 2 defines but does not connect this runner to production storage. The current storage keys and persisted schema remain unchanged.
+Phase 5 connects canonical persistence to a durable journal and backup-aware runner. Legacy storage keys and persisted legacy schema remain unchanged.
 
 `runMigrations(data, currentVersion, migrations, context)`:
 
@@ -12,4 +12,7 @@ Phase 2 defines but does not connect this runner to production storage. The curr
 - throws `MigrationError` with the failed version and already-applied versions;
 - never writes localStorage, IndexedDB, Drive, or D1 itself.
 
-Before production adoption, add a storage journal, export/recovery implementation, interruption tests, unknown-field preservation, and an explicit rollback policy. Do not increment the real schema version merely because this contract exists.
+The canonical production runner adds the storage journal, backup/restore,
+checksum validation, interruption/failure reporting, and unknown-field
+preservation. Legacy storage still uses its own compatibility migrations and is
+not silently converted by the canonical runner.

@@ -177,6 +177,15 @@ function RootComponent() {
     import("../lib/theme").then((m) => m.initTheme());
     import("../lib/pwa").then((m) => m.initPWA());
     import("../lib/reminder-scheduler").then((m) => m.initReminderScheduler());
+    // Canonical persistence is local-first and independent from legacy hydration.
+    // A failed migration is surfaced as a recoverable diagnostic event; legacy
+    // data is never replaced with an empty database.
+    import("../lib/canonical-persistence")
+      .then((m) => m.initializeCanonicalPersistence())
+      .catch((error) => {
+        window.dispatchEvent(new CustomEvent("mintmap:canonical-persistence-error", { detail: error }));
+        console.error("MintMap canonical persistence başlatılamadı", error);
+      });
 
     const ric: ((cb: () => void) => number) | undefined =
       (window as unknown as { requestIdleCallback?: (cb: () => void) => number })

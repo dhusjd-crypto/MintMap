@@ -2,7 +2,7 @@
 
 Registry version: `0.1-foundation` | status values: `PLANNED`, `IN_PROGRESS`, `IMPLEMENTED`, `PARTIAL`, `DISABLED`, `DEPRECATED`.
 
-Phase 2/3/4 architecture support is implemented for `applicationCommandLayer`, `domainEventsV1`, `repositoryCompatibilityLayer`, `Clock`, the pure Execution Domain core, the pure Finance Domain core, and the synthetic migration runner. User-facing future features remain planned or partial; interfaces alone do not promote them.
+Phase 2/3/4 architecture support and Phase 5 local persistence are implemented for `applicationCommandLayer`, `domainEventsV1`, `repositoryCompatibilityLayer`, `Clock`, the Execution and Finance domain cores, versioned canonical envelopes, migration journal, local backup/restore, and the synthetic migration runner. User-facing future features remain planned or partial; interfaces alone do not promote them.
 
 `Current` means the repository already has a usable implementation. `Partial` means the concept exists but does not yet satisfy the accepted long-term contract. Every row names the future owner and the minimum evidence required before promotion.
 
@@ -271,4 +271,4 @@ Scoring must be deterministic, configurable, and return human-readable reasons. 
 | FIN059 | Suggested finance rules from repeated corrections | Finance/Analytics | PLANNED | FIN058 | proposal/confirmation test; `financeRules` |
 | FIN060 | Financial capture review state and reconciliation confidence | Finance | PLANNED | FIN025, FIN053 | state/property tests; `financeReconciliation` |
 
-Phase 4 Finance Core is implemented only for pure models and tested domain behavior. UI, persistence, imports, OCR/AI, budgets, cashflow, investments, bank connections, and trigger/notification integration remain planned or partial.
+Phase 5 persistence features now implemented: versioned canonical envelopes (`canonicalPersistenceV1`), Execution extension sidecar (`executionExtensionPersistence`), local Finance repositories (`financePersistenceV1`), migration journal, checksum-validated local backup/restore (`migrationBackups`), canonical hydration, and corruption quarantine. UI, multi-device canonical sync, imports, OCR/AI, budgets, cashflow, investments, bank connections, and trigger/notification integration remain planned or partial.

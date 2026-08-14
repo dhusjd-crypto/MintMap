@@ -18,6 +18,12 @@ export function createMoney(minorUnits: number, currency: CurrencyCode): Money {
   return { minorUnits, currency };
 }
 
+export function validateMoney(value: Money): void {
+  if (!value || !Number.isSafeInteger(value.minorUnits) || !["TRY", "USD", "EUR"].includes(value.currency)) {
+    throw new MoneyError("Geçersiz veya hassasiyeti kaybolmuş para tutarı.");
+  }
+}
+
 function assertSameCurrency(left: Money, right: Money): void {
   if (left.currency !== right.currency)
     throw new MoneyError("Farklı para birimleri doğrudan karşılaştırılamaz.");

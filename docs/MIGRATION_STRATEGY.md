@@ -27,4 +27,4 @@ SQLite is a future option for queryability and transactions, not a Foundation ch
 
 Persisted data migrations are versioned, idempotent, backup-aware, and reversible through export/recovery. Phase 2 provides a pure migration runner; production localStorage, IndexedDB, D1, and Drive schemas remain unchanged until a dedicated persistence phase.
 
-Finance Phase 4 models are in-memory domain contracts only. They do not increment a persisted schema version, alter sync payloads, or write financial entities into existing stores. A later migration must preserve unknown fields, stable IDs, tombstones, and an export path before adopting Finance persistence.
+Finance Phase 4 models are now persisted locally by the Phase 5 canonical IndexedDB adapter. They do not alter sync payloads. Canonical schema version 1, the migration journal, separate backup store, checksum validation, and restore path preserve unknown fields, stable IDs, and recovery before future sync adoption.

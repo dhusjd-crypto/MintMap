@@ -11,7 +11,11 @@ export type FeatureFlagName =
   | "calendarWriteback"
   | "gmailIntegration"
   | "activityLearning"
-  | "aiAssistant";
+  | "aiAssistant"
+  | "canonicalPersistenceV1"
+  | "executionExtensionPersistence"
+  | "financePersistenceV1"
+  | "migrationBackups";
 
 /** Safe Foundation defaults. Risky future capabilities stay off until wired. */
 export const FEATURE_FLAGS: Readonly<Record<FeatureFlagName, boolean>> = {
@@ -28,6 +32,10 @@ export const FEATURE_FLAGS: Readonly<Record<FeatureFlagName, boolean>> = {
   gmailIntegration: false,
   activityLearning: false,
   aiAssistant: true,
+  canonicalPersistenceV1: true,
+  executionExtensionPersistence: true,
+  financePersistenceV1: true,
+  migrationBackups: true,
 };
 
 export function isFeatureEnabled(name: FeatureFlagName): boolean {

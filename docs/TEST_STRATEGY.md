@@ -2,7 +2,7 @@
 
 ## Baseline coverage
 
-The current unit suite has 12 files and 107 passing tests. Existing tests cover task utilities, store history, files/images, subtask migration, cloud sync, Google Tasks, Gemini, and NodeSheet behavior. CI runs TypeScript, unit tests, and production build.
+The current unit suite has 19 files and 152 passing tests. Existing tests cover task utilities, store history, files/images, subtask migration, cloud sync, Google Tasks, Gemini, NodeSheet behavior, canonical Execution composition, Finance persistence, migration failure/retry, and backup/restore. CI runs TypeScript, unit tests, and production build.
 
 ## Required safety matrix
 
