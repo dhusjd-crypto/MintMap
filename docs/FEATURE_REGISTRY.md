@@ -133,7 +133,7 @@ Scoring must be deterministic, configurable, and return human-readable reasons. 
 | Q004 | Image/screenshot and camera capture              | Capture         | PARTIAL     | current Kutu media     | E2E; `quickCapture`                      |
 | Q005 | PDF capture                                      | Capture         | PARTIAL     | current PDF handling   | fixture; `quickCapture`                  |
 | Q006 | Email capture                                    | Capture         | PLANNED     | X002                   | adapter test; `gmailIntegration`         |
-| Q007 | Financial document capture                       | Capture/Finance | PLANNED     | FIN010                 | confirmation E2E; `financeCapture`       |
+| Q007 | Financial document capture                       | Capture/Finance | IMPLEMENTED | FIN010                 | local OCR/review confirmation; `financeCapture` |
 | Q008 | CSV/OFX/QFX/QIF/CAMT import                      | Capture/Finance | PLANNED     | FIN042                 | parser fixtures; `financeCapture`        |
 | Q009 | Manual capture                                   | Capture         | IMPLEMENTED | current forms          | E2E; `quickCapture`                      |
 | Q010 | Turkish-first natural language task parsing      | Capture         | PARTIAL     | current parser         | Turkish fixtures; `quickCapture`         |
@@ -225,7 +225,7 @@ Scoring must be deterministic, configurable, and return human-readable reasons. 
 | FIN007 | FinancialObligation entity                                               | Finance              | IMPLEMENTED | FIN002         | amount/lifecycle fixtures; `financeDomain`                                   |
 | FIN008 | Obligation types and lifecycle states                                    | Finance              | IMPLEMENTED | FIN007         | state/payment matrix; `financeDomain`                                        |
 | FIN009 | CreditCardStatement entity                                               | Finance              | IMPLEMENTED | FIN002         | review/link fixtures; `financeDomain`                                        |
-| FIN010 | Screenshot/PDF classification and extraction proposal                    | Finance/Capture      | PARTIAL     | Q007, FIN009   | PDF embedded text + review proposal; image OCR has capability fallback; `financeCapture` |
+| FIN010 | Screenshot/PDF classification and extraction proposal                    | Finance/Capture      | IMPLEMENTED | Q007, FIN009   | local image OCR, PDF fallback, review confirmation; `financeCapture` |
 | FIN011 | Payment due/overdue workflow linked to Task by ID                        | Finance/Execution    | PARTIAL     | FIN007, A001   | identity fixture; application link; `financeDomain`                          |
 | FIN061 | FinanceBook setup and explicit book switching                            | Finance/Application  | IMPLEMENTED | FIN000         | application workflow; `financeDomain`                                        |
 | FIN062 | User-facing account and manual ledger workflow                           | Finance/Application  | IMPLEMENTED | FIN002, FIN003 | application workflow; `financeDomain`                                        |
@@ -279,7 +279,7 @@ Scoring must be deterministic, configurable, and return human-readable reasons. 
 | FIN057 | No full card credentials in domain records                               | Finance              | IMPLEMENTED | FIN007         | masked/privacy validation; `financeDomain`                                   |
 | FIN058 | Finance rule conditions/actions/order/enabled state                      | Finance              | PLANNED     | FIN024         | explainability fixture; `financeRules`                                       |
 | FIN059 | Suggested finance rules from repeated corrections                        | Finance/Analytics    | PLANNED     | FIN058         | proposal/confirmation test; `financeRules`                                   |
-| FIN060 | Financial capture review state and reconciliation confidence             | Finance              | PLANNED     | FIN025, FIN053 | state/property tests; `financeReconciliation`                                |
+| FIN060 | Financial capture review state and reconciliation confidence             | Finance              | IMPLEMENTED | FIN025, FIN053 | capture-to-Finance review and payment-evidence confirmation; `financeReconciliation` |
 
 Phase 5 persistence features now implemented: versioned canonical envelopes (`canonicalPersistenceV1`), Execution extension sidecar (`executionExtensionPersistence`), local Finance repositories (`financePersistenceV1`), migration journal, checksum-validated local backup/restore (`migrationBackups`), canonical hydration, and corruption quarantine. UI, multi-device canonical sync, imports, OCR/AI, budgets, cashflow, investments, bank connections, and trigger/notification integration remain planned or partial.
 

@@ -19,6 +19,7 @@ import {
 import { fixedClock } from "@/lib/architecture/clock";
 import { createFinancePersistence } from "@/lib/canonical-persistence/repositories";
 import { InMemoryCanonicalStorage } from "@/lib/canonical-persistence/storage";
+import { CaptureRepository } from "@/application/repositories/capture-repository";
 
 const clock = fixedClock(Date.parse("2026-08-14T09:00:00Z"));
 describe("Finance capture, import and reconciliation", () => {
@@ -95,7 +96,7 @@ describe("Finance capture, import and reconciliation", () => {
       confidence: "HIGH",
     });
     expect(proposal.fields.dueDate).toMatchObject({ confidence: "HIGH" });
-    expect(imageOcrCapability().supported).toBe(false);
+    expect(imageOcrCapability()).toMatchObject({ localOffline: true, languages: ["tur", "eng"] });
   });
   it("normalizes OFX/QFX, QIF and CAMT into import rows without writing finance truth", () => {
     const ofx = parseOfx(
@@ -129,5 +130,111 @@ describe("Finance capture, import and reconciliation", () => {
       ],
     );
     expect(matches[0]).toMatchObject({ paymentId: "payment", confidence: "EXACT" });
+  });
+  it("confirms a reviewed statement and payment evidence through application boundaries", async () => {
+    const storage = new InMemoryCanonicalStorage();
+    const persistence = createFinancePersistence(storage);
+    const captures = new CaptureRepository(storage);
+    const finance = createFinanceApplication({ persistence, clock });
+    const app = createFinanceCaptureImportApplication({
+      persistence,
+      clock,
+      captureRepository: captures,
+    });
+    const book = await finance.commands.createBook({
+      name: "Kişisel",
+      type: "PERSONAL",
+      baseCurrency: "TRY",
+    });
+    const bank = await finance.commands.createAccount({
+      financeBookId: book.id,
+      name: "Banka",
+      type: "BANK",
+      currency: "TRY",
+    });
+    const card = await finance.commands.createAccount({
+      financeBookId: book.id,
+      name: "Kart",
+      type: "CREDIT_CARD",
+      currency: "TRY",
+    });
+    await captures.saveItem({
+      id: "capture-statement",
+      sourceType: "IMAGE",
+      createdAt: clock.nowMs(),
+      updatedAt: clock.nowMs(),
+      status: "CAPTURED",
+    });
+    const statementProposal = await app.commands.createProposalFromCapture({
+      captureItemId: "capture-statement",
+      documentType: "CREDIT_CARD_STATEMENT",
+      accountCandidateIds: [card.id],
+      fields: {},
+      fieldConfidence: {},
+      warnings: [],
+      extractorVersion: "fixture",
+      sourceDocumentId: "document-statement",
+      metadata: {},
+    });
+    const statement = await app.commands.confirmStatementProposal(statementProposal.id, {
+      financeBookId: book.id,
+      cardAccountId: card.id,
+      statementDate: clock.nowMs(),
+      dueDate: clock.nowMs() + 86_400_000,
+      newBalance: { minorUnits: 100_000, currency: "TRY" },
+    });
+    expect((await captures.getItem("capture-statement"))?.createdEntityId).toBe(statement.id);
+
+    const obligation = await finance.commands.createObligation({
+      financeBookId: book.id,
+      type: "CREDIT_CARD",
+      title: "Kart ödemesi",
+      dueDate: clock.nowMs() + 86_400_000,
+      amountDue: { minorUnits: 100_000, currency: "TRY" },
+      accountId: card.id,
+      paymentAccountId: bank.id,
+    });
+    const transfer = await finance.commands.createTransfer({
+      financeBookId: book.id,
+      sourceAccountId: bank.id,
+      destinationAccountId: card.id,
+      amount: { minorUnits: 100_000, currency: "TRY" },
+      date: clock.nowMs(),
+    });
+    const scheduled = await finance.commands.schedulePayment({
+      obligationId: obligation.id,
+      amount: { minorUnits: 100_000, currency: "TRY" },
+      fromAccountId: bank.id,
+      scheduledFor: clock.nowMs(),
+    });
+    await persistence.savePayment({
+      ...scheduled,
+      transferId: transfer.id,
+      transactionId: transfer.sourceTransactionId,
+    });
+    await captures.saveItem({
+      id: "capture-receipt",
+      sourceType: "IMAGE",
+      createdAt: clock.nowMs(),
+      updatedAt: clock.nowMs(),
+      status: "CAPTURED",
+    });
+    const receipt = await app.commands.createProposalFromCapture({
+      captureItemId: "capture-receipt",
+      documentType: "PAYMENT_CONFIRMATION",
+      accountCandidateIds: [bank.id, card.id],
+      fields: {},
+      fieldConfidence: {},
+      warnings: [],
+      extractorVersion: "fixture",
+      sourceDocumentId: "document-receipt",
+      metadata: {},
+    });
+    const confirmed = await app.commands.confirmPaymentEvidence(receipt.id, scheduled.id);
+    expect(confirmed.status).toBe("CONFIRMED");
+    expect((await captures.getItem("capture-receipt"))?.createdEntityType).toBe("FinancialPayment");
+    await expect(app.commands.confirmPaymentEvidence(receipt.id, scheduled.id)).rejects.toThrow(
+      "PAYMENT_EVIDENCE_ALREADY_CONFIRMED",
+    );
   });
 });

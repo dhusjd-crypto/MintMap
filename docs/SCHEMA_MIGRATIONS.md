@@ -27,3 +27,9 @@ and `capture_document_refs`. The migration is additive and keeps all existing
 Execution, Finance, Planner, Notification, Focus and Routine records intact.
 Legacy task snapshots remain unchanged. Existing data and external D1/Drive
 behavior are unchanged.
+
+Phase 14C adds physical version 7 store `capture_document_content` after the
+additive Phase 14 version 6 Finance review/import stores. The new store keeps
+captured document Blobs in Capture infrastructure so local OCR can be retried
+without placing binary content in the Finance domain. Existing records are
+unchanged; normal backup, journal, validation, and restore rules apply.

@@ -12,6 +12,8 @@ import {
 } from "@/domain/finance";
 import { systemClock, type Clock } from "@/lib/architecture/clock";
 import { createFinancePersistence } from "@/lib/canonical-persistence/repositories";
+import { CaptureRepository } from "@/application/repositories/capture-repository";
+import { createFinanceApplication } from "./finance-application";
 import { parseMoneyInput } from "./money-input";
 import { parseStructuredImport, type ImportFormat, type ParsedImportRow } from "./import-formats";
 
@@ -229,10 +231,15 @@ function toRowProposals(
   });
 }
 export function createFinanceCaptureImportApplication(
-  deps: { persistence?: ReturnType<typeof createFinancePersistence>; clock?: Clock } = {},
+  deps: {
+    persistence?: ReturnType<typeof createFinancePersistence>;
+    clock?: Clock;
+    captureRepository?: CaptureRepository;
+  } = {},
 ) {
   const persistence = deps.persistence ?? createFinancePersistence();
   const clock = deps.clock ?? systemClock;
+  const captureRepository = deps.captureRepository ?? new CaptureRepository();
   return {
     commands: {
       async createStatementProposal(
@@ -245,6 +252,27 @@ export function createFinanceCaptureImportApplication(
           reviewStatus: "REVIEW_REQUIRED",
         };
         await persistence.repositories.captureProposals.save(proposal);
+        return proposal;
+      },
+      async createProposalFromCapture(
+        input: Omit<FinanceCaptureProposal, "id" | "createdAt" | "reviewStatus">,
+      ) {
+        const capture = await captureRepository.getItem(input.captureItemId);
+        if (!capture) throw new Error("CaptureItem bulunamadı.");
+        const existing = (await persistence.repositories.captureProposals.list()).find(
+          (proposal) =>
+            proposal.captureItemId === input.captureItemId &&
+            proposal.sourceDocumentId === input.sourceDocumentId &&
+            proposal.documentType === input.documentType &&
+            proposal.reviewStatus === "REVIEW_REQUIRED",
+        );
+        if (existing) return existing;
+        const proposal = await this.createStatementProposal(input);
+        await captureRepository.saveItem({
+          ...capture,
+          status: "REVIEW_REQUIRED",
+          updatedAt: clock.nowMs(),
+        });
         return proposal;
       },
       async confirmStatementProposal(
@@ -290,7 +318,51 @@ export function createFinanceCaptureImportApplication(
           ...proposal,
           reviewStatus: "CONFIRMED",
         });
+        const capture = await captureRepository.getItem(proposal.captureItemId);
+        if (capture)
+          await captureRepository.saveItem({
+            ...capture,
+            status: "CONFIRMED",
+            createdEntityType: "CreditCardStatement",
+            createdEntityId: statement.id,
+            updatedAt: clock.nowMs(),
+          });
         return statement;
+      },
+      async confirmPaymentEvidence(proposalId: string, paymentId: string) {
+        const proposal = await persistence.repositories.captureProposals.get(proposalId);
+        if (!proposal || proposal.documentType !== "PAYMENT_CONFIRMATION")
+          throw new Error("PAYMENT_EVIDENCE_PROPOSAL_NOT_FOUND");
+        if (proposal.reviewStatus === "CONFIRMED")
+          throw new Error("PAYMENT_EVIDENCE_ALREADY_CONFIRMED");
+        const payment = await persistence.repositories.payments.get(paymentId);
+        if (!payment) throw new Error("PAYMENT_NOT_FOUND");
+        if (!payment.transactionId)
+          throw new Error("PAYMENT_EVIDENCE_REQUIRES_EXISTING_LEDGER_MOVEMENT");
+        const finance = createFinanceApplication({ persistence, clock });
+        if (payment.status === "SCHEDULED" || payment.status === "PLANNED")
+          await finance.commands.submitPayment(payment.id);
+        const current = await persistence.repositories.payments.get(payment.id);
+        if (!current) throw new Error("PAYMENT_NOT_FOUND");
+        const confirmed =
+          current.status === "CONFIRMED"
+            ? current
+            : await finance.commands.confirmPayment(current.id, current.transactionId!);
+        await persistence.repositories.captureProposals.save({
+          ...proposal,
+          reviewStatus: "CONFIRMED",
+          metadata: { ...proposal.metadata, confirmedPaymentId: confirmed.id },
+        });
+        const capture = await captureRepository.getItem(proposal.captureItemId);
+        if (capture)
+          await captureRepository.saveItem({
+            ...capture,
+            status: "CONFIRMED",
+            createdEntityType: "FinancialPayment",
+            createdEntityId: confirmed.id,
+            updatedAt: clock.nowMs(),
+          });
+        return confirmed;
       },
       async createCsvBatch(input: {
         financeBookId: string;
@@ -465,6 +537,11 @@ export function createFinanceCaptureImportApplication(
       },
     },
     queries: {
+      proposal: (id: string) => persistence.repositories.captureProposals.get(id),
+      proposalsForCapture: async (captureItemId: string) =>
+        (await persistence.repositories.captureProposals.list()).filter(
+          (proposal) => proposal.captureItemId === captureItemId,
+        ),
       async reconciliationDifference(sessionId: string) {
         const session = await persistence.repositories.reconciliationSessions.get(sessionId);
         if (!session) return undefined;

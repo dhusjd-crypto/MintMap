@@ -232,12 +232,23 @@ function CapturePage() {
                   </p>
                 </div>
                 {item.status === "REVIEW_REQUIRED" && (
-                  <Button
-                    variant="ghost"
-                    onClick={() => void captureApplication.reject(item.id).then(refresh)}
-                  >
-                    Reddet
-                  </Button>
+                  <div className="flex gap-2">
+                    {["IMAGE", "SCREENSHOT", "PDF"].includes(item.sourceType) && (
+                      <Link
+                        to="/finance/review/$captureId"
+                        params={{ captureId: item.id }}
+                        className="rounded-md px-3 py-2 text-sm font-medium text-primary"
+                      >
+                        Finansta incele
+                      </Link>
+                    )}
+                    <Button
+                      variant="ghost"
+                      onClick={() => void captureApplication.reject(item.id).then(refresh)}
+                    >
+                      Reddet
+                    </Button>
+                  </div>
                 )}
               </div>
             ))}

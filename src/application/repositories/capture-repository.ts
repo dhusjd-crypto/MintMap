@@ -1,6 +1,20 @@
-import type { CaptureDocumentRef, CaptureItem, CaptureProposal } from "@/domain/capture";
+import type {
+  CaptureDocumentContent,
+  CaptureDocumentRef,
+  CaptureItem,
+  CaptureProposal,
+} from "@/domain/capture";
 import { canonicalStorage } from "@/lib/canonical-persistence/storage";
 import type { CanonicalStorage, PersistenceEnvelope } from "@/lib/canonical-persistence/types";
+
+function cloneCapturePayload<T extends { id: string }>(value: T): T {
+  const document = value as unknown as Partial<CaptureDocumentContent>;
+  if (typeof Blob !== "undefined" && document.blob instanceof Blob) {
+    // jsdom's structuredClone does not preserve Blob; IndexedDB does.
+    return { ...value, blob: document.blob } as T;
+  }
+  return structuredClone(value);
+}
 
 function wrap<T extends { id: string }>(
   value: T,
@@ -13,7 +27,7 @@ function wrap<T extends { id: string }>(
     revision: (previous?.revision ?? 0) + 1,
     createdAt: previous?.createdAt ?? Date.now(),
     updatedAt: Date.now(),
-    payload: structuredClone(value),
+    payload: cloneCapturePayload(value),
   };
 }
 export class CaptureRepository {
@@ -50,6 +64,20 @@ export class CaptureRepository {
       "capture_document_refs",
       wrap(value, await this.storage.get("capture_document_refs", value.id)),
     );
+  }
+  async getDocumentRef(id: string) {
+    return (await this.storage.get<CaptureDocumentRef>("capture_document_refs", id))?.payload;
+  }
+  async saveDocumentContent(value: CaptureDocumentContent) {
+    await this.storage.put(
+      "capture_document_content",
+      wrap(value, await this.storage.get("capture_document_content", value.id)),
+    );
+  }
+  async getDocumentContent(documentRefId: string) {
+    return (
+      await this.storage.get<CaptureDocumentContent>("capture_document_content", documentRefId)
+    )?.payload;
   }
   async listDocumentRefs(captureItemId?: string) {
     const values = (await this.storage.list<CaptureDocumentRef>("capture_document_refs")).map(

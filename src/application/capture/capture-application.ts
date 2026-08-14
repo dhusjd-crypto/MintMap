@@ -63,11 +63,7 @@ export function createCaptureApplication(deps: CaptureApplicationDependencies = 
     await repository.saveProposal(proposal);
     return { item, proposal };
   }
-  async function fileCapture(
-    file: { name: string; type: string; size: number },
-    sourceType: CaptureSourceType,
-    possibleFinancial = false,
-  ) {
+  async function fileCapture(file: File, sourceType: CaptureSourceType, possibleFinancial = false) {
     const now = Date.now();
     const item: CaptureItem = {
       id: nanoid(12),
@@ -103,6 +99,12 @@ export function createCaptureApplication(deps: CaptureApplicationDependencies = 
     await repository.saveItem(item);
     await repository.saveProposal(proposal);
     await repository.saveDocumentRef(ref);
+    await repository.saveDocumentContent({
+      id: ref.id,
+      documentRefId: ref.id,
+      blob: file,
+      createdAt: now,
+    });
     return { item, proposal, ref };
   }
   async function confirmCapture(

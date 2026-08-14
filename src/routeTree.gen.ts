@@ -25,6 +25,7 @@ import { Route as BoardRouteImport } from './routes/board'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ReviewReviewTypeRouteImport } from './routes/review.$reviewType'
 import { Route as FocusTaskIdRouteImport } from './routes/focus.$taskId'
+import { Route as FinanceReviewCaptureIdRouteImport } from './routes/finance.review.$captureId'
 
 const UnlockRoute = UnlockRouteImport.update({
   id: '/unlock',
@@ -106,6 +107,11 @@ const FocusTaskIdRoute = FocusTaskIdRouteImport.update({
   path: '/focus/$taskId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FinanceReviewCaptureIdRoute = FinanceReviewCaptureIdRouteImport.update({
+  id: '/review/$captureId',
+  path: '/review/$captureId',
+  getParentRoute: () => FinanceRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -114,7 +120,7 @@ export interface FileRoutesByFullPath {
   '/calendar': typeof CalendarRoute
   '/capture': typeof CaptureRoute
   '/command-center': typeof CommandCenterRoute
-  '/finance': typeof FinanceRoute
+  '/finance': typeof FinanceRouteWithChildren
   '/keep': typeof KeepRoute
   '/pulse': typeof PulseRoute
   '/share-analytics': typeof ShareAnalyticsRoute
@@ -124,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/unlock': typeof UnlockRoute
   '/focus/$taskId': typeof FocusTaskIdRoute
   '/review/$reviewType': typeof ReviewReviewTypeRoute
+  '/finance/review/$captureId': typeof FinanceReviewCaptureIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -132,7 +139,7 @@ export interface FileRoutesByTo {
   '/calendar': typeof CalendarRoute
   '/capture': typeof CaptureRoute
   '/command-center': typeof CommandCenterRoute
-  '/finance': typeof FinanceRoute
+  '/finance': typeof FinanceRouteWithChildren
   '/keep': typeof KeepRoute
   '/pulse': typeof PulseRoute
   '/share-analytics': typeof ShareAnalyticsRoute
@@ -142,6 +149,7 @@ export interface FileRoutesByTo {
   '/unlock': typeof UnlockRoute
   '/focus/$taskId': typeof FocusTaskIdRoute
   '/review/$reviewType': typeof ReviewReviewTypeRoute
+  '/finance/review/$captureId': typeof FinanceReviewCaptureIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -151,7 +159,7 @@ export interface FileRoutesById {
   '/calendar': typeof CalendarRoute
   '/capture': typeof CaptureRoute
   '/command-center': typeof CommandCenterRoute
-  '/finance': typeof FinanceRoute
+  '/finance': typeof FinanceRouteWithChildren
   '/keep': typeof KeepRoute
   '/pulse': typeof PulseRoute
   '/share-analytics': typeof ShareAnalyticsRoute
@@ -161,6 +169,7 @@ export interface FileRoutesById {
   '/unlock': typeof UnlockRoute
   '/focus/$taskId': typeof FocusTaskIdRoute
   '/review/$reviewType': typeof ReviewReviewTypeRoute
+  '/finance/review/$captureId': typeof FinanceReviewCaptureIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -181,6 +190,7 @@ export interface FileRouteTypes {
     | '/unlock'
     | '/focus/$taskId'
     | '/review/$reviewType'
+    | '/finance/review/$captureId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -199,6 +209,7 @@ export interface FileRouteTypes {
     | '/unlock'
     | '/focus/$taskId'
     | '/review/$reviewType'
+    | '/finance/review/$captureId'
   id:
     | '__root__'
     | '/'
@@ -217,6 +228,7 @@ export interface FileRouteTypes {
     | '/unlock'
     | '/focus/$taskId'
     | '/review/$reviewType'
+    | '/finance/review/$captureId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -226,7 +238,7 @@ export interface RootRouteChildren {
   CalendarRoute: typeof CalendarRoute
   CaptureRoute: typeof CaptureRoute
   CommandCenterRoute: typeof CommandCenterRoute
-  FinanceRoute: typeof FinanceRoute
+  FinanceRoute: typeof FinanceRouteWithChildren
   KeepRoute: typeof KeepRoute
   PulseRoute: typeof PulseRoute
   ShareAnalyticsRoute: typeof ShareAnalyticsRoute
@@ -352,8 +364,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FocusTaskIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/finance/review/$captureId': {
+      id: '/finance/review/$captureId'
+      path: '/review/$captureId'
+      fullPath: '/finance/review/$captureId'
+      preLoaderRoute: typeof FinanceReviewCaptureIdRouteImport
+      parentRoute: typeof FinanceRoute
+    }
   }
 }
+
+interface FinanceRouteChildren {
+  FinanceReviewCaptureIdRoute: typeof FinanceReviewCaptureIdRoute
+}
+
+const FinanceRouteChildren: FinanceRouteChildren = {
+  FinanceReviewCaptureIdRoute: FinanceReviewCaptureIdRoute,
+}
+
+const FinanceRouteWithChildren =
+  FinanceRoute._addFileChildren(FinanceRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -362,7 +392,7 @@ const rootRouteChildren: RootRouteChildren = {
   CalendarRoute: CalendarRoute,
   CaptureRoute: CaptureRoute,
   CommandCenterRoute: CommandCenterRoute,
-  FinanceRoute: FinanceRoute,
+  FinanceRoute: FinanceRouteWithChildren,
   KeepRoute: KeepRoute,
   PulseRoute: PulseRoute,
   ShareAnalyticsRoute: ShareAnalyticsRoute,

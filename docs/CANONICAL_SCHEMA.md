@@ -1,7 +1,7 @@
 # Canonical Schema
 
 `CANONICAL_SCHEMA_VERSION = 1` is independent from application, sync, and
-feature-registry versions. The IndexedDB physical version is 6. Version 2
+feature-registry versions. The IndexedDB physical version is 7. Version 2
 added notification stores and version 3 added `focus_sessions` additively
 without changing existing entity payload semantics. Stores include `meta`,
 `execution_extensions`, the Finance stores, `notification_intents`,
@@ -12,6 +12,11 @@ without changing existing entity payload semantics. Stores include `meta`,
 Version 6 adds additive `finance_capture_proposals`, `finance_import_batches`,
 `finance_import_rows`, and `reconciliation_sessions` stores. Existing payloads
 and Finance records are untouched.
+
+Version 7 adds `capture_document_content` additively. It stores a captured file
+Blob only behind the Capture boundary, keyed by `CaptureDocumentRef.id`.
+Finance records retain just document references and provenance; binary OCR input
+is never embedded in a statement, payment, or transaction record.
 
 Finance amounts use `{ minorUnits, currency }`; no floating point currency
 value is authoritative. Timestamps are UTC instants represented as epoch

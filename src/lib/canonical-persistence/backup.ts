@@ -103,8 +103,47 @@ export class IndexedDbBackupStore implements BackupStore {
 
 export const backupStore = new IndexedDbBackupStore();
 
+function isBlob(value: unknown): value is Blob {
+  return typeof Blob !== "undefined" && value instanceof Blob;
+}
+
+async function digestBytes(bytes: ArrayBuffer): Promise<string> {
+  if (typeof crypto !== "undefined" && crypto.subtle) {
+    const digest = await crypto.subtle.digest("SHA-256", bytes);
+    return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  }
+  let hash = 2166136261;
+  for (const byte of new Uint8Array(bytes)) hash = Math.imul(hash ^ byte, 16777619);
+  return `fnv1a-${(hash >>> 0).toString(16)}`;
+}
+
+async function containsBlob(value: unknown): Promise<boolean> {
+  if (isBlob(value)) return true;
+  if (Array.isArray(value)) return (await Promise.all(value.map(containsBlob))).some(Boolean);
+  if (value && typeof value === "object")
+    return (await Promise.all(Object.values(value).map(containsBlob))).some(Boolean);
+  return false;
+}
+
+async function withBlobDigests(value: unknown): Promise<unknown> {
+  if (isBlob(value))
+    return {
+      __mintmapBlob: true,
+      size: value.size,
+      type: value.type,
+      checksum: await digestBytes(await value.arrayBuffer()),
+    };
+  if (Array.isArray(value)) return Promise.all(value.map(withBlobDigests));
+  if (value && typeof value === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [key, nested] of Object.entries(value)) result[key] = await withBlobDigests(nested);
+    return result;
+  }
+  return value;
+}
+
 async function checksum(value: unknown): Promise<string> {
-  const text = JSON.stringify(value);
+  const text = JSON.stringify((await containsBlob(value)) ? await withBlobDigests(value) : value);
   if (typeof crypto !== "undefined" && crypto.subtle) {
     const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
     return [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, "0")).join("");

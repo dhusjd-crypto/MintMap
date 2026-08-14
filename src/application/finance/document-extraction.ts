@@ -8,6 +8,7 @@ export type ExtractedDocumentText = {
   text: string;
   warnings: string[];
   extractorVersion: string;
+  createdAt: number;
 };
 
 export type StatementTextCandidate = {
@@ -24,13 +25,16 @@ export type StatementTextInterpretation = {
 const MONEY = /(?:(?:TRY|TL|₺)\s*)?([+-]?[\d.]+(?:,[0-9]{1,2})?)(?:\s*(TRY|TL|₺|USD|\$|EUR|€))?/i;
 const DATE = /(\d{2}[./]\d{2}[./]\d{4}|\d{4}-\d{2}-\d{2})/;
 const labels: Record<string, RegExp> = {
-  statementDate: /(?:ekstre|hesap kesim|statement)\s*tarihi[^\n:]*[:\-]?\s*/i,
-  dueDate: /(?:son ödeme|due date)\s*tarihi?[^\n:]*[:\-]?\s*/i,
-  newBalance: /(?:dönem borcu|toplam borç|new balance|statement balance)[^\n:]*[:\-]?\s*/i,
-  minimumPayment: /(?:asgari ödeme(?: tutarı)?|minimum payment)[^\n:]*[:\-]?\s*/i,
-  previousBalance: /(?:önceki bakiye|previous balance)[^\n:]*[:\-]?\s*/i,
-  interest: /(?:faiz|interest)[^\n:]*[:\-]?\s*/i,
-  fees: /(?:ücret|masraf|fees?)[^\n:]*[:\-]?\s*/i,
+  statementDate: /(?:ekstre|hesap kesim|statement)\s*tarihi[^\n:]*[:-]?\s*/i,
+  dueDate: /(?:son ödeme|due date)\s*tarihi?[^\n:]*[:-]?\s*/i,
+  newBalance: /(?:dönem borcu|toplam borç|new balance|statement balance)[^\n:]*[:-]?\s*/i,
+  minimumPayment: /(?:asgari ödeme(?: tutarı)?|minimum payment)[^\n:]*[:-]?\s*/i,
+  previousBalance: /(?:önceki bakiye|previous balance)[^\n:]*[:-]?\s*/i,
+  interest: /(?:faiz|interest)[^\n:]*[:-]?\s*/i,
+  fees: /(?:ücret|masraf|fees?)[^\n:]*[:-]?\s*/i,
+  paymentAmount: /(?:ödenen tutar|işlem tutarı|tutar|payment amount|amount paid)[^\n:]*[:-]?\s*/i,
+  paymentDate: /(?:ödeme tarihi|işlem tarihi|payment date|transaction date)[^\n:]*[:-]?\s*/i,
+  reference: /(?:referans|işlem no|transaction reference)[^\n:]*[:-]?\s*/i,
 };
 
 function currencyFor(symbol?: string): "TRY" | "USD" | "EUR" | undefined {
@@ -51,10 +55,14 @@ function dateValue(value: string) {
   return Date.parse(`${iso}T12:00:00Z`);
 }
 
-function findAfterLabel(text: string, label: RegExp, kind: "date" | "money") {
+function findAfterLabel(text: string, label: RegExp, kind: "date" | "money" | "text") {
   const candidates: string[] = [];
   for (const match of text.matchAll(
-    new RegExp(label.source + (kind === "date" ? DATE.source : MONEY.source), "gi"),
+    new RegExp(
+      label.source +
+        (kind === "date" ? DATE.source : kind === "money" ? MONEY.source : "([A-Za-z0-9-]{3,})"),
+      "gi",
+    ),
   )) {
     candidates.push(match[0]);
   }
@@ -66,8 +74,12 @@ export function interpretStatementText(text: string): StatementTextInterpretatio
   const fields: Record<string, StatementTextCandidate> = {};
   const warnings: string[] = [];
   for (const [field, label] of Object.entries(labels)) {
-    const dateField = field === "statementDate" || field === "dueDate";
-    const candidates = findAfterLabel(text, label, dateField ? "date" : "money");
+    const dateField = field === "statementDate" || field === "dueDate" || field === "paymentDate";
+    const candidates = findAfterLabel(
+      text,
+      label,
+      field === "reference" ? "text" : dateField ? "date" : "money",
+    );
     if (candidates.length === 0) continue;
     if (candidates.length > 1) {
       warnings.push(`MULTIPLE_${field.toUpperCase()}_CANDIDATES`);
@@ -82,6 +94,12 @@ export function interpretStatementText(text: string): StatementTextInterpretatio
           confidence: "HIGH",
           reason: "EXPLICIT_LABEL_MATCH",
         };
+      continue;
+    }
+    if (field === "reference") {
+      const reference = candidate.replace(label, "").trim().split(/\s+/)[0];
+      if (reference)
+        fields[field] = { value: reference, confidence: "HIGH", reason: "EXPLICIT_LABEL_MATCH" };
       continue;
     }
     const money = candidate.match(MONEY);
@@ -107,10 +125,56 @@ export function interpretStatementText(text: string): StatementTextInterpretatio
 
 export function imageOcrCapability() {
   return {
-    supported: false,
-    reason: "OCR_UNAVAILABLE_NO_LOCAL_ENGINE",
-    languages: [] as string[],
+    supported: typeof Worker !== "undefined",
+    reason: typeof Worker === "undefined" ? "OCR_WORKER_UNAVAILABLE" : undefined,
+    languages: ["tur", "eng"],
+    localOffline: true,
+    maxBytes: 10 * 1024 * 1024,
+    engine: "tesseract.js@7.0.0",
   };
+}
+
+const imageJobs = new Map<string, Promise<ExtractedDocumentText>>();
+
+/** Local worker OCR returns text only; this module has no Finance persistence dependency. */
+export function extractImageTextLocally(
+  documentId: string,
+  file: Blob & { type: string; size: number },
+): Promise<ExtractedDocumentText> {
+  const existing = imageJobs.get(documentId);
+  if (existing) return existing;
+  const job: Promise<ExtractedDocumentText> = (async () => {
+    const capability = imageOcrCapability();
+    if (!capability.supported) throw new Error(capability.reason);
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type))
+      throw new Error("OCR_UNSUPPORTED_TYPE");
+    if (file.size > capability.maxBytes) throw new Error("OCR_RESOURCE_LIMIT");
+    const { createWorker } = await import("tesseract.js");
+    const worker = await createWorker(["tur", "eng"], 1, {
+      workerPath: "/ocr/worker.min.js",
+      corePath: "/ocr/tesseract-core.wasm.js",
+      langPath: "/ocr/lang",
+      gzip: true,
+    });
+    try {
+      const result = await worker.recognize(file);
+      const text = result.data.text.trim();
+      return {
+        documentId,
+        method: "OCR_IMAGE",
+        pages: [text],
+        text,
+        warnings: text.length < 12 ? ["OCR_LOW_TEXT_VOLUME"] : [],
+        extractorVersion: "TESSERACT_JS_7_LOCAL_V1",
+        createdAt: Date.now(),
+      };
+    } finally {
+      await worker.terminate();
+    }
+  })();
+  imageJobs.set(documentId, job);
+  void job.finally(() => imageJobs.delete(documentId));
+  return job;
 }
 
 export async function extractPdfEmbeddedText(
@@ -126,6 +190,7 @@ export async function extractPdfEmbeddedText(
       text: "",
       warnings: ["EXTRACTION_LIMIT_EXCEEDED"],
       extractorVersion: "PDF_TEXT_V1",
+      createdAt: Date.now(),
     };
   const pdfjs = (await import("pdfjs-dist/legacy/build/pdf.mjs")) as {
     getDocument(input: { data: Uint8Array }): {
@@ -146,6 +211,7 @@ export async function extractPdfEmbeddedText(
       text: "",
       warnings: ["EXTRACTION_LIMIT_EXCEEDED"],
       extractorVersion: "PDF_TEXT_V1",
+      createdAt: Date.now(),
     };
   const pages = await Promise.all(
     Array.from({ length: pdf.numPages }, async (_, index) => {
@@ -159,9 +225,63 @@ export async function extractPdfEmbeddedText(
     method: "EMBEDDED_PDF_TEXT",
     pages,
     text: pages.join("\n"),
-    warnings: pages.join("").trim()
-      ? []
-      : ["PDF_EMBEDDED_TEXT_INADEQUATE", "OCR_UNAVAILABLE_NO_LOCAL_ENGINE"],
+    warnings: pages.join("").trim() ? [] : ["PDF_EMBEDDED_TEXT_INADEQUATE", "OCR_REQUIRED"],
     extractorVersion: "PDF_TEXT_V1",
+    createdAt: Date.now(),
+  };
+}
+
+export async function extractPdfTextWithFallback(
+  documentId: string,
+  bytes: ArrayBuffer,
+  limits = { maxPages: 20, maxBytes: 12 * 1024 * 1024, maxOcrPages: 3, renderScale: 1.5 },
+): Promise<ExtractedDocumentText> {
+  const embedded = await extractPdfEmbeddedText(documentId, bytes, limits);
+  const usable =
+    embedded.text.trim().length >= 40 && /(?:ekstre|ödeme|balance|due|borç)/i.test(embedded.text);
+  if (usable || embedded.warnings.includes("EXTRACTION_LIMIT_EXCEEDED")) return embedded;
+  const capability = imageOcrCapability();
+  if (!capability.supported)
+    return { ...embedded, warnings: [...embedded.warnings, "OCR_UNAVAILABLE"] };
+  const pdfjs = (await import("pdfjs-dist/legacy/build/pdf.mjs")) as {
+    getDocument(input: { data: Uint8Array }): {
+      promise: Promise<{
+        numPages: number;
+        getPage(number: number): Promise<{
+          getViewport(input: { scale: number }): { width: number; height: number };
+          render(input: { canvasContext: CanvasRenderingContext2D; viewport: unknown }): {
+            promise: Promise<void>;
+          };
+        }>;
+      }>;
+    };
+  };
+  const pdf = await pdfjs.getDocument({ data: new Uint8Array(bytes) }).promise;
+  const pages: string[] = [];
+  for (let number = 1; number <= Math.min(pdf.numPages, limits.maxOcrPages); number++) {
+    const page = await pdf.getPage(number);
+    const viewport = page.getViewport({ scale: limits.renderScale });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("OCR_CANVAS_UNAVAILABLE");
+    await page.render({ canvasContext: context, viewport }).promise;
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+    if (!blob) throw new Error("OCR_RENDER_FAILED");
+    const text = await extractImageTextLocally(
+      `${documentId}:${number}`,
+      new File([blob], `page-${number}.png`, { type: "image/png" }),
+    );
+    pages.push(text.text);
+  }
+  return {
+    documentId,
+    method: "OCR_PDF",
+    pages,
+    text: pages.join("\n"),
+    warnings: pdf.numPages > limits.maxOcrPages ? ["OCR_PAGE_LIMIT_REACHED"] : [],
+    extractorVersion: "PDF_TEXT_OCR_FALLBACK_V1",
+    createdAt: Date.now(),
   };
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createMoney } from "@/domain/finance/money";
 import { createFinancePersistence } from "@/lib/canonical-persistence/repositories";
 import { InMemoryCanonicalStorage } from "@/lib/canonical-persistence/storage";
+import { CaptureRepository } from "@/application/repositories/capture-repository";
 import {
   createBackup,
   InMemoryBackupStore,
@@ -90,6 +91,24 @@ describe("canonical local persistence", () => {
       "personal",
     );
     expect(await backups.list()).toHaveLength(1);
+  });
+
+  it("includes Capture document bytes in backup validation and restore", async () => {
+    const storage = new InMemoryCanonicalStorage();
+    const captures = new CaptureRepository(storage);
+    await captures.saveDocumentContent({
+      id: "capture-document",
+      documentRefId: "capture-document",
+      blob: new Blob(["yerel ocr kanıtı"], { type: "text/plain" }),
+      createdAt: 1,
+    });
+    const backup = await createBackup(storage, new InMemoryBackupStore());
+    expect((await validateBackup(backup)).valid).toBe(true);
+    await storage.remove("capture_document_content", "capture-document");
+    await restoreBackup(backup, storage, { restoreLegacy: false });
+    expect(await (await captures.getDocumentContent("capture-document"))?.blob.text()).toBe(
+      "yerel ocr kanıtı",
+    );
   });
 
   it("runs migrations once and blocks startup after a failed migration", async () => {

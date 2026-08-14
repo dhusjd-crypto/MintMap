@@ -49,7 +49,7 @@ export type CaptureItem = {
   status: CaptureStatus;
   language?: string;
   sourceMetadata?: Readonly<Record<string, string | number | boolean>>;
-  createdEntityType?: "Task" | "Note";
+  createdEntityType?: "Task" | "Note" | "CreditCardStatement" | "FinancialPayment";
   createdEntityId?: string;
 };
 export type CaptureProposal = {
@@ -72,6 +72,13 @@ export type CaptureDocumentRef = {
   mimeType: string;
   size: number;
   checksum?: string;
+  createdAt: number;
+};
+/** Binary stays in Capture infrastructure; Finance receives only a document reference. */
+export type CaptureDocumentContent = {
+  id: string;
+  documentRefId: string;
+  blob: Blob;
   createdAt: number;
 };
 export type CaptureProjectContext = { id: string; title: string };

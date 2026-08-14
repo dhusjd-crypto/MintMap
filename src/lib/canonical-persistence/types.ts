@@ -14,7 +14,7 @@ import type {
 
 export const CANONICAL_SCHEMA_VERSION = 1 as const;
 export const CANONICAL_DB_NAME = "mintmap-canonical";
-export const CANONICAL_DB_VERSION = 6;
+export const CANONICAL_DB_VERSION = 7;
 
 export const CANONICAL_STORES = [
   "meta",
@@ -41,6 +41,7 @@ export const CANONICAL_STORES = [
   "capture_items",
   "capture_proposals",
   "capture_document_refs",
+  "capture_document_content",
   "finance_capture_proposals",
   "finance_import_batches",
   "finance_import_rows",
