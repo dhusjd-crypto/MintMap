@@ -24,6 +24,9 @@ export type Todo = {
   focus?: boolean;
   myDay?: boolean;
   myDayAt?: number;
+  /** Provenance link for tasks created through Capture. */
+  sourceType?: "CAPTURE_ITEM";
+  sourceId?: string;
   tags?: string[];
   createdAt?: number;
   /** Last semantic change; used for conflict-free device reconciliation. */
@@ -183,8 +186,13 @@ function seedStore(): StoreShape {
 let store: StoreShape = { workspaces: [], currentId: "" };
 let initialized = false;
 const listeners = new Set<() => void>();
-let cachedAllTodos: Array<{ wsId: string; wsName: string; nodeId: string; nodeTitle: string; todo: Todo }> | null = null;
-
+let cachedAllTodos: Array<{
+  wsId: string;
+  wsName: string;
+  nodeId: string;
+  nodeTitle: string;
+  todo: Todo;
+}> | null = null;
 
 type HistoryEntry = StoreShape;
 const history: { past: HistoryEntry[]; future: HistoryEntry[] } = { past: [], future: [] };
@@ -243,7 +251,7 @@ function migrateLegacySteps(input: StoreShape): { store: StoreShape; changed: bo
             id: nanoid(6),
             text,
             done: !!legacySteps?.[index]?.done,
-            status: legacySteps?.[index]?.done ? "done" as const : "todo" as const,
+            status: legacySteps?.[index]?.done ? ("done" as const) : ("todo" as const),
             parentId: cleanTodo.id,
             createdAt,
             updatedAt: Date.now(),
@@ -316,9 +324,7 @@ function serializeStore(s: StoreShape): StoreShape {
           return files === n.files && todos === n.todos ? n : { ...n, files, todos };
         }
         const images = n.images.map((im) =>
-          im.blobId
-            ? { ...im, src: "", srcOriginal: im.blobIdOriginal ? "" : im.srcOriginal }
-            : im,
+          im.blobId ? { ...im, src: "", srcOriginal: im.blobIdOriginal ? "" : im.srcOriginal } : im,
         );
         const active = images.find((im) => im.id === n.activeImageId) ?? images[0];
         return { ...n, images, files, todos, image: active?.blobId ? undefined : n.image };
@@ -378,7 +384,7 @@ export async function hydrateImageBlobs() {
       nodes: w.nodes.map((n) => {
         if (!n.images?.length) return n;
         const images = n.images.map((im) => {
-          const src = im.src || (im.blobId ? resolved.get(im.blobId) ?? "" : "");
+          const src = im.src || (im.blobId ? (resolved.get(im.blobId) ?? "") : "");
           const srcOriginal =
             im.srcOriginal || (im.blobIdOriginal ? resolved.get(im.blobIdOriginal) : undefined);
           if (src === im.src && srcOriginal === im.srcOriginal) return im;
@@ -507,12 +513,10 @@ function emit() {
   listeners.forEach((l) => l());
 }
 
-
 function notifyOnly() {
   cachedAllTodos = null;
   listeners.forEach((l) => l());
 }
-
 
 // Every mutation goes through setCurrentNodes/importFullSnapshot, which rebuild
 // `store` immutably — so the outgoing object is already a private snapshot and
@@ -566,7 +570,6 @@ function serverSnapshotNodes(): MindNode[] {
 export function useNodes(): MindNode[] {
   return useSyncExternalStore(subscribe, snapshotNodes, serverSnapshotNodes);
 }
-
 
 export function useNode(id: string | null): MindNode | undefined {
   const nodes = useNodes();
@@ -637,7 +640,10 @@ export const mindmap = {
       if (store.workspaces.length <= 1) return;
       mutate(() => {
         const list = store.workspaces.filter((w) => w.id !== id);
-        store = { workspaces: list, currentId: store.currentId === id ? list[0].id : store.currentId };
+        store = {
+          workspaces: list,
+          currentId: store.currentId === id ? list[0].id : store.currentId,
+        };
       });
     },
     duplicate(id: string) {
@@ -700,11 +706,17 @@ export const mindmap = {
     return node;
   },
   update(id: string, patch: Partial<MindNode>) {
-    mutate(() => setCurrentNodes((ns) => ns.map((n) => (n.id === id ? { ...n, ...patch, updatedAt: Date.now() } : n))));
+    mutate(() =>
+      setCurrentNodes((ns) =>
+        ns.map((n) => (n.id === id ? { ...n, ...patch, updatedAt: Date.now() } : n)),
+      ),
+    );
   },
   move(id: string, x: number, y: number) {
     // High-frequency drag — no history, no persist, just notify.
-    setCurrentNodes((ns) => ns.map((n) => (n.id === id ? { ...n, x, y, updatedAt: Date.now() } : n)));
+    setCurrentNodes((ns) =>
+      ns.map((n) => (n.id === id ? { ...n, x, y, updatedAt: Date.now() } : n)),
+    );
     notifyOnly();
   },
   commitMove() {
@@ -766,7 +778,9 @@ export const mindmap = {
                   .filter((node) => !toRemove.has(node.id))
                   .map((node) => ({
                     ...node,
-                    links: node.links ? node.links.filter((link) => !toRemove.has(link)) : node.links,
+                    links: node.links
+                      ? node.links.filter((link) => !toRemove.has(link))
+                      : node.links,
                   })),
               },
         ),
@@ -782,12 +796,15 @@ export const mindmap = {
     const parsed = parseQuickAdd(text);
     const dueAt = extra.dueAt ?? parsed.dueAt;
     const hasExplicitReminder = extra.reminderAt !== undefined || extra.reminderAts !== undefined;
-    const reminderAts = dueAt && !hasExplicitReminder
-      ? [240, 120, 60]
-          .map((minutes) => dueAt - minutes * 60_000)
-          .filter((at) => at > Date.now())
-      : extra.reminderAts;
-    const plannedReminders = reminderAts?.length ? reminderAts : dueAt && !hasExplicitReminder ? [dueAt] : undefined;
+    const reminderAts =
+      dueAt && !hasExplicitReminder
+        ? [240, 120, 60].map((minutes) => dueAt - minutes * 60_000).filter((at) => at > Date.now())
+        : extra.reminderAts;
+    const plannedReminders = reminderAts?.length
+      ? reminderAts
+      : dueAt && !hasExplicitReminder
+        ? [dueAt]
+        : undefined;
     const todo: Todo = {
       id: nanoid(6),
       text: parsed.dueAt ? parsed.text : text,
@@ -798,12 +815,16 @@ export const mindmap = {
       updatedAt: Date.now(),
       ...extra,
       ...(dueAt ? { dueAt } : {}),
-      ...(extra.recurrence === undefined && parsed.recurrence ? { recurrence: parsed.recurrence } : {}),
+      ...(extra.recurrence === undefined && parsed.recurrence
+        ? { recurrence: parsed.recurrence }
+        : {}),
       ...(extra.tags === undefined && parsed.tags?.length ? { tags: parsed.tags } : {}),
       ...(extra.priority === undefined && parsed.priority ? { priority: parsed.priority } : {}),
       ...(extra.starred === undefined && parsed.starred ? { starred: true } : {}),
       ...(extra.myDay === undefined && parsed.myDay ? { myDay: true, myDayAt: Date.now() } : {}),
-      ...(plannedReminders ? { reminderAt: plannedReminders[0], reminderAts: plannedReminders } : {}),
+      ...(plannedReminders
+        ? { reminderAt: plannedReminders[0], reminderAts: plannedReminders }
+        : {}),
     };
     this.update(id, {
       todos: [...n.todos, todo],
@@ -823,7 +844,11 @@ export const mindmap = {
     });
   },
   setTodoStatus(id: string, todoId: string, status: TodoStatus) {
-    this.updateTodo(id, todoId, { status, done: status === "done", completedAt: status === "done" ? Date.now() : undefined });
+    this.updateTodo(id, todoId, {
+      status,
+      done: status === "done",
+      completedAt: status === "done" ? Date.now() : undefined,
+    });
   },
   /** Reorders siblings while preserving the task tree and all task metadata. */
   reorderTodos(id: string, parentId: string | null, orderedIds: string[]) {
@@ -989,7 +1014,9 @@ export const mindmap = {
                   ...Object.fromEntries([...toRemove].map((id) => [id, deletedAt])),
                 },
                 nodes: workspace.nodes.map((node) =>
-                  node.id === id ? { ...node, todos: node.todos.filter((todo) => !toRemove.has(todo.id)) } : node,
+                  node.id === id
+                    ? { ...node, todos: node.todos.filter((todo) => !toRemove.has(todo.id)) }
+                    : node,
                 ),
               },
         ),
@@ -1023,7 +1050,10 @@ export const mindmap = {
                 },
                 nodes: workspace.nodes.map((currentNode) =>
                   currentNode.id === id
-                    ? { ...currentNode, todos: currentNode.todos.filter((todo) => !toRemove.has(todo.id)) }
+                    ? {
+                        ...currentNode,
+                        todos: currentNode.todos.filter((todo) => !toRemove.has(todo.id)),
+                      }
                     : currentNode,
                 ),
               },
@@ -1071,13 +1101,19 @@ export const mindmap = {
       const deletedAt = Date.now();
       store = {
         ...store,
-        workspaces: store.workspaces.map((workspace) => workspace.id !== store.currentId ? workspace : {
-          ...workspace,
-          deletedEntryIds: { ...(workspace.deletedEntryIds ?? {}), [fileId]: deletedAt },
-          nodes: workspace.nodes.map((node) => node.id === nodeId
-            ? { ...node, files: (node.files ?? []).filter((file) => file.id !== fileId) }
-            : node),
-        }),
+        workspaces: store.workspaces.map((workspace) =>
+          workspace.id !== store.currentId
+            ? workspace
+            : {
+                ...workspace,
+                deletedEntryIds: { ...(workspace.deletedEntryIds ?? {}), [fileId]: deletedAt },
+                nodes: workspace.nodes.map((node) =>
+                  node.id === nodeId
+                    ? { ...node, files: (node.files ?? []).filter((file) => file.id !== fileId) }
+                    : node,
+                ),
+              },
+        ),
       };
     });
   },
@@ -1112,18 +1148,35 @@ export const mindmap = {
       const deletedAt = Date.now();
       store = {
         ...store,
-        workspaces: store.workspaces.map((workspace) => workspace.id !== store.currentId ? workspace : {
-          ...workspace,
-          deletedEntryIds: { ...(workspace.deletedEntryIds ?? {}), [attachmentId]: deletedAt },
-          nodes: workspace.nodes.map((currentNode) => currentNode.id !== nodeId ? currentNode : {
-            ...currentNode,
-            todos: currentNode.todos.map((currentTodo) => currentTodo.id !== todoId ? currentTodo : {
-              ...currentTodo,
-              attachments: (currentTodo.attachments ?? []).filter((file) => file.id !== attachmentId),
-              updatedAt: Date.now(),
-            }),
-          }),
-        }),
+        workspaces: store.workspaces.map((workspace) =>
+          workspace.id !== store.currentId
+            ? workspace
+            : {
+                ...workspace,
+                deletedEntryIds: {
+                  ...(workspace.deletedEntryIds ?? {}),
+                  [attachmentId]: deletedAt,
+                },
+                nodes: workspace.nodes.map((currentNode) =>
+                  currentNode.id !== nodeId
+                    ? currentNode
+                    : {
+                        ...currentNode,
+                        todos: currentNode.todos.map((currentTodo) =>
+                          currentTodo.id !== todoId
+                            ? currentTodo
+                            : {
+                                ...currentTodo,
+                                attachments: (currentTodo.attachments ?? []).filter(
+                                  (file) => file.id !== attachmentId,
+                                ),
+                                updatedAt: Date.now(),
+                              },
+                        ),
+                      },
+                ),
+              },
+        ),
       };
     });
   },
@@ -1150,18 +1203,32 @@ export const mindmap = {
       const deletedAt = Date.now();
       store = {
         ...store,
-        workspaces: store.workspaces.map((workspace) => workspace.id !== store.currentId ? workspace : {
-          ...workspace,
-          deletedEntryIds: { ...(workspace.deletedEntryIds ?? {}), [activityId]: deletedAt },
-          nodes: workspace.nodes.map((currentNode) => currentNode.id !== nodeId ? currentNode : {
-            ...currentNode,
-            todos: currentNode.todos.map((currentTodo) => currentTodo.id !== todoId ? currentTodo : {
-              ...currentTodo,
-              activity: (currentTodo.activity ?? []).filter((entry) => entry.id !== activityId),
-              updatedAt: Date.now(),
-            }),
-          }),
-        }),
+        workspaces: store.workspaces.map((workspace) =>
+          workspace.id !== store.currentId
+            ? workspace
+            : {
+                ...workspace,
+                deletedEntryIds: { ...(workspace.deletedEntryIds ?? {}), [activityId]: deletedAt },
+                nodes: workspace.nodes.map((currentNode) =>
+                  currentNode.id !== nodeId
+                    ? currentNode
+                    : {
+                        ...currentNode,
+                        todos: currentNode.todos.map((currentTodo) =>
+                          currentTodo.id !== todoId
+                            ? currentTodo
+                            : {
+                                ...currentTodo,
+                                activity: (currentTodo.activity ?? []).filter(
+                                  (entry) => entry.id !== activityId,
+                                ),
+                                updatedAt: Date.now(),
+                              },
+                        ),
+                      },
+                ),
+              },
+        ),
       };
     });
   },
@@ -1289,10 +1356,22 @@ export const mindmap = {
     };
   },
   /** Flat list of every todo across every workspace. */
-  allTodos(): Array<{ wsId: string; wsName: string; nodeId: string; nodeTitle: string; todo: Todo }> {
+  allTodos(): Array<{
+    wsId: string;
+    wsName: string;
+    nodeId: string;
+    nodeTitle: string;
+    todo: Todo;
+  }> {
     load();
     if (cachedAllTodos) return cachedAllTodos;
-    const out: Array<{ wsId: string; wsName: string; nodeId: string; nodeTitle: string; todo: Todo }> = [];
+    const out: Array<{
+      wsId: string;
+      wsName: string;
+      nodeId: string;
+      nodeTitle: string;
+      todo: Todo;
+    }> = [];
     store.workspaces.forEach((w) =>
       w.nodes.forEach((n) =>
         n.todos.forEach((t) =>
@@ -1303,7 +1382,6 @@ export const mindmap = {
     cachedAllTodos = out;
     return out;
   },
-
 };
 
 export function useReminderScheduler() {

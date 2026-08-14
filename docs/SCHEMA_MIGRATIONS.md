@@ -21,5 +21,9 @@ restore paths. Existing tasks and notification records are untouched.
 
 Phase 10 adds `routine_sessions` and `rollover_decisions` additively at
 physical version 4. Both use schema version 1 and store IDs and decisions,
-not task snapshots. Existing data and external D1/Drive behavior are
-unchanged.
+
+Phase 11 adds physical version 5 stores `capture_items`, `capture_proposals`
+and `capture_document_refs`. The migration is additive and keeps all existing
+Execution, Finance, Planner, Notification, Focus and Routine records intact.
+Legacy task snapshots remain unchanged. Existing data and external D1/Drive
+behavior are unchanged.

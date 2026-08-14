@@ -141,6 +141,10 @@ Scoring must be deterministic, configurable, and return human-readable reasons. 
 | Q012 | Confidence and user confirmation                 | Capture         | PLANNED     | Q010                   | proposal contract; `captureConfirmation` |
 | Q013 | Do not map every date to dueAt                   | Capture         | PLANNED     | Q010                   | semantic date tests; `quickCapture`      |
 | Q014 | Capture proposal history and retry               | Capture         | PLANNED     | Q012                   | recovery test; `captureConfirmation`     |
+| Q015 | Global Quick Add and Capture Inbox              | Capture         | IMPLEMENTED | Q001, Q012             | parser/application tests; `quickCapture` |
+| Q016 | Turkish deterministic date-role parsing        | Capture         | IMPLEMENTED | Q010, Q013             | semantic parser tests; `quickCapture`   |
+| Q017 | Explicit clipboard and file capture             | Capture         | IMPLEMENTED | Q002, Q004, Q005       | validation tests; `quickCapture`       |
+| Q018 | Browser voice adapter                            | Capture         | PARTIAL     | Q003                   | capability test; `quickCapture`          |
 
 ## V — Smart Views (19)
 

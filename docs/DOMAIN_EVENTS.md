@@ -50,3 +50,10 @@ Phase 10 defines routine facts for future consumers: `RoutineStarted`,
 `TomorrowPlanPrepared`, `WeeklyReviewCompleted`, `ReEntryCompleted`, and
 `RolloverDecisionRecorded`. The current application persists routine state and
 does not dispatch native notifications directly.
+## Capture events
+
+Capture emits `CaptureCreated`, `CaptureProposalGenerated`,
+`CaptureReviewRequired`, `CaptureConfirmed`, `CaptureRejected`,
+`CaptureFailed`, `TaskCreatedFromCapture` and `DocumentAttachedToCapture`
+after persistence succeeds. Capture events describe ingestion; Execution
+events remain authoritative for task state.

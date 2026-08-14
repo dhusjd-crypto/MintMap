@@ -17,6 +17,7 @@ import { Route as ShareAnalyticsRouteImport } from './routes/share-analytics'
 import { Route as PulseRouteImport } from './routes/pulse'
 import { Route as KeepRouteImport } from './routes/keep'
 import { Route as CommandCenterRouteImport } from './routes/command-center'
+import { Route as CaptureRouteImport } from './routes/capture'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as BorsaRouteImport } from './routes/borsa'
 import { Route as BoardRouteImport } from './routes/board'
@@ -64,6 +65,11 @@ const CommandCenterRoute = CommandCenterRouteImport.update({
   path: '/command-center',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CaptureRoute = CaptureRouteImport.update({
+  id: '/capture',
+  path: '/capture',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CalendarRoute = CalendarRouteImport.update({
   id: '/calendar',
   path: '/calendar',
@@ -100,6 +106,7 @@ export interface FileRoutesByFullPath {
   '/board': typeof BoardRoute
   '/borsa': typeof BorsaRoute
   '/calendar': typeof CalendarRoute
+  '/capture': typeof CaptureRoute
   '/command-center': typeof CommandCenterRoute
   '/keep': typeof KeepRoute
   '/pulse': typeof PulseRoute
@@ -116,6 +123,7 @@ export interface FileRoutesByTo {
   '/board': typeof BoardRoute
   '/borsa': typeof BorsaRoute
   '/calendar': typeof CalendarRoute
+  '/capture': typeof CaptureRoute
   '/command-center': typeof CommandCenterRoute
   '/keep': typeof KeepRoute
   '/pulse': typeof PulseRoute
@@ -133,6 +141,7 @@ export interface FileRoutesById {
   '/board': typeof BoardRoute
   '/borsa': typeof BorsaRoute
   '/calendar': typeof CalendarRoute
+  '/capture': typeof CaptureRoute
   '/command-center': typeof CommandCenterRoute
   '/keep': typeof KeepRoute
   '/pulse': typeof PulseRoute
@@ -151,6 +160,7 @@ export interface FileRouteTypes {
     | '/board'
     | '/borsa'
     | '/calendar'
+    | '/capture'
     | '/command-center'
     | '/keep'
     | '/pulse'
@@ -167,6 +177,7 @@ export interface FileRouteTypes {
     | '/board'
     | '/borsa'
     | '/calendar'
+    | '/capture'
     | '/command-center'
     | '/keep'
     | '/pulse'
@@ -183,6 +194,7 @@ export interface FileRouteTypes {
     | '/board'
     | '/borsa'
     | '/calendar'
+    | '/capture'
     | '/command-center'
     | '/keep'
     | '/pulse'
@@ -200,6 +212,7 @@ export interface RootRouteChildren {
   BoardRoute: typeof BoardRoute
   BorsaRoute: typeof BorsaRoute
   CalendarRoute: typeof CalendarRoute
+  CaptureRoute: typeof CaptureRoute
   CommandCenterRoute: typeof CommandCenterRoute
   KeepRoute: typeof KeepRoute
   PulseRoute: typeof PulseRoute
@@ -270,6 +283,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CommandCenterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/capture': {
+      id: '/capture'
+      path: '/capture'
+      fullPath: '/capture'
+      preLoaderRoute: typeof CaptureRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/calendar': {
       id: '/calendar'
       path: '/calendar'
@@ -320,6 +340,7 @@ const rootRouteChildren: RootRouteChildren = {
   BoardRoute: BoardRoute,
   BorsaRoute: BorsaRoute,
   CalendarRoute: CalendarRoute,
+  CaptureRoute: CaptureRoute,
   CommandCenterRoute: CommandCenterRoute,
   KeepRoute: KeepRoute,
   PulseRoute: PulseRoute,
