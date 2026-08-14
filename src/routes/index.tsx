@@ -5,6 +5,7 @@ import { DailyBrief } from "@/components/DailyBrief";
 import { TaskFormPanel } from "@/components/TaskFormPanel";
 import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 import { useNodes, useReminderScheduler } from "@/lib/mindmap-store";
+import { Crosshair } from "lucide-react";
 
 // Heavy canvas + sheet are split out of the route's critical chunk so the
 // header / shell can paint while the canvas hydrates.
@@ -14,7 +15,6 @@ const MindmapCanvas = lazy(() =>
 const NodeSheet = lazy(() =>
   import("@/components/NodeSheet").then((m) => ({ default: m.NodeSheet })),
 );
-
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -39,10 +39,7 @@ function Index() {
   useReminderScheduler();
 
   const root = nodes.find((n) => n.parentId === null);
-  const doneCount = nodes.reduce(
-    (acc, n) => acc + n.todos.filter((t) => t.done).length,
-    0,
-  );
+  const doneCount = nodes.reduce((acc, n) => acc + n.todos.filter((t) => t.done).length, 0);
   const totalCount = nodes.reduce((acc, n) => acc + n.todos.length, 0);
 
   return (
@@ -63,13 +60,19 @@ function Index() {
 
           <div className="min-w-0">
             <h1 className="text-lg font-bold leading-none">MintMap</h1>
-            <p className="truncate text-[11px] text-muted-foreground">
-              {root?.title ?? "Mindmap"}
-            </p>
+            <p className="truncate text-[11px] text-muted-foreground">{root?.title ?? "Mindmap"}</p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <WorkspaceSwitcher />
+          <Link
+            to="/command-center"
+            className="inline-flex h-8 items-center gap-1.5 rounded-full bg-card px-3 text-xs font-medium shadow-soft transition-colors hover:bg-primary/10"
+            aria-label="Komuta merkezine git"
+          >
+            <Crosshair className="h-3.5 w-3.5 text-primary" />
+            Komuta
+          </Link>
           {totalCount > 0 && (
             <Link
               to="/todos"
@@ -115,11 +118,7 @@ function Index() {
       <Suspense fallback={null}>
         <NodeSheet nodeId={sheetId} onClose={() => setSheetId(null)} initialTab={sheetTab} />
       </Suspense>
-      <TaskFormPanel
-        open={taskNode !== null}
-        nodeId={taskNode}
-        onClose={() => setTaskNode(null)}
-      />
+      <TaskFormPanel open={taskNode !== null} nodeId={taskNode} onClose={() => setTaskNode(null)} />
     </main>
   );
 }

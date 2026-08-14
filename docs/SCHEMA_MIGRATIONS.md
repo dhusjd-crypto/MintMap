@@ -13,3 +13,8 @@ Phase 8 adds notification stores additively at IndexedDB physical version 2;
 existing canonical entity payloads remain schema version 1. Notification
 intents, history, and adapter schedule metadata use the same envelope, backup,
 and recovery rules. No D1 or Drive migration is performed.
+
+Phase 9 adds the `focus_sessions` store additively at physical version 3.
+Focus sessions use schema version 1, retain timestamps needed to reconstruct
+active time, and are covered by the same backup, checksum, quarantine, and
+restore paths. Existing tasks and notification records are untouched.

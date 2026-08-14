@@ -16,10 +16,12 @@ import { Route as ShareInboxRouteImport } from './routes/share-inbox'
 import { Route as ShareAnalyticsRouteImport } from './routes/share-analytics'
 import { Route as PulseRouteImport } from './routes/pulse'
 import { Route as KeepRouteImport } from './routes/keep'
+import { Route as CommandCenterRouteImport } from './routes/command-center'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as BorsaRouteImport } from './routes/borsa'
 import { Route as BoardRouteImport } from './routes/board'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as FocusTaskIdRouteImport } from './routes/focus.$taskId'
 
 const UnlockRoute = UnlockRouteImport.update({
   id: '/unlock',
@@ -56,6 +58,11 @@ const KeepRoute = KeepRouteImport.update({
   path: '/keep',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CommandCenterRoute = CommandCenterRouteImport.update({
+  id: '/command-center',
+  path: '/command-center',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CalendarRoute = CalendarRouteImport.update({
   id: '/calendar',
   path: '/calendar',
@@ -76,12 +83,18 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FocusTaskIdRoute = FocusTaskIdRouteImport.update({
+  id: '/focus/$taskId',
+  path: '/focus/$taskId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/board': typeof BoardRoute
   '/borsa': typeof BorsaRoute
   '/calendar': typeof CalendarRoute
+  '/command-center': typeof CommandCenterRoute
   '/keep': typeof KeepRoute
   '/pulse': typeof PulseRoute
   '/share-analytics': typeof ShareAnalyticsRoute
@@ -89,12 +102,14 @@ export interface FileRoutesByFullPath {
   '/share-settings': typeof ShareSettingsRoute
   '/todos': typeof TodosRoute
   '/unlock': typeof UnlockRoute
+  '/focus/$taskId': typeof FocusTaskIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/board': typeof BoardRoute
   '/borsa': typeof BorsaRoute
   '/calendar': typeof CalendarRoute
+  '/command-center': typeof CommandCenterRoute
   '/keep': typeof KeepRoute
   '/pulse': typeof PulseRoute
   '/share-analytics': typeof ShareAnalyticsRoute
@@ -102,6 +117,7 @@ export interface FileRoutesByTo {
   '/share-settings': typeof ShareSettingsRoute
   '/todos': typeof TodosRoute
   '/unlock': typeof UnlockRoute
+  '/focus/$taskId': typeof FocusTaskIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -109,6 +125,7 @@ export interface FileRoutesById {
   '/board': typeof BoardRoute
   '/borsa': typeof BorsaRoute
   '/calendar': typeof CalendarRoute
+  '/command-center': typeof CommandCenterRoute
   '/keep': typeof KeepRoute
   '/pulse': typeof PulseRoute
   '/share-analytics': typeof ShareAnalyticsRoute
@@ -116,6 +133,7 @@ export interface FileRoutesById {
   '/share-settings': typeof ShareSettingsRoute
   '/todos': typeof TodosRoute
   '/unlock': typeof UnlockRoute
+  '/focus/$taskId': typeof FocusTaskIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -124,6 +142,7 @@ export interface FileRouteTypes {
     | '/board'
     | '/borsa'
     | '/calendar'
+    | '/command-center'
     | '/keep'
     | '/pulse'
     | '/share-analytics'
@@ -131,12 +150,14 @@ export interface FileRouteTypes {
     | '/share-settings'
     | '/todos'
     | '/unlock'
+    | '/focus/$taskId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/board'
     | '/borsa'
     | '/calendar'
+    | '/command-center'
     | '/keep'
     | '/pulse'
     | '/share-analytics'
@@ -144,12 +165,14 @@ export interface FileRouteTypes {
     | '/share-settings'
     | '/todos'
     | '/unlock'
+    | '/focus/$taskId'
   id:
     | '__root__'
     | '/'
     | '/board'
     | '/borsa'
     | '/calendar'
+    | '/command-center'
     | '/keep'
     | '/pulse'
     | '/share-analytics'
@@ -157,6 +180,7 @@ export interface FileRouteTypes {
     | '/share-settings'
     | '/todos'
     | '/unlock'
+    | '/focus/$taskId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -164,6 +188,7 @@ export interface RootRouteChildren {
   BoardRoute: typeof BoardRoute
   BorsaRoute: typeof BorsaRoute
   CalendarRoute: typeof CalendarRoute
+  CommandCenterRoute: typeof CommandCenterRoute
   KeepRoute: typeof KeepRoute
   PulseRoute: typeof PulseRoute
   ShareAnalyticsRoute: typeof ShareAnalyticsRoute
@@ -171,6 +196,7 @@ export interface RootRouteChildren {
   ShareSettingsRoute: typeof ShareSettingsRoute
   TodosRoute: typeof TodosRoute
   UnlockRoute: typeof UnlockRoute
+  FocusTaskIdRoute: typeof FocusTaskIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -224,6 +250,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof KeepRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/command-center': {
+      id: '/command-center'
+      path: '/command-center'
+      fullPath: '/command-center'
+      preLoaderRoute: typeof CommandCenterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/calendar': {
       id: '/calendar'
       path: '/calendar'
@@ -252,6 +285,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/focus/$taskId': {
+      id: '/focus/$taskId'
+      path: '/focus/$taskId'
+      fullPath: '/focus/$taskId'
+      preLoaderRoute: typeof FocusTaskIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -260,6 +300,7 @@ const rootRouteChildren: RootRouteChildren = {
   BoardRoute: BoardRoute,
   BorsaRoute: BorsaRoute,
   CalendarRoute: CalendarRoute,
+  CommandCenterRoute: CommandCenterRoute,
   KeepRoute: KeepRoute,
   PulseRoute: PulseRoute,
   ShareAnalyticsRoute: ShareAnalyticsRoute,
@@ -267,6 +308,7 @@ const rootRouteChildren: RootRouteChildren = {
   ShareSettingsRoute: ShareSettingsRoute,
   TodosRoute: TodosRoute,
   UnlockRoute: UnlockRoute,
+  FocusTaskIdRoute: FocusTaskIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

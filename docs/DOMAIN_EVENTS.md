@@ -37,3 +37,9 @@ delivery and notification actions route back through application commands. Notif
 does not mutate task or Finance truth.
 
 The task command boundary now emits validated lifecycle facts from the Execution Domain: `TaskCreated`, `TaskUpdated`, `TaskStarted`, `TaskCompleted`, `TaskReopened`, `TaskCancelled`, `TaskSnoozed`, `TaskBecameWaiting`, and `TaskBecameReady` where those operations are used. The dispatcher is local and synchronous; no event is persisted or sent over the network. No Trigger, Finance, Planner, or Notification consumer is attached yet.
+
+Phase 9 keeps focus sessions as canonical records rather than introducing an
+event bus. A future adapter may project `FocusSessionStarted`,
+`FocusSessionPaused`, `FocusSessionResumed`, `FocusSessionCompleted`, and
+`FocusSessionCancelled`; the current Focus service persists transitions and
+updates task actual minutes through the application command boundary.
