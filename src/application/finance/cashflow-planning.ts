@@ -96,14 +96,38 @@ export function createCashflowPlanningApplication(deps: Deps = {}) {
         return { allocation, actual, remaining: createMoney(allocation.amount.minorUnits - actual.minorUnits, budget.currency), percentage: allocation.amount.minorUnits ? (actual.minorUnits / allocation.amount.minorUnits) * 100 : 0, warnings: budget.warningThresholds.filter((threshold) => actual.minorUnits >= allocation.amount.minorUnits * threshold / 100).map((threshold) => threshold >= 100 ? "BUDGET_EXCEEDED" : "NEAR_BUDGET_LIMIT") };
       });
       const uncategorized = actualFor(undefined);
-      return { budget, rows, uncategorized, totalBudgeted: createMoney(allocations.reduce((sum, allocation) => sum + allocation.amount.minorUnits, 0), budget.currency), totalActual: createMoney(rows.reduce((sum, row) => sum + row.actual.minorUnits, 0) + uncategorized.minorUnits, budget.currency) };
+      return {
+        budget,
+        rows,
+        uncategorized,
+        totalBudgeted: createMoney(
+          allocations.reduce((sum, allocation) => sum + allocation.amount.minorUnits, 0),
+          budget.currency,
+        ),
+        totalActual: createMoney(
+          Math.abs(included.reduce((sum, transaction) => sum + transaction.amount.minorUnits, 0)),
+          budget.currency,
+        ),
+      };
     },
     async goalProgress(goalId: string) {
       const goal = await persistence.repositories.financialGoals.get(goalId);
       if (!goal) throw new Error("Finansal hedef bulunamadı.");
-      const transactions = await persistence.listTransactions(goal.financeBookId);
+      const [accounts, transactions] = await Promise.all([
+        persistence.listAccounts(goal.financeBookId),
+        persistence.listTransactions(goal.financeBookId),
+      ]);
       const balances = accountBalances(transactions);
-      const linked = (goal.linkedAccountIds ?? []).reduce((sum, accountId) => sum + (balances.get(accountId) ?? 0), 0);
+      const linkedAccountIds = new Set(
+        accounts
+          .filter((account) => account.currency === goal.currency)
+          .map((account) => account.id),
+      );
+      const linked = (goal.linkedAccountIds ?? []).reduce(
+        (sum, accountId) =>
+          linkedAccountIds.has(accountId) ? sum + (balances.get(accountId) ?? 0) : sum,
+        0,
+      );
       const current = goal.currentAmountMode === "MANUAL" ? (goal.manualCurrentAmount ?? createMoney(0, goal.currency)) : createMoney(Math.max(0, linked), goal.currency);
       const remaining = createMoney(Math.max(0, goal.targetAmount.minorUnits - current.minorUnits), goal.currency);
       const months = goal.targetDate ? Math.max(1, Math.ceil((goal.targetDate - clock.nowMs()) / (30 * 86_400_000))) : undefined;

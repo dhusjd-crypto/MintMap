@@ -44,6 +44,19 @@ describe("cashflow, budgets and financial goals", () => {
     expect((await planning.queries.budgetPerformance(budget.id)).totalActual.minorUnits).toBe(0);
   });
 
+  it("counts an uncategorized expense once for a general budget allocation", async () => {
+    const persistence = createFinancePersistence(new InMemoryCanonicalStorage());
+    const clock = fixedClock(now);
+    const finance = createFinanceApplication({ persistence, clock });
+    const planning = createCashflowPlanningApplication({ persistence, clock });
+    const book = await finance.commands.createBook({ name: "Kişisel", type: "PERSONAL", baseCurrency: "TRY" });
+    const card = await finance.commands.createAccount({ financeBookId: book.id, name: "Kart", type: "CREDIT_CARD", currency: "TRY" });
+    await finance.commands.createTransaction({ financeBookId: book.id, accountId: card.id, date: now, amount: money(5_000), intent: "EXPENSE" });
+    const budget = await planning.commands.createBudget({ financeBookId: book.id, name: "Ağustos", periodType: "MONTHLY", startDate: now - 1, endDate: now + 30 * 86_400_000, currency: "TRY" });
+    await planning.commands.setBudgetAllocation({ budgetId: budget.id, financeBookId: book.id, amount: money(20_000) });
+    expect((await planning.queries.budgetPerformance(budget.id)).totalActual.minorUnits).toBe(5_000);
+  });
+
   it("uses linked reserve balances for goal progress and keeps books isolated", async () => {
     const persistence = createFinancePersistence(new InMemoryCanonicalStorage());
     const clock = fixedClock(now);
@@ -56,5 +69,19 @@ describe("cashflow, budgets and financial goals", () => {
     const goal = await planning.commands.createFinancialGoal({ financeBookId: personal.id, name: "Fon", type: "EMERGENCY_FUND", targetAmount: money(1_000_000), currentAmountMode: "LINKED_ACCOUNT_SUM", linkedAccountIds: [reserve.id] });
     expect((await planning.queries.goalProgress(goal.id)).percentage).toBe(25);
     expect(await planning.queries.goals(business.id)).toHaveLength(0);
+  });
+
+  it("does not convert another currency into a linked-account goal", async () => {
+    const persistence = createFinancePersistence(new InMemoryCanonicalStorage());
+    const clock = fixedClock(now);
+    const finance = createFinanceApplication({ persistence, clock });
+    const planning = createCashflowPlanningApplication({ persistence, clock });
+    const book = await finance.commands.createBook({ name: "Kişisel", type: "PERSONAL", baseCurrency: "TRY" });
+    const tryReserve = await finance.commands.createAccount({ financeBookId: book.id, name: "TRY Rezerv", type: "BANK", currency: "TRY" });
+    const usdReserve = await finance.commands.createAccount({ financeBookId: book.id, name: "USD Rezerv", type: "BANK", currency: "USD" });
+    await finance.commands.createTransaction({ financeBookId: book.id, accountId: tryReserve.id, date: now, amount: money(250_000), intent: "INCOME" });
+    await finance.commands.createTransaction({ financeBookId: book.id, accountId: usdReserve.id, date: now, amount: createMoney(10_000, "USD"), intent: "INCOME" });
+    const goal = await planning.commands.createFinancialGoal({ financeBookId: book.id, name: "Fon", type: "EMERGENCY_FUND", targetAmount: money(1_000_000), currentAmountMode: "LINKED_ACCOUNT_SUM", linkedAccountIds: [tryReserve.id, usdReserve.id] });
+    expect((await planning.queries.goalProgress(goal.id)).current.minorUnits).toBe(250_000);
   });
 });

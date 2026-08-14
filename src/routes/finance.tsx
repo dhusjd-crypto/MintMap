@@ -10,6 +10,13 @@ import { detectImportFormat, type ImportFormat } from "@/application/finance/imp
 import { financeTriggerApplication, type FinanceAlertView } from "@/application/finance/triggers";
 import { formatMoney, parseMoneyInput } from "@/application/finance/money-input";
 import type { Budget, CurrencyCode, FinanceBook, FinancialAccount, FinancialGoal } from "@/domain/finance";
+import {
+  backupStore,
+  createBackup,
+  restoreBackup,
+  validateBackup,
+} from "@/lib/canonical-persistence/backup";
+import { canonicalStorage } from "@/lib/canonical-persistence/storage";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/finance")({
@@ -78,6 +85,38 @@ function FinancePage() {
   };
   useEffect(() => {
     void refresh();
+  }, []);
+  useEffect(() => {
+    if (!(import.meta.env.DEV || import.meta.env.MODE === "development") || typeof window === "undefined")
+      return;
+    const target = window as Window & {
+      __mintmapFinancePlanningValidation?: {
+        createBackup: () => Promise<{ id: string; checksum: string }>;
+        restoreBackup: (id: string) => Promise<void>;
+      };
+    };
+    target.__mintmapFinancePlanningValidation = {
+      async createBackup() {
+        const bundle = await createBackup(canonicalStorage, backupStore, (stage, detail) => {
+          sessionStorage.setItem(
+            "mintmap:finance-planning-backup-stage",
+            `${stage}${detail?.store ? `:${detail.store}` : ""}`,
+          );
+        });
+        sessionStorage.setItem("mintmap:finance-planning-backup-stage", "VALIDATION_START");
+        await validateBackup(bundle);
+        sessionStorage.setItem("mintmap:finance-planning-backup-stage", "VALIDATION_COMPLETE");
+        return { id: bundle.manifest.backupId, checksum: bundle.manifest.checksum };
+      },
+      async restoreBackup(id) {
+        const bundle = await backupStore.get(id);
+        if (!bundle) throw new Error("Yedek bulunamadı.");
+        await restoreBackup(bundle, canonicalStorage);
+      },
+    };
+    return () => {
+      delete target.__mintmapFinancePlanningValidation;
+    };
   }, []);
   const activeBook = books.find((book) => book.id === bookId);
   if (isReviewRoute) return <Outlet />;
@@ -165,7 +204,9 @@ function FinancePage() {
         {tab === "IMPORT" && (
           <ImportTransactions book={activeBook} accounts={accounts} onDone={() => void refresh()} />
         )}
-        {tab === "CASHFLOW" && <Cashflow book={activeBook} onDone={() => void refresh()} />}
+        {tab === "CASHFLOW" && (
+          <Cashflow book={activeBook} accounts={accounts} onDone={() => void refresh()} />
+        )}
         {tab === "BUDGETS" && <Budgets book={activeBook} budgets={budgets} onDone={() => void refresh()} />}
         {tab === "GOALS" && <Goals book={activeBook} goals={goals} onDone={() => void refresh()} />}
       </main>
@@ -811,24 +852,42 @@ function Statements({
   );
 }
 
-function Cashflow({ book, onDone }: { book: FinanceBook; onDone: () => void }) {
+function Cashflow({
+  book,
+  accounts,
+  onDone,
+}: {
+  book: FinanceBook;
+  accounts: FinancialAccount[];
+  onDone: () => void;
+}) {
   const [horizon, setHorizon] = useState(30);
+  const currencies = useMemo(
+    () => [...new Set([book.baseCurrency, ...accounts.map((account) => account.currency)])],
+    [accounts, book.baseCurrency],
+  );
+  const [currency, setCurrency] = useState<CurrencyCode>(book.baseCurrency);
   const [amount, setAmount] = useState("");
   const [title, setTitle] = useState("");
+  const [expectedDate, setExpectedDate] = useState(dateValue());
   const [direction, setDirection] = useState<"INFLOW" | "OUTFLOW">("INFLOW");
   const [forecast, setForecast] = useState<Awaited<ReturnType<typeof cashflowPlanningApplication.queries.cashflow>>>();
-  const load = async () => setForecast(await cashflowPlanningApplication.queries.cashflow(book.id, { currency: book.baseCurrency, horizonDays: horizon }));
-  useEffect(() => { void load(); }, [book.id, horizon]);
+  const load = async () =>
+    setForecast(
+      await cashflowPlanningApplication.queries.cashflow(book.id, { currency, horizonDays: horizon }),
+    );
+  useEffect(() => setCurrency(book.baseCurrency), [book.id, book.baseCurrency]);
+  useEffect(() => { void load(); }, [book.id, currency, horizon]);
   const add = async () => {
     try {
-      await cashflowPlanningApplication.commands.createExpectedCashflowItem({ financeBookId: book.id, title, direction, amount: parseMoneyInput(amount, book.baseCurrency), expectedAt: dateMs(dateValue()), confidence: "EXPECTED" });
+      await cashflowPlanningApplication.commands.createExpectedCashflowItem({ financeBookId: book.id, title, direction, amount: parseMoneyInput(amount, currency), expectedAt: dateMs(expectedDate), confidence: "EXPECTED" });
       setTitle(""); setAmount(""); await load(); onDone();
     } catch (error) { toast.error(error instanceof Error ? error.message : "Nakit akışı kaydedilemedi"); }
   };
   return <section className="space-y-4">
-    <div className="rounded-xl border bg-card p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">Nakit akışı</h2><p className="text-sm text-muted-foreground">Likit hesaplar, beklenen girişler ve gerçek yükümlülükler üzerinden hesaplanır.</p></div><select value={horizon} onChange={(event) => setHorizon(Number(event.target.value))} className="rounded-lg border p-2">{[7, 14, 30, 90].map((day) => <option key={day} value={day}>{day} gün</option>)}</select></div>
+    <div className="rounded-xl border bg-card p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">Nakit akışı</h2><p className="text-sm text-muted-foreground">Likit hesaplar, beklenen girişler ve gerçek yükümlülükler üzerinden hesaplanır.</p></div><div className="flex gap-2"><select aria-label="Nakit akışı para birimi" value={currency} onChange={(event) => setCurrency(event.target.value as CurrencyCode)} className="rounded-lg border p-2">{currencies.map((value) => <option key={value} value={value}>{value}</option>)}</select><select aria-label="Nakit akışı vadesi" value={horizon} onChange={(event) => setHorizon(Number(event.target.value))} className="rounded-lg border p-2">{[7, 14, 30, 90].map((day) => <option key={day} value={day}>{day} gün</option>)}</select></div></div>
     {forecast && <div className="mt-4 grid gap-3 sm:grid-cols-4 text-sm"><Metric label="Açılış" value={formatMoney(forecast.openingCash)} /><Metric label="Kapanış" value={formatMoney(forecast.closingCash)} /><Metric label="En düşük" value={formatMoney(forecast.minimumProjectedCash)} /><Metric label="Açık" value={formatMoney(forecast.shortfallAmount)} /></div>}</div>
-    <div className="rounded-xl border bg-card p-4"><h2 className="font-semibold">Beklenen hareket ekle</h2><div className="mt-3 grid gap-2 sm:grid-cols-4"><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Örn. Maaş" className="rounded-lg border p-3"/><select value={direction} onChange={(event) => setDirection(event.target.value as typeof direction)} className="rounded-lg border p-3"><option value="INFLOW">Beklenen giriş</option><option value="OUTFLOW">Beklenen çıkış</option></select><input value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Tutar" className="rounded-lg border p-3"/><Button onClick={() => void add()} disabled={!title || !amount}><Plus />Ekle</Button></div></div>
+    <div className="rounded-xl border bg-card p-4"><h2 className="font-semibold">Beklenen hareket ekle</h2><div className="mt-3 grid gap-2 sm:grid-cols-5"><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Örn. Maaş" className="rounded-lg border p-3"/><select value={direction} onChange={(event) => setDirection(event.target.value as typeof direction)} className="rounded-lg border p-3"><option value="INFLOW">Beklenen giriş</option><option value="OUTFLOW">Beklenen çıkış</option></select><input type="date" aria-label="Beklenen hareket tarihi" value={expectedDate} onChange={(event) => setExpectedDate(event.target.value)} className="rounded-lg border p-3"/><input value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="Tutar" className="rounded-lg border p-3"/><Button onClick={() => void add()} disabled={!title || !amount || !expectedDate}><Plus />Ekle</Button></div></div>
     {forecast?.points.map((point) => <div key={point.at} className="rounded-xl border bg-card p-4 text-sm"><div className="flex justify-between"><strong>{new Date(point.at).toLocaleDateString("tr-TR")}</strong><strong>{formatMoney(point.closingBalance)}</strong></div>{point.sourceItems.map((item) => <p key={item.id} className="mt-2 text-muted-foreground">{item.direction === "INFLOW" ? "+" : "-"} {item.title} · {formatMoney(item.amount)}</p>)}</div>)}
   </section>;
 }

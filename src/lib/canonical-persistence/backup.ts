@@ -26,6 +26,16 @@ export type BackupStore = {
   remove(id: string): Promise<void>;
 };
 
+export type BackupStage =
+  | "BACKUP_START"
+  | "STORE_READ"
+  | "BLOB_READ"
+  | "CHECKSUM"
+  | "BACKUP_DB_WRITE"
+  | "BACKUP_COMPLETE";
+
+export type BackupDiagnostics = (stage: BackupStage, detail?: { store?: string }) => void;
+
 export class InMemoryBackupStore implements BackupStore {
   private readonly values = new Map<string, CanonicalBackupBundle>();
   async save(bundle: CanonicalBackupBundle) {
@@ -177,20 +187,25 @@ function legacySnapshot(): Record<string, string> {
 export async function createBackup(
   storage: CanonicalStorage,
   store: BackupStore = backupStore,
+  diagnostics?: BackupDiagnostics,
 ): Promise<CanonicalBackupBundle> {
+  diagnostics?.("BACKUP_START");
   const canonical: CanonicalBackupBundle["canonical"] = {};
   const recordCounts: Record<string, number> = {};
   for (const name of CANONICAL_STORES) {
+    diagnostics?.("STORE_READ", { store: name });
     const records = await storage.list(name);
     if (records.length) canonical[name] = records;
     recordCounts[name] = records.length;
   }
   const blobs: Record<string, string> = {};
+  diagnostics?.("BLOB_READ");
   for (const id of await listImageIds()) {
     const data = await getImageDataUrl(id);
     if (data) blobs[id] = data;
   }
   const base = { legacyLocalStorage: legacySnapshot(), canonical, blobs };
+  diagnostics?.("CHECKSUM");
   const bundle: CanonicalBackupBundle = {
     ...base,
     manifest: {
@@ -203,7 +218,9 @@ export async function createBackup(
       recordCounts,
     },
   };
+  diagnostics?.("BACKUP_DB_WRITE");
   await store.save(bundle);
+  diagnostics?.("BACKUP_COMPLETE");
   return bundle;
 }
 
