@@ -4,6 +4,7 @@ export type FeatureFlagName =
   | "repositoryCompatibilityLayer"
   | "smartRescheduling"
   | "persistentReminders"
+  | "notificationEngine"
   | "financeDomain"
   | "financeCapture"
   | "cashflowForecast"
@@ -24,6 +25,7 @@ export const FEATURE_FLAGS: Readonly<Record<FeatureFlagName, boolean>> = {
   repositoryCompatibilityLayer: true,
   smartRescheduling: false,
   persistentReminders: false,
+  notificationEngine: true,
   financeDomain: false,
   financeCapture: false,
   cashflowForecast: false,

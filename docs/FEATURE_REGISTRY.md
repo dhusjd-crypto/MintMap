@@ -59,18 +59,18 @@ Scoring must be deterministic, configurable, and return human-readable reasons. 
 
 | ID | Feature | Owner | Status | Dependencies | Tests / flag |
 |---|---|---|---|---|---|
-| N001 | NORMAL/PERSISTENT/CRITICAL levels | Notification | PARTIAL | A007 | policy matrix; `notifications` |
-| N002 | START/DONE/SNOOZE 10m/30m/1h actions | Notification | PLANNED | A002 | action contract; `persistentReminders` |
-| N003 | CANNOT_DO_TODAY, MOVE_TO_WAITING, OPEN_TASK | Notification | PLANNED | A012 | transition E2E; `persistentReminders` |
-| N004 | Cooldown and notification fatigue | Notification | PLANNED | N001 | deterministic clock; `notificationPolicies` |
-| N005 | Quiet hours and working hours | Notification | PLANNED | Clock | timezone tests; `notificationPolicies` |
-| N006 | Weekend policy | Notification | PLANNED | N005 | timezone tests; `notificationPolicies` |
-| N007 | Escalation and maximum repeat count | Notification | PLANNED | N001, T | policy tests; `persistentReminders` |
-| N008 | Persistent/Bug-Me reminders | Notification | PLANNED | N007 | browser/E2E; `persistentReminders` |
-| N009 | Relative reminders | Notification | PARTIAL | current reminder scheduler | date fixtures; `relativeReminders` |
-| N010 | Deadline-based escalation | Notification | PLANNED | T04–T08 | boundary tests; `persistentReminders` |
-| N011 | Browser/system adapter fallback to toast | Notification | PARTIAL | current scheduler | unavailable API test; `notifications` |
-| N012 | Delivery and save/sync feedback | Notification | PARTIAL | current UI feedback | E2E; `notifications` |
+| N001 | NORMAL/PERSISTENT/CRITICAL levels | Notification | IMPLEMENTED | A007 | policy matrix; `notificationEngine` |
+| N002 | START/DONE/SNOOZE 10m/30m/1h actions | Notification | IMPLEMENTED | A002 | action contract; `notificationEngine` |
+| N003 | CANNOT_DO_TODAY, MOVE_TO_WAITING, OPEN_TASK | Notification | IMPLEMENTED | A012 | coordinator contract; `notificationEngine` |
+| N004 | Cooldown and notification fatigue | Notification | IMPLEMENTED | N001 | deterministic clock; `notificationEngine` |
+| N005 | Quiet hours and working hours | Notification | IMPLEMENTED | Clock | timezone tests; `notificationEngine` |
+| N006 | Weekend policy | Notification | IMPLEMENTED | N005 | timezone tests; `notificationEngine` |
+| N007 | Escalation and maximum repeat count | Notification | IMPLEMENTED | N001, T | policy tests; `notificationEngine` |
+| N008 | Persistent/Bug-Me reminders | Notification | PARTIAL | N007 | engine only; native delivery later; `notificationEngine` |
+| N009 | Relative reminders | Notification | IMPLEMENTED | current reminder scheduler | date fixtures; `notificationEngine` |
+| N010 | Deadline-based escalation | Notification | IMPLEMENTED | T04–T08 | boundary tests; `notificationEngine` |
+| N011 | Browser/system adapter fallback to toast | Notification | PARTIAL | current scheduler | browser best-effort; `notificationEngine` |
+| N012 | Delivery and save/sync feedback | Notification | PARTIAL | canonical notification stores | adapter/UI integration later; `notificationEngine` |
 
 ## F — Focus / Execution (11)
 

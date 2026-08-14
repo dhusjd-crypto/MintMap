@@ -30,7 +30,10 @@ The current stores remain the persistence boundary while commands and queries ar
 
 `src/application/task-application.ts` composes `CreateTask`, `UpdateTask`, `CompleteTask`, `ReopenTask`, and delete commands with `LegacyTaskRepository`, `LegacyProjectRepository`, and `LegacyGoalRepository`. `TaskFormPanel` creation and `TaskSheet` completion use this path. The adapter still calls the existing store, so persisted shape and undo/sync behavior remain unchanged. Queries expose canonical task records and basic project/goal reads.
 
-`LocalDomainEventDispatcher` currently receives `TaskCreated`, `TaskUpdated`, `TaskCompleted`, `TaskReopened`, and `TaskCancelled` from commands. There are no Trigger, Finance, or Notification consumers yet.
+`LocalDomainEventDispatcher` currently receives task lifecycle facts from
+commands. Phase 8 adds a separate application Notification coordinator; it
+consumes typed trigger facts and routes decisions to adapters without making
+the Trigger Engine or domain commands depend on notification delivery.
 
 Phase 3 adds a pure Execution Domain under `src/domain/execution`. It owns canonical task state transitions, dates, actionability, waiting, dependencies, and execution metadata. `src/application/mapping/execution-task-mapping.ts` translates this model to/from legacy `Todo` records with patch-based writes. The current UI and persistence adapters remain unchanged.
 
@@ -38,7 +41,10 @@ Phase 3 adds a pure Execution Domain under `src/domain/execution`. It owns canon
 
 - `mindmap-store.ts` is a large aggregate, persistence adapter, history manager, and command surface in one module.
 - Task and node relationships are represented inside workspace snapshots; server sync currently merges documents rather than operating a domain database.
-- Reminders use browser timers and local fired-state, so delivery is best-effort when the browser is closed.
+- Legacy reminders use browser timers and local fired-state, so delivery is
+  best-effort when the browser is closed. Phase 8 adds platform-independent
+  intents and capability-aware adapters; it does not claim background native
+  delivery.
 - Goals, Pulse, decisions, and watchlist have separate localStorage stores and do not yet share one sync protocol.
 - Legacy migration/version metadata remains implicit in storage keys and repair functions; canonical persistence now has explicit schema metadata and a durable migration journal.
 - AI, Google, and Drive availability can vary by environment; the core must keep working without them.

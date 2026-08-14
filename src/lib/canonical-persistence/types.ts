@@ -14,7 +14,7 @@ import type {
 
 export const CANONICAL_SCHEMA_VERSION = 1 as const;
 export const CANONICAL_DB_NAME = "mintmap-canonical";
-export const CANONICAL_DB_VERSION = 1;
+export const CANONICAL_DB_VERSION = 2;
 
 export const CANONICAL_STORES = [
   "meta",
@@ -32,6 +32,9 @@ export const CANONICAL_STORES = [
   "finance_schedules",
   "migration_journal",
   "persistence_operations",
+  "notification_intents",
+  "notification_history",
+  "notification_schedule",
 ] as const;
 
 export type CanonicalStoreName = (typeof CANONICAL_STORES)[number];

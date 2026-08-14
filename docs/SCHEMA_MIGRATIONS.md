@@ -8,3 +8,8 @@ migrations do not run and the next startup enters a recoverable error state.
 
 The initial canonical schema creates stores but does not migrate legacy tasks or
 Finance data. Legacy `Todo.steps` migration remains owned by `mindmap-store`.
+
+Phase 8 adds notification stores additively at IndexedDB physical version 2;
+existing canonical entity payloads remain schema version 1. Notification
+intents, history, and adapter schedule metadata use the same envelope, backup,
+and recovery rules. No D1 or Drive migration is performed.

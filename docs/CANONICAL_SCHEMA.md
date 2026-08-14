@@ -1,8 +1,11 @@
 # Canonical Schema
 
 `CANONICAL_SCHEMA_VERSION = 1` is independent from application, sync, and
-feature-registry versions. Stores are `meta`, `execution_extensions`, the
-Finance stores, `migration_journal`, and `persistence_operations`.
+feature-registry versions. The IndexedDB physical version is 2 because the
+notification stores were added additively without changing existing entity
+payload semantics. Stores include `meta`, `execution_extensions`, the Finance
+stores, `notification_intents`, `notification_history`,
+`notification_schedule`, `migration_journal`, and `persistence_operations`.
 
 Finance amounts use `{ minorUnits, currency }`; no floating point currency
 value is authoritative. Timestamps are UTC instants represented as epoch

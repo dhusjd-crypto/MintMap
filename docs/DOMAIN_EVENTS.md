@@ -31,4 +31,9 @@ Phase 7 keeps planning results read-only in the application layer. A future pers
 calendar change event must enter through a Planning port; the Planner does not emit notifications
 or mutate task truth.
 
+Phase 8 adds a platform-independent Notification Engine. Notification decisions consume trigger
+facts through the application boundary and may schedule or cancel intents, but adapters own
+delivery and notification actions route back through application commands. Notification policy
+does not mutate task or Finance truth.
+
 The task command boundary now emits validated lifecycle facts from the Execution Domain: `TaskCreated`, `TaskUpdated`, `TaskStarted`, `TaskCompleted`, `TaskReopened`, `TaskCancelled`, `TaskSnoozed`, `TaskBecameWaiting`, and `TaskBecameReady` where those operations are used. The dispatcher is local and synchronous; no event is persisted or sent over the network. No Trigger, Finance, Planner, or Notification consumer is attached yet.
